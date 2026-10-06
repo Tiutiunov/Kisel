@@ -47,6 +47,12 @@ Status of every behaviour in the design system (`README.md`, `motion.md`, `compo
 * **Hello at every start**: she comes up from the bottom centre of the screen, waves, and flies along the docking arc into the bar (`Island.greet`). Skipped when floating, with reduce motion, or when the card is already open.
 * Left as it was: the first-launch assembly still builds the old silhouette before she appears; the leek, the microphone and the petting from the prototype are not in the app.
 
+## Done in the "cast" pass
+* **Five singers, one engine** (`Mascot.qml`, `character`): Miku (twin tails), Rin (bow and hair clips), Luka (long hair, gold band), GUMI (goggles), Teto (twin drills), each with her own colours, outfit and headset.
+* **In character**: they share the moods and differ in pace and bounce (Rin fast and high, Luka slow and low) and in the emotes of their own. Idle habit: Miku hums, Rin hypes herself up, Luka closes her eyes and stands cool, GUMI stretches, Teto looks smug while her drills spin. A slap: Miku sulks, Rin blows up, Luka is unimpressed, GUMI laughs, Teto looks away blushing. The pointer resting on her: hearts, except Luka's quiet smile and Teto's fluster. A finished task throws her favourite thing among the sparks: leek, orange, tuna, carrot, baguette.
+* **The bench**: the four who are not on stage sit two by two at the bar's far end, as Coucou keeps its other agents; a click swaps one in. Settings has the same choice. Remembered in `kisel.conf` (`character`).
+* Next: an integration per character in Settings (which service each one watches). Nothing is wired yet; the tray icon is still Miku whoever is on stage.
+
 ## Not applied from the pass
 * **Tab indicator**: the design describes a tab row; Kisel's header uses icon buttons, so there is no tab to stretch.
 * **"Bump" sound** at the wall, and the optional follow-the-active-window leap to another monitor (there is no such setting yet).

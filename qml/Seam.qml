@@ -8,6 +8,7 @@ Item {
         x: seam.cx - seam.size / 2
         y: seam.cy - seam.size / 2
         mood: seam.mood
+        character: Prefs.character
         dragging: true
         dragVx: seam.vx
         dragVy: seam.vy

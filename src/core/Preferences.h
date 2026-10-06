@@ -22,6 +22,7 @@ class Preferences : public QObject
     Q_PROPERTY(qreal floatY READ floatY WRITE setFloatY NOTIFY changed)
     Q_PROPERTY(bool avoidPanels READ avoidPanels WRITE setAvoidPanels NOTIFY changed)
     Q_PROPERTY(int closeDelay READ closeDelay WRITE setCloseDelay NOTIFY changed)
+    Q_PROPERTY(QString character READ character WRITE setCharacter NOTIFY changed) // miku | rin | luka | gumi | teto
     Q_PROPERTY(bool hookSeen READ hookSeen NOTIFY changed)
     Q_PROPERTY(int alwaysCount READ alwaysCount NOTIFY changed)
 
@@ -40,6 +41,7 @@ public:
     bool avoidPanels() const { return m_s.value("avoidPanels", true).toBool(); }
     // Seconds an open card waits after the pointer has left it: 0 (at once) to 10.
     int closeDelay() const { return qBound(0, m_s.value("closeDelay", 3).toInt(), 10); }
+    QString character() const { return m_s.value("character", "miku").toString(); }
     bool hookSeen() const { return m_s.value("hookSeen", false).toBool(); } // a hook event has reached Kisel once
     bool firstRunDone() const { return m_s.value("firstRunDone", false).toBool(); }
 
@@ -53,6 +55,7 @@ public:
     void setFloatY(qreal v) { set("floatY", v); }
     void setAvoidPanels(bool v) { set("avoidPanels", v); }
     void setCloseDelay(int v) { set("closeDelay", qBound(0, v, 10)); }
+    void setCharacter(const QString &v) { set("character", v); }
     void setHookSeen(bool v) { set("hookSeen", v); }
     void setFirstRunDone(bool v) { set("firstRunDone", v); }
 

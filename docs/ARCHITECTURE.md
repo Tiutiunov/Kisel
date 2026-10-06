@@ -59,7 +59,7 @@ Kisel is a desktop companion for KDE Plasma that watches Claude Code, asks permi
 ## QML (`qml/`)
 
 * `Theme.qml` mirrors `tokens.json` (dark + light). **Add colours to the design system first, then here.** The mascot uses fixed colours in both themes, like the logo.
-* `Mascot.qml` – the mascot, a mochi-shaped Hatsune Miku drawn on one `Canvas` (ported from `design/miku-mochi.html`): the ten moods, hands with a pose per mood, twin tails on springs, blink, gaze, squash, rolls, and emotes of her own (wave, hearts, sulk, start). At the bar's size the tails are short and she is clipped to the bar. The raspberry-jelly Kisel it replaced is in the history.
+* `Mascot.qml` – the mascots: five mochi-shaped singers (Miku, Rin, Luka, GUMI, Teto) drawn by one engine on one `Canvas`. `character` picks one; `chars` holds what differs (hair style and colours, outfit, pace, the emotes of her own). The ten moods, hands with a pose per mood, hair on springs, blink, gaze, squash and rolls are shared. `still: true` paints a portrait once (the bar's bench, the header). At the bar's size the hair is short and she is clipped to the bar.
 * `Island.qml` – state machine: collapsed pill ⇄ card, hover open, 600 ms close timer, `holdOpen` rules (permission waiting, drag over, typing, peek), view cross-fade (140 ms), one mascot gliding between slots.
 * `HomeView`, `SessionView`, `PermissionView`, `GitHubView`, `ChatView`, `SettingsView` – one file each; `CodePanel` renders diffs and commands.
 * Collapsed v2: `PillChip`, `PillBars`, `PillDots`; the mascot's level of detail and mood bridges live in `Mascot.qml`.

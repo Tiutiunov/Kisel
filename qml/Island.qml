@@ -58,6 +58,11 @@ Item {
     readonly property int pillMin: 288
     readonly property int pillMax: 288
     readonly property int labelX: miniLead + mini + 10
+    // The cast. One of them is the mascot; the other four wait at the bar's far end, two
+    // by two, as Coucou keeps its other agents, and a click on one swaps her in.
+    readonly property var cast: ["miku", "rin", "luka", "gumi", "teto"]
+    readonly property var bench: cast.filter(c => c !== Prefs.character)
+    readonly property int castW: 44
     readonly property real pillContentW: labelX + pillRow.implicitWidth + 16
     readonly property real pillW: Math.max(pillMin, Math.min(pillMax, pillContentW))
     readonly property real closedW: floating ? 120 : (vertical ? pillT : pillW)
@@ -690,14 +695,14 @@ Item {
                 readonly property string label: Hub.chip !== "" ? ""
                     : Hub.mood === "work" ? Hub.statusLine
                     : Hub.mood === "think" ? "Thinking"
-                    : (Hub.mood === "alert" || Hub.mood === "happy" || Hub.mood === "sad") ? "" : "Miku"
+                    : (Hub.mood === "alert" || Hub.mood === "happy" || Hub.mood === "sad") ? "" : mascot.displayName
                 Text {
                     visible: pillRow.label !== ""
                     height: parent.height
                     verticalAlignment: Text.AlignVCenter
                     text: pillRow.label
                     // the label never pushes the pill past its widest
-                    width: Math.min(implicitWidth, root.pillMax - root.labelX - 16 - (Hub.mood === "work" ? 34 : 0))
+                    width: Math.min(implicitWidth, root.pillMax - root.labelX - 16 - root.castW - (Hub.mood === "work" ? 34 : 0))
                     elide: Text.ElideRight
                     color: Hub.mood === "sleep" ? Theme.inkFaint : Theme.ink
                     Behavior on color { ColorAnimation { duration: 160 } }
@@ -708,6 +713,41 @@ Item {
                 PillBars { visible: Hub.mood === "work" && Hub.chip === ""; running: visible; anchors.verticalCenter: parent.verticalCenter }
                 PillDots { visible: Hub.mood === "think" && Hub.chip === ""; running: visible; anchors.verticalCenter: parent.verticalCenter }
                 PillChip { id: pillChip; kind: Hub.chip }
+            }
+
+            // collapsed, on top or bottom: the four who are not on stage, at the bar's far end
+            Grid {
+                id: benchGrid
+                columns: 2
+                spacing: 1
+                x: root.pillW - width - 10
+                y: (root.pillT - height) / 2
+                opacity: root.expanded || root.floating || root.vertical || root.mfree ? 0 : 1
+                visible: opacity > 0
+                Behavior on opacity { NumberAnimation { duration: 120 } }
+                Repeater {
+                    model: root.bench
+                    Item {
+                        id: seat
+                        required property string modelData
+                        width: 15; height: 15
+                        Mascot {
+                            anchors.centerIn: parent
+                            size: 14
+                            still: true
+                            character: seat.modelData
+                            scale: seatArea.containsMouse ? 1.3 : 1
+                            Behavior on scale { NumberAnimation { duration: Theme.tHover; easing.type: Easing.OutCubic } }
+                        }
+                        MouseArea {
+                            id: seatArea
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: { Hub.poke(); Sfx.play("click"); Prefs.character = seat.modelData }
+                        }
+                    }
+                }
             }
 
             // collapsed, on a side: the state becomes an icon-only 24 px disc under the mascot;
@@ -731,13 +771,9 @@ Item {
                 Row {
                     x: 14; y: 12
                     spacing: Theme.space2
-                    Image {
-                        source: "resources/logo/miku-mini.svg"
-                        width: 24; height: 24
-                        sourceSize: Qt.size(48, 48)
-                    }
+                    Mascot { size: 24; still: true; character: Prefs.character }
                     Text {
-                        text: "Miku"
+                        text: mascot.displayName
                         color: Theme.ink
                         font.family: Theme.display
                         font.weight: Font.Bold
@@ -913,6 +949,7 @@ Item {
             skin: root.expanded && root.view === "github" ? "github" : ""
             walkDir: root.walkDir
             doneBadge: Hub.chip === "done"
+            character: Prefs.character
             mood: root.dropActive ? "wow" : root.dropHappy ? "happy" : root.walking ? "walk" : Hub.mood
             paused: root.tucked && root.tuckA > root.pillT
             // She watches the pointer all over the screen where the platform says where it

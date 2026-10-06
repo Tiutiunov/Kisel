@@ -210,6 +210,21 @@ Item {
                 }
             }
 
+            // ---- who is on stage ----
+            Text { text: "Character"; color: Theme.ink; font.family: Theme.display; font.pixelSize: 16; font.weight: Font.DemiBold }
+            Row {
+                spacing: Theme.space2
+                Repeater {
+                    model: [{ id: "miku", name: "Miku" }, { id: "rin", name: "Rin" }, { id: "luka", name: "Luka" }, { id: "gumi", name: "GUMI" }, { id: "teto", name: "Teto" }]
+                    KButton {
+                        required property var modelData
+                        primary: Prefs.character === modelData.id
+                        text: modelData.name
+                        onClicked: Prefs.character = modelData.id
+                    }
+                }
+            }
+
             // ---- look and sound ----
             Text { text: "Look and sound"; color: Theme.ink; font.family: Theme.display; font.pixelSize: 16; font.weight: Font.DemiBold }
             KToggle { label: "Sounds"; checked: Prefs.soundOn; onToggled: (v) => Prefs.soundOn = v }
