@@ -64,7 +64,7 @@ Item {
     readonly property int labelX: miniLead + mini + 10
     // The cast. One of them is the mascot; the other four wait at the bar's far end, two
     // by two, as Coucou keeps its other agents, and a click on one swaps her in.
-    readonly property var cast: ["miku", "rin", "luka", "gumi", "teto"]
+    readonly property var cast: ["miku", "rin", "luka", "zunda", "teto"]
     // Who is on stage. Miku is Claude Code's own: whoever else was chosen, she steps in
     // for a few seconds when Claude starts on something or finishes, and stays for as
     // long as a request waits for an answer; then the chosen one comes back. With Miku
@@ -80,12 +80,12 @@ Item {
         onTriggered: { if (Hub.pendingCount > 0) restart(); else root.guest = "" } }
     readonly property bool claudeBusy: Hub.mood === "work" || Hub.mood === "think"
     onClaudeBusyChanged: if (claudeBusy) stepIn()
-    // The chosen one with a service of her own (GUMI with Spotify) minds that service:
+    // The chosen one with a service of her own (Zundamon with Spotify) minds that service:
     // Claude's working is Miku's news, not hers.
-    readonly property bool ownAct: guest === "" && Prefs.character === "gumi" && Prefs.gumiSpotify && Media.available
+    readonly property bool ownAct: guest === "" && Prefs.character === "zunda" && Prefs.zundaSpotify && Media.available
     readonly property var bench: cast.filter(c => c !== stage)
     readonly property int castW: 50
-    // GUMI with Spotify playing: the bar names the track and she hums along
+    // Zundamon with Spotify playing: the bar names the track and she hums along
     readonly property bool tune: ownAct && Media.active && Media.playing
     // ...and whenever the bar has nothing more pressing to say it is her mini player:
     // the track's name and the three buttons, without opening the card
@@ -744,7 +744,7 @@ Item {
                 PillBars { visible: Hub.mood === "work" && Hub.chip === "" && !root.miniPlayer; running: visible; anchors.verticalCenter: parent.verticalCenter }
                 PillDots { visible: Hub.mood === "think" && Hub.chip === "" && !root.miniPlayer; running: visible; anchors.verticalCenter: parent.verticalCenter }
                 PillChip { id: pillChip; kind: root.miniPlayer ? "" : Hub.chip }
-                // GUMI's player in the bar: three bars that dance to the tune, the title (it
+                // Zundamon's player in the bar: three bars that dance to the tune, the title (it
                 // scrolls when it does not fit) over the artist, and the three keys
                 Row {
                     visible: root.miniPlayer

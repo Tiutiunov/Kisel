@@ -53,14 +53,14 @@ Kisel is a desktop companion for KDE Plasma that watches Claude Code, asks permi
 * `Displays` – which output the island lives on (remembered by name, hot-plug aware); `IslandWindow::moveToScreen` re-creates the layer surface on the target output.
 * `Sounds` – plays the WAVs through `paplay`/`pw-play` as a plain "Kisel" stream. (Not `media.role=event`: Plasma can mute that whole role.)
 * `Launcher` – opens https links only (a pull request).
-* `Media` – what Spotify is playing and its three buttons, for GUMI's player. Windows: the system media session (`GlobalSystemMediaTransportControlsSessionManager`, C++/WinRT), read twice a second on a thread of its own; the cover reaches QML as a data: URL. Elsewhere `available` is false.
+* `Media` – what Spotify is playing and its three buttons, for Zundamon's player. Windows: the system media session (`GlobalSystemMediaTransportControlsSessionManager`, C++/WinRT), read twice a second on a thread of its own; the cover reaches QML as a data: URL. Elsewhere `available` is false.
 * `Tray` – StatusNotifierItem (Open, Settings, Quit).
 * `main.cpp` – wiring, single-instance probe on the socket, `--demo` (replays a fake session), `--open <view>`, `--grab <png>` (renders one frame and quits; used for development and CI screenshots).
 
 ## QML (`qml/`)
 
 * `Theme.qml` mirrors `tokens.json` (dark + light). **Add colours to the design system first, then here.** The mascot uses fixed colours in both themes, like the logo.
-* `Mascot.qml` – the mascots: five mochi-shaped singers (Miku, Rin, Luka, GUMI, Teto) drawn by one engine on one `Canvas`. `character` picks one; `chars` holds what differs (hair style and colours, outfit, pace, the emotes of her own). The ten moods, hands with a pose per mood, hair on springs, blink, gaze, squash and rolls are shared. `still: true` paints a portrait once (the bar's bench, the header). At the bar's size the hair is short and she is clipped to the bar.
+* `Mascot.qml` – the mascots: five mochi-shaped singers (Miku, Rin, Luka, Zundamon, Teto) drawn by one engine on one `Canvas`. `character` picks one; `chars` holds what differs (hair style and colours, outfit, pace, the emotes of her own). The ten moods, hands with a pose per mood, hair on springs, blink, gaze, squash and rolls are shared. `still: true` paints a portrait once (the bar's bench, the header). At the bar's size the hair is short and she is clipped to the bar.
 * `Island.qml` – state machine: collapsed pill ⇄ card, hover open, 600 ms close timer, `holdOpen` rules (permission waiting, drag over, typing, peek), view cross-fade (140 ms), one mascot gliding between slots.
 * `HomeView`, `SessionView`, `PermissionView`, `GitHubView`, `ChatView`, `SettingsView` – one file each; `CodePanel` renders diffs and commands.
 * Collapsed v2: `PillChip`, `PillBars`, `PillDots`; the mascot's level of detail and mood bridges live in `Mascot.qml`.

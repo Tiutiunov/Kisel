@@ -101,10 +101,10 @@ const SCHEMA = [
                 ["fringeY", "край чёлки у висков", -0.7, 0.3], ["bangTip", "кончики прядей", -0.7, 0.4], ["bangNotch", "вырезы между прядями", -0.9, 0.3],
                 ["backW", "затылок: ширина", 1, 1.3], ["backH", "затылок: высота", 1, 1.3], ["backUp", "затылок: подъём", 0, 0.3],
                 ["lock", "боковые пряди", -0.4, 0.9], ["shine", "блик на волосах", 0, 1]]],
-  ["Хвосты и длинные волосы", [["tx", "корень: вбок", 0.5, 1.3], ["ty", "корень: вверх", -1.1, 0.2], ["seg", "длина", 0.15, 0.6], ["out", "разлёт", 0, 25, 0.5], ["tw", "толщина", 0.4, 2],
+  ["Хвосты, длинные волосы, стручки", [["tx", "корень: вбок", 0.5, 1.3], ["ty", "корень: вверх", -1.1, 0.2], ["seg", "длина", 0.15, 0.6], ["out", "разлёт", 0, 25, 0.5], ["tw", "толщина", 0.4, 2],
               ["tieOn", "резинки", "bool"], ["tie", "резинка"], ["tieBand", "полоска"]]],
   ["Гарнитура", [["setOn", "показывать", "bool"], ["set", "цвет"], ["tip", "микрофон"]]],
-  ["На голове (бант, очки, обруч)", [["accY", "сдвиг по высоте", -0.5, 0.5]]],
+  ["На голове (бант, обруч)", [["accY", "сдвиг по высоте", -0.5, 0.5]]],
   ["Руки", [["hand", "размер", 0.08, 0.3]]]
 ];
 // Who is who: the hair style, and what differs from Miku (`mks` in Mascot.qml).
@@ -112,7 +112,7 @@ const CAST = {
   miku: { name: "Miku", style: "twintails", over: {} },
   rin:  { name: "Rin", style: "bow", over: { hair: "#FFD24A", hairD: "#E0A92E", hairTop: "#FFE585", lock: 0.26, set: "#F4F6F8", tip: "#F2B705" } },
   luka: { name: "Luka", style: "long", calm: true, over: { hair: "#F5A3C0", hairD: "#D9779D", hairTop: "#FFC6DA", tx: 0.92, ty: -0.2, seg: 0.38, out: 2, set: "#E3B341", tip: "#3FA7D6" } },
-  gumi: { name: "GUMI", style: "goggles", over: { hair: "#7ED957", hairD: "#4FAE35", hairTop: "#A9EE88", lock: 0.62, set: "#F4F6F8", tip: "#F5622B" } },
+  zunda: { name: "Zundamon", style: "pods", over: { hair: "#B9DC6B", hairD: "#86B93F", hairTop: "#D8EE9C", lock: 0.5, tx: 1.24, ty: -0.28, seg: 0.3, out: 16, tw: 1.15, set: "#F4F6F8", tip: "#86B93F" } },
   teto: { name: "Teto", style: "drills", over: { hair: "#E0405A", hairD: "#B02A44", hairTop: "#F26A82", tx: 1.06, ty: -0.45, seg: 0.25, out: 22, tip: "#E0405A" } }
 };
 const SHARED = ["rx", "ry", "exp", "bodyTop", "bodyBot", "shade", "hl", "tint", "ex", "ey", "ew", "eh", "ink", "gazeX", "gazeY", "cx", "cy", "cw", "ch", "cheek", "cheekA", "mouthY", "mouthRest", "hand"];
@@ -158,7 +158,7 @@ const poses = {
   hips:   t => [{ x: -1.02, y: 0.6 }, { x: 1.02, y: 0.6 }],
   hello:  t => [{ x: -1.38, y: 0.52 }, { x: 1.5 + Math.sin(t * 12) * 0.16, y: -0.6 + Math.cos(t * 12) * 0.05 }]
 };
-const HAIRS = { twintails: { n: 6, w: [0.2, 0.33, 0.36, 0.32, 0.22, 0.05] }, long: { n: 6, w: [0.3, 0.36, 0.38, 0.36, 0.3, 0.14] }, drills: { n: 5, w: [0.26, 0.3, 0.26, 0.2, 0.1], coil: true } };
+const HAIRS = { twintails: { n: 6, w: [0.2, 0.33, 0.36, 0.32, 0.22, 0.05] }, long: { n: 6, w: [0.3, 0.36, 0.38, 0.36, 0.3, 0.14] }, drills: { n: 5, w: [0.26, 0.3, 0.26, 0.2, 0.1], coil: true }, pods: { n: 4, w: [0.17, 0.22, 0.2, 0.13], pod: true } };
 const R = 46, CX = 144, CY = 148, TAU = 2 * Math.PI;
 const clampv = (v, a, b) => Math.max(a, Math.min(b, v));
 const easeOut = u => 1 - Math.pow(1 - clampv(u, 0, 1), 3);
@@ -270,7 +270,7 @@ class Bot {
       g.fillStyle = "rgba(0,0,0," + 0.25 * detail + ")"; g.beginPath(); ell(g, CX, CY + R * 1.02, R * 0.95, R * 0.12); g.fill();
     }
     const H = HAIRS[CAST[cur].style];
-    for (const Tl of s.tails) { if (!H || Tl.p.length !== H.n) continue; if (H.coil) this.paintDrill(g, Tl, H); else this.paintTail(g, Tl, H); }
+    for (const Tl of s.tails) { if (!H || Tl.p.length !== H.n) continue; if (H.coil) this.paintDrill(g, Tl, H); else if (H.pod) this.paintPod(g, Tl, H); else this.paintTail(g, Tl, H); }
     g.save(); g.translate(P.x, P.y); g.rotate(P.angle); g.scale(P.sx, P.sy); this.paintBody(g, L); g.restore();
     if (T.tieOn && CAST[cur].style === "twintails") for (const Tl of s.tails) {
       if (!Tl.p.length) continue;
@@ -281,6 +281,13 @@ class Bot {
     if (detail > 0.25) { g.globalAlpha = clampv((detail - 0.25) / 0.4, 0, 1); this.paintHands(g, P, L); g.globalAlpha = 1; }
     this.paintParts(g);
     if (L.badge) this.paintBadge(g, P, L.badge, col);
+  }
+  paintPod(g, Tl, H) {
+    const p = Tl.p, n = p.length;
+    g.fillStyle = T.hairD;
+    for (let i = 0; i < n; i++) { g.beginPath(); g.arc(p[i].x, p[i].y, H.w[i] * T.tw * R, 0, TAU, false); g.fill(); }
+    g.fillStyle = "rgba(255,255,255,0.3)";
+    for (let i = 0; i < n - 1; i++) { g.beginPath(); g.arc(p[i].x - R * 0.04, p[i].y - R * 0.05, H.w[i] * T.tw * R * 0.4, 0, TAU, false); g.fill(); }
   }
   paintDrill(g, Tl, H) {
     const p = Tl.p, n = p.length, turn = this.st.t * (world.emote === "smug" ? 9 : 1.2) * Tl.side;
@@ -341,15 +348,6 @@ class Bot {
       g.beginPath(); g.arc(0, R * 0.25, R * 0.98, -Math.PI * 0.78, -Math.PI * 0.55, false); g.stroke();
       g.beginPath(); g.arc(0, R * 0.25, R * 0.98, -Math.PI * 0.42, -Math.PI * 0.34, false); g.stroke();
     }
-        if (CAST[cur].style === "goggles") { // GUMI's goggles, pushed up into her hair
-            const y = R * (-0.58 + T.accY)
-            g.strokeStyle = "#F5622B"; g.lineWidth = R * 0.09; g.beginPath(); g.moveTo(-R * 1.3, y + R * 0.02); g.lineTo(R * 1.3, y + R * 0.02); g.stroke()
-            for (const d of [-1, 1]) {
-                g.fillStyle = "#F4F6F8"; g.beginPath(); g.arc(d * R * 0.34, y, R * 0.23, 0, TAU, false); g.fill()
-                g.fillStyle = "#F5622B"; g.beginPath(); g.arc(d * R * 0.34, y, R * 0.16, 0, TAU, false); g.fill()
-                g.fillStyle = "rgba(255,255,255,0.6)"; g.beginPath(); g.arc(d * R * 0.34 - R * 0.06, y - R * 0.06, R * 0.05, 0, TAU, false); g.fill()
-            }
-        }
         if (CAST[cur].style === "bow") { // Rin's two white hair clips
             const y = R * T.accY
             g.strokeStyle = "#F4F6F8"; g.lineWidth = R * 0.06; g.lineCap = "round"

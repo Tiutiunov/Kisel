@@ -221,7 +221,7 @@ Item {
             Row {
                 spacing: Theme.space2
                 Repeater {
-                    model: [{ id: "miku", name: "Miku" }, { id: "rin", name: "Rin" }, { id: "luka", name: "Luka" }, { id: "gumi", name: "GUMI" }, { id: "teto", name: "Teto" }]
+                    model: [{ id: "miku", name: "Miku" }, { id: "rin", name: "Rin" }, { id: "luka", name: "Luka" }, { id: "zunda", name: "Zundamon" }, { id: "teto", name: "Teto" }]
                     KButton {
                         required property var modelData
                         primary: Prefs.character === modelData.id
@@ -231,7 +231,7 @@ Item {
                 }
             }
 
-            KToggle { visible: Media.available; label: "GUMI shows and steers Spotify"; checked: Prefs.gumiSpotify; onToggled: (v) => Prefs.gumiSpotify = v }
+            KToggle { visible: Media.available; label: "Zundamon shows and steers Spotify"; checked: Prefs.zundaSpotify; onToggled: (v) => Prefs.zundaSpotify = v }
 
             // ---- look and sound ----
             Text { text: "Look and sound"; color: Theme.ink; font.family: Theme.display; font.pixelSize: 16; font.weight: Font.DemiBold }

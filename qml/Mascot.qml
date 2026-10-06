@@ -7,7 +7,8 @@
 //   miku  twin tails; bright and earnest. Hums to herself, sulks when slapped.
 //   rin   a big white bow; loud and restless. Bounces, loses her temper when slapped.
 //   luka  long hair; calm and grown-up. Moves slowly, is merely unimpressed by a slap.
-//   gumi  goggles on her head; sunny and sporty. Laughs a slap off.
+//   zunda Zundamon: an edamame pod at each ear; a cheeky sprite, proud of herself and
+//         quick to panic when slapped.
 //   teto  twin drills; smug, and flustered the moment anyone is nice to her.
 //
 // Every number of the drawing is in `mk` (`mkBase`, then what differs for each in
@@ -17,7 +18,7 @@
 // `character` picks one. They share every mood and differ in looks (`chars`), in how
 // fast and how high they move, and in the emotes of their own: the quirk each falls into
 // when idle, what a slap does, what resting the pointer on them does, and the favourite
-// thing that flies about when a task is done (leek, orange, tuna, carrot, baguette).
+// thing that flies about when a task is done (leek, orange, tuna, zunda mochi, baguette).
 //
 // The interface is the one the island was built around: `size` is the box she is laid
 // out in. At the bar's size her hair is short and she is clipped to the bar's thickness
@@ -75,7 +76,7 @@ Item {
         miku: { name: "Miku", style: "twintails", energy: 1, bounce: 1, mouth: "smile", fav: "leek", slap: "annoyed", rest: "love", quirk: "hum" },
         rin:  { name: "Rin", style: "bow", energy: 1.3, bounce: 1.4, mouth: "grin", fav: "orange", slap: "angry", rest: "love", quirk: "hype" },
         luka: { name: "Luka", style: "long", energy: 0.7, bounce: 0.5, mouth: "soft", calm: true, fav: "tuna", slap: "unimpressed", rest: "fond", quirk: "cool" },
-        gumi: { name: "GUMI", style: "goggles", energy: 1.15, bounce: 1.2, mouth: "smile", fav: "carrot", slap: "laugh", rest: "love", quirk: "stretch" },
+        zunda: { name: "Zundamon", style: "pods", energy: 1.2, bounce: 1.3, mouth: "smile", fav: "zunda", slap: "flustered", rest: "love", quirk: "proud" },
         teto: { name: "Teto", style: "drills", energy: 1, bounce: 0.9, mouth: "smug", fav: "bread", slap: "tsun", rest: "flustered", quirk: "smug" }
     })
     // The drawing's numbers, in body radii (names as in design/miku-editor.html): Miku's,
@@ -95,7 +96,7 @@ Item {
         miku: {},
         rin:  { hair: "#FFD24A", hairD: "#E0A92E", hairTop: "#FFE585", lock: 0.26, set: "#F4F6F8", tip: "#F2B705" },
         luka: { hair: "#F5A3C0", hairD: "#D9779D", hairTop: "#FFC6DA", tx: 0.92, ty: -0.2, seg: 0.38, out: 2, set: "#E3B341", tip: "#3FA7D6" },
-        gumi: { hair: "#7ED957", hairD: "#4FAE35", hairTop: "#A9EE88", lock: 0.62, set: "#F4F6F8", tip: "#F5622B" },
+        zunda: { hair: "#B9DC6B", hairD: "#86B93F", hairTop: "#D8EE9C", lock: 0.5, tx: 1.24, ty: -0.28, seg: 0.3, out: 16, tw: 1.15, set: "#F4F6F8", tip: "#86B93F" },
         teto: { hair: "#E0405A", hairD: "#B02A44", hairTop: "#F26A82", tx: 1.06, ty: -0.45, seg: 0.25, out: 22, tip: "#E0405A" }
     })
     readonly property var mk: Object.assign({}, mkBase, mks[shown] || {})
@@ -114,14 +115,15 @@ Item {
         twintails: { x: 1.0,  y: -0.74, n: 6, seg: 0.36, out: 5,  w: [0.2, 0.33, 0.36, 0.32, 0.22, 0.05] },
         long:      { x: 0.9,  y: -0.2,  n: 6, seg: 0.38, out: 2,  w: [0.3, 0.36, 0.38, 0.36, 0.3, 0.14] },
         drills:    { x: 1.06, y: -0.5,  n: 5, seg: 0.25, out: 22, w: [0.26, 0.3, 0.26, 0.2, 0.1], coil: true },
-        bow: null, goggles: null
+        pods:      { x: 1.02, y: -0.3,  n: 4, seg: 0.24, out: 9,  w: [0.17, 0.22, 0.2, 0.13], pod: true },
+        bow: null
     })
 
     // (where the hair is rooted, how long, how spread and how wide it is comes from `mk`)
     function hairOf(style) {
         const H = hairs[style]
         if (!H) return H
-        return { x: mk.tx, y: mk.ty, n: H.n, seg: mk.seg, out: mk.out, w: H.w.map(v => v * mk.tw), coil: H.coil }
+        return { x: mk.tx, y: mk.ty, n: H.n, seg: mk.seg, out: mk.out, w: H.w.map(v => v * mk.tw), coil: H.coil, pod: H.pod }
     }
 
     // ---- mood, and the emote on top of it ----------------------------------------
@@ -276,7 +278,8 @@ Item {
         annoyed:     { eyes: "slit",  mouth: "flat",  hands: "hips", color: "#A855F7" },                    // Miku sulks
         angry:       { eyes: "slit",  mouth: "open",  hands: "flail", color: "#F4505E", blush: 1 },         // Rin blows up
         unimpressed: { eyes: "flat",  mouth: "flat",  hands: "rest" },                                      // Luka: really?
-        laugh:       { eyes: "happy", mouth: "open",  hands: "cheer" },                                     // GUMI laughs it off
+        laugh:       { eyes: "happy", mouth: "open",  hands: "cheer" },
+        proud:       { eyes: "happy", mouth: "grin",  hands: "hips" },                                      // Zundamon: look at me, nanoda
         tsun:        { eyes: "slit",  mouth: "flat",  hands: "hips", blush: 1, away: true },                // Teto: hmph
         // the idle habits
         hum:         { eyes: "happy", mouth: "sing",  hands: "rest",  fx: "note", sway: true },
@@ -521,7 +524,7 @@ Item {
         }
 
         const H = hairOf(s.tailStyle)
-        if (H) for (const T of s.tails) { if (T.p.length !== H.n) continue; if (H.coil) paintDrill(g, T, H, L); else paintTail(g, T, H) }
+        if (H) for (const T of s.tails) { if (T.p.length !== H.n) continue; if (H.coil) paintDrill(g, T, H, L); else if (H.pod) paintPod(g, T, H); else paintTail(g, T, H) }
 
         g.save(); g.translate(P.x, P.y); g.rotate(P.angle); g.scale(P.sx, P.sy)
         paintBody(g, L)
@@ -560,6 +563,15 @@ Item {
         g.moveTo(p[1].x + (Lp[1].x - p[1].x) * 0.4, p[1].y + (Lp[1].y - p[1].y) * 0.4)
         for (let i = 2; i < n - 1; i++) g.lineTo(p[i].x + (Lp[i].x - p[i].x) * 0.4, p[i].y + (Lp[i].y - p[i].y) * 0.4)
         g.stroke()
+    }
+
+    // Zundamon's edamame pods: the beans in a row along the chain, a shine on each
+    function paintPod(g, T, H) {
+        const R = cR, p = T.p, n = p.length, TAU = 2 * Math.PI
+        g.fillStyle = hairD
+        for (let i = 0; i < n; i++) { g.beginPath(); g.arc(p[i].x, p[i].y, H.w[i] * R, 0, TAU, false); g.fill() }
+        g.fillStyle = "rgba(255,255,255,0.3)"
+        for (let i = 0; i < n - 1; i++) { g.beginPath(); g.arc(p[i].x - R * 0.04, p[i].y - R * 0.05, H.w[i] * R * 0.4, 0, TAU, false); g.fill() }
     }
 
     // Teto's drills: coils stacked along the chain, the turns marked by a darker thread
@@ -612,15 +624,6 @@ Item {
             g.strokeStyle = "rgba(255,255,255," + T.shine + ")"; g.lineWidth = R * 0.07; g.lineCap = "round"
             g.beginPath(); g.arc(0, R * 0.25, R * 0.98, -Math.PI * 0.78, -Math.PI * 0.55, false); g.stroke()
             g.beginPath(); g.arc(0, R * 0.25, R * 0.98, -Math.PI * 0.42, -Math.PI * 0.34, false); g.stroke()
-        }
-        if (who.style === "goggles") { // GUMI's goggles, pushed up into her hair
-            const y = R * (-0.58 + T.accY)
-            g.strokeStyle = "#F5622B"; g.lineWidth = R * 0.09; g.beginPath(); g.moveTo(-R * 1.3, y + R * 0.02); g.lineTo(R * 1.3, y + R * 0.02); g.stroke()
-            for (const d of [-1, 1]) {
-                g.fillStyle = "#F4F6F8"; g.beginPath(); g.arc(d * R * 0.34, y, R * 0.23, 0, TAU, false); g.fill()
-                g.fillStyle = "#F5622B"; g.beginPath(); g.arc(d * R * 0.34, y, R * 0.16, 0, TAU, false); g.fill()
-                g.fillStyle = "rgba(255,255,255,0.6)"; g.beginPath(); g.arc(d * R * 0.34 - R * 0.06, y - R * 0.06, R * 0.05, 0, TAU, false); g.fill()
-            }
         }
         if (who.style === "bow") { // Rin's two white hair clips
             const y = R * T.accY
@@ -759,9 +762,10 @@ Item {
             g.beginPath(); g.moveTo(s * 0.8, 0); g.lineTo(s * 1.5, -s * 0.5); g.lineTo(s * 1.5, s * 0.5); g.closePath(); g.fill()
             g.fillStyle = "#DCEAF5"; g.beginPath(); ell(g, -s * 0.1, s * 0.16, s * 0.7, s * 0.2); g.fill()
             g.fillStyle = "#12383A"; g.beginPath(); g.arc(-s * 0.6, -s * 0.1, s * 0.09, 0, TAU, false); g.fill()
-        } else if (f === "carrot") {
-            g.fillStyle = "#FF8A2B"; g.beginPath(); g.moveTo(-s * 0.4, -s * 0.5); g.lineTo(s * 0.4, -s * 0.5); g.lineTo(0, s * 1.1); g.closePath(); g.fill()
-            g.strokeStyle = "#5CB848"; g.lineWidth = s * 0.2; g.beginPath(); g.moveTo(0, -s * 0.5); g.lineTo(-s * 0.3, -s * 1.1); g.moveTo(0, -s * 0.5); g.lineTo(s * 0.3, -s * 1.1); g.moveTo(0, -s * 0.5); g.lineTo(0, -s * 1.2); g.stroke()
+        } else if (f === "zunda") { // zunda mochi: a white rice cake under green bean paste
+            g.fillStyle = "#F7F3EA"; g.beginPath(); ell(g, 0, s * 0.2, s * 0.9, s * 0.6); g.fill()
+            g.fillStyle = "#9CCB4A"; g.beginPath(); ell(g, 0, -s * 0.15, s * 0.75, s * 0.45); g.fill()
+            g.fillStyle = "rgba(255,255,255,0.4)"; g.beginPath(); g.arc(-s * 0.25, -s * 0.3, s * 0.14, 0, TAU, false); g.fill()
         } else { // Teto's baguette
             g.strokeStyle = "#D9A05B"; g.lineWidth = s * 0.6; g.beginPath(); g.moveTo(-s, s * 0.4); g.lineTo(s, -s * 0.4); g.stroke()
             g.strokeStyle = "#9A6B33"; g.lineWidth = s * 0.1

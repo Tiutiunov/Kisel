@@ -1,4 +1,4 @@
-// GUMI's Home: what Spotify is playing, with previous, play or pause, and next. It
+// Zundamon's Home: what Spotify is playing, with previous, play or pause, and next. It
 // takes the whole of Home's place (494 x 138): with her on stage the card is a player.
 import QtQuick
 import Kisel.Core

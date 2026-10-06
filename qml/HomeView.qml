@@ -21,9 +21,9 @@ Item {
     readonly property rect buttonRect: Qt.rect(width - 150 - 10, 5, 150, 36)
     readonly property var tileRects: [Qt.rect(0, height - 84, 104, 84), Qt.rect(112, height - 84, 104, 84)]
     readonly property bool hasSession: !!s.id
-    // Home belongs to whoever is chosen. Miku's is this one, Claude Code's; GUMI's is her
+    // Home belongs to whoever is chosen. Miku's is this one, Claude Code's; Zundamon's is her
     // Spotify player. The ones with no service of their own yet show Claude's.
-    readonly property bool ownHome: Prefs.character === "gumi" && Prefs.gumiSpotify && Media.available
+    readonly property bool ownHome: Prefs.character === "zunda" && Prefs.zundaSpotify && Media.available
     // one Home dissolves into the other: Claude's goes first, hers follows
     property real ownU: ownHome ? 1 : 0
     Behavior on ownU { NumberAnimation { duration: Theme.reduced ? 140 : 320; easing.type: Easing.InOutCubic } }
@@ -174,7 +174,7 @@ Item {
         }
     }
 
-    // ---- GUMI's Home is her player ----
+    // ---- Zundamon's Home is her player ----
     PlayerView {
         visible: root.ownU > 0.01
         opacity: root.ownU
