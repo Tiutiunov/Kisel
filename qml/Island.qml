@@ -2,7 +2,7 @@
 // or (floating) a mascot that lives free on the desktop and opens its card in
 // place. Sizes, timings and behaviour follow motion.md.
 //
-//   docked   on top, bottom, left or right: collapsed 288 x 32, Coucou's compact bar,
+//   docked   on top, bottom, left or right: collapsed 328 x 32 (Coucou's compact bar, widened for the bench),
 //            with Kisel wholly inside it (32 x 176 on the sides) -> home 660x200 | session 300 | permission 236/310/290 | github
 //            276 | chat 412 | settings 440. The bar's size and manners follow Coucou's
 //            island: a click opens it (280 ms OutCubic), it closes a moment after the
@@ -48,15 +48,15 @@ Item {
     readonly property bool vertical: !floating && (edge === "left" || edge === "right")
     readonly property bool atBottom: !floating && edge === "bottom"
     readonly property string dockSide: floating ? "none" : edge
-    // Collapsed: Coucou's compact bar, 288 x 32 with 14 px corners; a 32 x 176 one on the
+    // Collapsed: Coucou's compact bar widened for the bench, 328 x 32 with 14 px corners; a 32 x 176 one on the
     // sides; the mascot alone (120 px) while floating. Kisel sits inside the bar, 4 px
     // clear of its edges, and never reaches out of it.
     readonly property int pillT: 32      // the bar's thickness
     readonly property int mini: 24       // the mascot in the bar
     readonly property int miniPad: (pillT - mini) / 2
     readonly property int miniLead: 14   // from the bar's leading end to the mascot
-    readonly property int pillMin: 288
-    readonly property int pillMax: 288
+    readonly property int pillMin: 328
+    readonly property int pillMax: 328
     readonly property int labelX: miniLead + mini + 10
     // The cast. One of them is the mascot; the other four wait at the bar's far end, two
     // by two, as Coucou keeps its other agents, and a click on one swaps her in.
@@ -80,7 +80,7 @@ Item {
     // Claude's working is Miku's news, not hers.
     readonly property bool ownAct: guest === "" && Prefs.character === "gumi" && Prefs.gumiSpotify && Media.available
     readonly property var bench: cast.filter(c => c !== stage)
-    readonly property int castW: 44
+    readonly property int castW: 100
     // where the ones on the bench look: the way she on the stage looks
     readonly property point benchGaze: Qt.point(Math.tanh((mascot.lookAt.x - mascot.width / 2) / 260), Math.tanh((mascot.lookAt.y - mascot.height / 2) / 200))
     // GUMI with Spotify playing: the bar names the track and she hums along
@@ -777,8 +777,8 @@ Item {
             // collapsed, on top or bottom: the four who are not on stage, at the bar's far end
             Grid {
                 id: benchGrid
-                columns: 2
-                spacing: 1
+                columns: 4
+                spacing: 2
                 x: root.pillW - width - 10
                 y: (root.pillT - height) / 2
                 opacity: root.expanded || root.floating || root.vertical || root.mfree ? 0 : 1
@@ -789,16 +789,16 @@ Item {
                     Item {
                         id: seat
                         required property string modelData
-                        width: 15; height: 15
+                        width: 22; height: 22
                         Mascot {
                             anchors.centerIn: parent
-                            size: 14
+                            size: 20
                             bench: true
                             paused: root.tucked
                             gazeOn: Shell.pointerKnown
                             gaze: root.benchGaze
                             character: seat.modelData
-                            scale: seatArea.containsMouse ? 1.3 : 1
+                            scale: seatArea.containsMouse ? 1.15 : 1
                             Behavior on scale { NumberAnimation { duration: Theme.tHover; easing.type: Easing.OutCubic } }
                         }
                         MouseArea {
