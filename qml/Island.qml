@@ -89,7 +89,11 @@ Item {
     readonly property bool tune: ownAct && Media.active && Media.playing
     // ...and whenever the bar has nothing more pressing to say it is her mini player:
     // the track's name and the three buttons, without opening the card
-    readonly property bool miniPlayer: ownAct && Media.active && Hub.pendingCount === 0
+    // (only while a tune is actually playing; and a finished task keeps the bar for its
+    // "Done" for five seconds first: `doneHold`)
+    readonly property bool miniPlayer: ownAct && Media.active && Media.playing && Hub.pendingCount === 0 && !(doneHold && Hub.chip === "done")
+    property bool doneHold: false
+    Timer { id: doneHoldTimer; interval: 5000; onTriggered: root.doneHold = false }
     readonly property real pillContentW: labelX + pillRow.implicitWidth + 16
     readonly property real pillW: Math.max(pillMin, Math.min(pillMax, pillContentW))
     readonly property real closedW: floating ? 120 : (vertical ? pillT : pillW)
@@ -225,6 +229,8 @@ Item {
         function onPermissionCleared() { root.afterAnswer() }
         function onTaskFinished() {
             root.stepIn()
+            root.doneHold = true
+            if (!root.expanded) doneHoldTimer.restart() // (else the five seconds start when the card closes)
             Sfx.play("done")
             const inPill = !root.expanded && !root.floating
             if (inPill) // the burst starts from the pill's "Done" chip...
@@ -391,6 +397,7 @@ Item {
         NumberAnimation { target: Shell; property: "floatY"; to: fitAnim.toY; duration: Theme.tBase; easing.type: Easing.OutCubic }
     }
     onExpandedChanged: {
+        if (!expanded && doneHold) doneHoldTimer.restart()
         if (Shell.debugOn) Shell.log(Date.now() % 100000 + " expanded=" + expanded + " card=" + Math.round(card.x) + "," + Math.round(card.y) + " " + Math.round(card.width) + "x" + Math.round(card.height) + " mascot=" + Math.round(mascot.x) + "," + Math.round(mascot.y) + " size " + Math.round(mascot.width))
         if (Theme.reduced) slotFade.restart()
         if (!floating) return
@@ -728,7 +735,11 @@ Item {
                 // Zundamon's player in the bar: three bars that dance to the tune, the title (it
                 // scrolls when it does not fit) over the artist, and the three keys
                 Row {
-                    visible: root.miniPlayer
+                    // it slides in from the right when the tune starts, and out when it stops
+                    opacity: root.miniPlayer ? 1 : 0
+                    visible: opacity > 0.01
+                    Behavior on opacity { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+                    transform: Translate { x: root.miniPlayer ? 0 : 18; Behavior on x { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } } }
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 8
                     Row {

@@ -7,8 +7,8 @@ import Kisel.Core
 Item {
     id: root
     property bool on: false
-    width: row.implicitWidth + 26
-    height: 24
+    width: row.implicitWidth + 24
+    height: 22 // with its halos it is 29 high: inside the 32 px bar
 
     readonly property bool live: on && !Theme.reduced
     property real pop: on ? 1 : 0
@@ -51,8 +51,8 @@ Item {
             id: halo
             required property int index
             anchors.centerIn: parent
-            width: root.width + 6 + index * 10
-            height: root.height + 4 + index * 6
+            width: root.width + 5 + index * 8
+            height: root.height + 3 + index * 4
             radius: height / 2
             color: Theme.mint
             opacity: 0.16
@@ -69,7 +69,7 @@ Item {
     Rectangle {
         id: capsule
         anchors.fill: parent
-        radius: 12
+        radius: 11
         clip: true
         gradient: Gradient {
             GradientStop { position: 0; color: Qt.lighter(Theme.mint, 1.18) }
@@ -107,7 +107,7 @@ Item {
             Text {
                 text: "Done"
                 color: "#06281a"
-                font.family: Theme.sans; font.pixelSize: 13; font.weight: Font.ExtraBold
+                font.family: Theme.sans; font.pixelSize: 12; font.weight: Font.ExtraBold
             }
         }
     }
