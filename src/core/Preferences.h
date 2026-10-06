@@ -24,6 +24,7 @@ class Preferences : public QObject
     Q_PROPERTY(int closeDelay READ closeDelay WRITE setCloseDelay NOTIFY changed)
     // What each character is tied to. The first: Zundamon shows and steers Spotify.
     Q_PROPERTY(bool zundaSpotify READ zundaSpotify WRITE setZundaSpotify NOTIFY changed)
+    Q_PROPERTY(bool tetoSystem READ tetoSystem WRITE setTetoSystem NOTIFY changed) // Teto watches the computer
     Q_PROPERTY(QString character READ character WRITE setCharacter NOTIFY changed) // miku | rin | luka | zunda | teto
     Q_PROPERTY(bool hookSeen READ hookSeen NOTIFY changed)
     Q_PROPERTY(int alwaysCount READ alwaysCount NOTIFY changed)
@@ -64,6 +65,8 @@ public:
     void setCloseDelay(int v) { set("closeDelay", qBound(0, v, 10)); }
     void setCharacter(const QString &v) { set("character", v); }
     void setZundaSpotify(bool v) { set("zundaSpotify", v); }
+    bool tetoSystem() const { return m_s.value("tetoSystem", true).toBool(); }
+    void setTetoSystem(bool v) { set("tetoSystem", v); }
     void setHookSeen(bool v) { set("hookSeen", v); }
     void setFirstRunDone(bool v) { set("firstRunDone", v); }
 

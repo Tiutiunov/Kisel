@@ -23,7 +23,11 @@ Item {
     readonly property bool hasSession: !!s.id
     // Home belongs to whoever is chosen. Miku's is this one, Claude Code's; Zundamon's is her
     // Spotify player. The ones with no service of their own yet show Claude's.
-    property bool ownHome: false // the island says whose Home this is
+    property string own: "" // whose Home this is, says the island: "" (Claude's) | zunda | teto
+    readonly property bool ownHome: own !== ""
+    // (the one last shown stays through the dissolve back to Claude's)
+    property string shownOwn: ""
+    onOwnChanged: if (own !== "") shownOwn = own
     // one Home dissolves into the other: Claude's goes first, hers follows
     property real ownU: ownHome ? 1 : 0
     Behavior on ownU { NumberAnimation { duration: Theme.reduced ? 140 : 320; easing.type: Easing.InOutCubic } }
@@ -176,7 +180,13 @@ Item {
 
     // ---- Zundamon's Home is her player ----
     PlayerView {
-        visible: root.ownU > 0.01
+        visible: root.ownU > 0.01 && root.shownOwn === "zunda"
+        opacity: root.ownU
+        age: root.age
+    }
+    // ---- Teto's is how the computer is doing ----
+    TetoView {
+        visible: root.ownU > 0.01 && root.shownOwn === "teto"
         opacity: root.ownU
         age: root.age
     }

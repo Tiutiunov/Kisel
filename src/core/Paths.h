@@ -64,6 +64,11 @@ inline QString dataDir()
 }
 inline QString configDir()
 {
+    // (development: KISEL_CONFIG_DIR points the settings at a scratch folder, so a trial
+    // run can be given any settings without touching the real ones)
+    const QByteArray scratch = qgetenv("KISEL_CONFIG_DIR");
+    if (!scratch.isEmpty())
+        return QString::fromLocal8Bit(scratch);
     return QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + QStringLiteral("/kisel");
 }
 #ifdef Q_OS_WIN

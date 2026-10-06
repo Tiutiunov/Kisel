@@ -231,6 +231,7 @@ Item {
                 }
             }
 
+            KToggle { visible: Sys.available; label: "Teto watches the computer"; checked: Prefs.tetoSystem; onToggled: (v) => Prefs.tetoSystem = v }
             KToggle { visible: Media.available; label: "Zundamon shows and steers Spotify"; checked: Prefs.zundaSpotify; onToggled: (v) => Prefs.zundaSpotify = v }
 
             // ---- look and sound ----

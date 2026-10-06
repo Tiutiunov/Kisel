@@ -81,7 +81,12 @@ Item {
     property bool mikuPinned: false
     readonly property string chosen: Prefs.character
     onChosenChanged: mikuPinned = chosen === "miku" && expanded
-    readonly property string rest: Prefs.character === "miku" && zundaLive && !mikuPinned ? "zunda" : Prefs.character
+    //   Teto is the computer's: she has something to show when it is in trouble (the
+    //   processor flat out, the memory full, the battery nearly flat), and that comes
+    //   before music.
+    readonly property bool tetoLive: Prefs.tetoSystem && Sys.available && Sys.strain
+    readonly property string rest: Prefs.character !== "miku" || mikuPinned ? Prefs.character
+        : tetoLive ? "teto" : zundaLive ? "zunda" : "miku"
     readonly property string stage: guest !== "" ? guest : rest
     function stepIn() {
         if (rest === "miku") return
@@ -317,6 +322,10 @@ Item {
     // the track's name and the three buttons, without opening the card
     // (only while a tune is actually playing; and a finished task keeps the bar for its
     // "Done" for two and a half seconds first, counted from when the card has closed: `doneHold`)
+    // Teto on stage: the bar is her gauges, and she looks the way the computer feels
+    readonly property bool tetoAct: guest === "" && rest === "teto" && Prefs.tetoSystem && Sys.available
+    readonly property bool miniGauges: tetoAct && Hub.pendingCount === 0 && !(doneHold && Hub.chip === "done")
+    readonly property bool barOwn: miniPlayer || miniGauges // the bar belongs to the one on stage, not to Claude's label
     readonly property bool miniPlayer: ownAct && Media.active && Media.playing && Hub.pendingCount === 0 && !(doneHold && Hub.chip === "done")
     property bool doneHold: false
     Timer { id: doneHoldTimer; interval: 2500
@@ -937,7 +946,7 @@ Item {
                 visible: opacity > 0
                 Behavior on opacity { NumberAnimation { duration: root.expanded ? 100 : 120 } }
 
-                readonly property string label: root.miniPlayer ? ""
+                readonly property string label: root.barOwn ? ""
                     : Hub.chip !== "" ? ""
                     : Hub.mood === "work" ? Hub.statusLine
                     : Hub.mood === "think" ? "Thinking"
@@ -957,13 +966,18 @@ Item {
                     font.pixelSize: 13
                     font.weight: Font.ExtraBold
                 }
-                PillBars { visible: Hub.mood === "work" && Hub.chip === "" && !root.miniPlayer; running: visible; anchors.verticalCenter: parent.verticalCenter }
-                PillDots { visible: Hub.mood === "think" && Hub.chip === "" && !root.miniPlayer; running: visible; anchors.verticalCenter: parent.verticalCenter }
-                PillChip { id: pillChip; kind: root.miniPlayer || Hub.chip === "done" ? "" : Hub.chip } // ("Done" has a chip of its own, below)
+                PillBars { visible: Hub.mood === "work" && Hub.chip === "" && !root.barOwn; running: visible; anchors.verticalCenter: parent.verticalCenter }
+                PillDots { visible: Hub.mood === "think" && Hub.chip === "" && !root.barOwn; running: visible; anchors.verticalCenter: parent.verticalCenter }
+                PillChip { id: pillChip; kind: root.barOwn || Hub.chip === "done" ? "" : Hub.chip } // ("Done" has a chip of its own, below)
                 BarPlayer {
                     anchors.verticalCenter: parent.verticalCenter
                     on: root.miniPlayer
                     still: root.tucked
+                    room: root.pillMax - root.labelX - 16 - root.castW
+                }
+                BarGauges {
+                    anchors.verticalCenter: parent.verticalCenter
+                    on: root.miniGauges
                     room: root.pillMax - root.labelX - 16 - root.castW
                 }
             }
@@ -972,7 +986,7 @@ Item {
             DoneChip {
                 x: (root.pillW - width) / 2
                 y: (root.pillT - height) / 2
-                on: Hub.chip === "done" && !root.miniPlayer && !root.expanded && !root.floating && !root.vertical && !root.mfree
+                on: Hub.chip === "done" && !root.barOwn && !root.expanded && !root.floating && !root.vertical && !root.mfree
             }
 
             // the tune's progress: a hairline along the side of the bar that lies on the
@@ -1151,7 +1165,8 @@ Item {
                     enterDelay: root.enterDelay
                     HomeView {
                         id: homeView
-                        ownHome: root.rest === "zunda" && Prefs.zundaSpotify && Media.available
+                        own: root.rest === "zunda" && Prefs.zundaSpotify && Media.available ? "zunda"
+                           : root.rest === "teto" && Prefs.tetoSystem && Sys.available ? "teto" : ""
                         age: hostHome.age
                         revealCard: assembly.revealCard
                         revealButton: assembly.revealButton
@@ -1283,7 +1298,8 @@ Item {
             character: root.stage
             instant: root.duo
             music: root.tune
-            mood: root.dropActive ? "wow" : root.dropHappy ? "happy" : root.walking ? "walk" : Hub.mood
+            mood: root.dropActive ? "wow" : root.dropHappy ? "happy" : root.walking ? "walk"
+                : root.tetoAct && Sys.strain && Hub.mood === "idle" ? "sad" : Hub.mood
             gazeOn: root.duo && root.duoLook
             gaze: Qt.point(0.9, 0)
             paused: root.tucked && root.tuckA > root.pillT
