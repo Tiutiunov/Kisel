@@ -53,7 +53,7 @@ if(WIN32)
 endif()
 
 # ---- the app ----------------------------------------------------------------
-qt_add_executable(kisel src/app/main.cpp src/app/IslandWindow.cpp src/app/Tray.cpp src/app/Displays.cpp src/app/Sounds.cpp src/app/Launcher.cpp src/app/SeamWindows.cpp src/app/Media.cpp src/app/SysMon.cpp)
+qt_add_executable(kisel src/app/main.cpp src/app/IslandWindow.cpp src/app/Tray.cpp src/app/Displays.cpp src/app/Sounds.cpp src/app/Launcher.cpp src/app/SeamWindows.cpp src/app/Media.cpp src/app/SysMon.cpp src/app/Notices.cpp)
 # Qt6::Test only feeds the development flag `kisel --drag-test` (synthetic pointer events).
 target_link_libraries(kisel PRIVATE kisel_core Qt6::Quick Qt6::QuickControls2 Qt6::Widgets Qt6::Test)
 target_compile_options(kisel PRIVATE ${KISEL_WARNINGS})
@@ -115,6 +115,7 @@ qt_add_qml_module(kisel
         qml/DoneChip.qml
         qml/BarPlayer.qml
         qml/BarGauges.qml
+        qml/NoteSign.qml
         qml/BroomGlyph.qml
         qml/TetoView.qml
         qml/PlayerView.qml

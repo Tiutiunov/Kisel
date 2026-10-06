@@ -6,6 +6,7 @@
 #include "IslandWindow.h"
 #include "Launcher.h"
 #include "Media.h"
+#include "Notices.h"
 #include "SysMon.h"
 #include "Paths.h"
 #include "Preferences.h"
@@ -142,6 +143,7 @@ int main(int argc, char *argv[])
     GitHubClient github(&secrets);
     Media media;
     SysMon sysmon;
+    Notices notices;
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Hub", &hub);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Prefs", &prefs);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Hooks", &hooks);
@@ -155,6 +157,7 @@ int main(int argc, char *argv[])
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "GitHub", &github);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Media", &media);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Sys", &sysmon);
+    qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Notes", &notices);
 
     view.loadFromModule("Kisel", "Main");
     if (view.status() != QQuickView::Ready)

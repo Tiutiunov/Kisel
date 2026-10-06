@@ -59,9 +59,9 @@ Item {
     readonly property int mini: 24       // the mascot in the bar
     readonly property int miniPad: (pillT - mini) / 2
     readonly property int miniLead: 14   // from the bar's leading end to the mascot
-    readonly property int pillMin: 288 + Math.round(duoW) // (a little wider while two sit at its head)
-    readonly property int pillMax: 288 + Math.round(duoW)
-    readonly property int labelX: miniLead + mini + 10 + Math.round(duoW)
+    readonly property int pillMin: 288 + Math.round(duoW + heraldW) // (a little wider while two sit at its head, or Rin holds up her sign)
+    readonly property int pillMax: 288 + Math.round(duoW + heraldW)
+    readonly property int labelX: miniLead + mini + 10 + Math.round(duoW + heraldW)
     // The cast. One of them is the mascot; the other four wait at the bar's far end, two
     // by two, as Coucou keeps its other agents, and a click on one swaps her in.
     readonly property var cast: ["miku", "rin", "luka", "zunda", "teto"]
@@ -117,7 +117,46 @@ Item {
     // The chosen one with a service of her own (Zundamon with Spotify) minds that service:
     // Claude's working is Miku's news, not hers.
     readonly property bool ownAct: guest === "" && rest === "zunda" && Prefs.zundaSpotify && Media.available
-    readonly property var bench: cast.filter(c => c !== stage && !(duo && c === buddyWho))
+    readonly property var bench: cast.filter(c => c !== stage && !(duo && c === buddyWho) && !(heraldRin && c === "rin"))
+
+    // ---- Rin and the notifications --------------------------------------------------
+    // Rin is the notifications'. While Windows holds one that has not been looked at she
+    // stands at the head of the bar, after whoever is there already (second, or third
+    // while two are at work), and waves a sign with the name of the program it came
+    // from. She does not stand still: every few seconds she does something, and the
+    // others answer. A click on her or her sign counts as looking: it opens the
+    // notification centre and she goes back to the bench.
+    readonly property bool note: Prefs.rinNotes && Notes.available && Notes.pending
+        && !expanded && !floating && !vertical && !mfree && !assembling && !greeting
+    // (if Rin is at the head already, on stage or as the partner, the sign is simply hers)
+    readonly property bool heraldRin: note && stage !== "rin" && !(duo && buddyWho === "rin")
+    property real heraldSeat: heraldRin ? 23 : 0
+    Behavior on heraldSeat { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
+    property real heraldW: note ? (heraldRin ? 23 : 0) + sign.fullW + 2 : 0
+    Behavior on heraldW { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
+    function rinItem() { return stage === "rin" ? mascot : duo && buddyWho === "rin" ? buddy : herald }
+    property int lastNoteScene: -1
+    function noteScene() {
+        if (skTrade.running || sweeping) return
+        for (const k of skits) if (k.running) return
+        const r = rinItem(), o = r === mascot ? (duo ? buddy : null) : mascot
+        let i = Math.floor(Math.random() * 6)
+        if (i === lastNoteScene) i = (i + 1) % 6
+        lastNoteScene = i
+        if (i === 0) { r.jump(0.7, true); r.play("hype", 1200) }                                  // look, look
+        else if (i === 1) { r.play("hello", 1300); if (o) o.play("surprised", 900) }               // over here
+        else if (i === 2) { r.jump(0.5, true); if (o) o.jump(0.35, false); if (duo && r === herald) buddy.jump(0.3, false) } // all hop
+        else if (i === 3) { r.play("angry", 1100); if (o) o.play("unimpressed", 1300) }            // will you look already
+        else if (i === 4) { r.play("laugh", 1200); if (o) o.play("laugh", 1200) }
+        else { r.st.sqv += 6; if (o) o.play("fond", 1100) }
+    }
+    onNoteChanged: if (note) { rinItem().jump(0.8, true); if (stage !== "rin") mascot.play("surprised", 900) }
+    Timer {
+        interval: 4000
+        repeat: true
+        running: root.note && !Theme.reduced && !root.tucked
+        onTriggered: { interval = 4500 + Math.random() * 4500; root.noteScene() }
+    }
 
     // ---- two at work ----------------------------------------------------------------
     // While Claude works the bar holds two of them at its head, side by side (Miku is the
@@ -402,6 +441,7 @@ Item {
     readonly property bool canTuck: !floating && !expanded && !mfree && !assembling && !dragArea.pressed
         && !hover.hovered && !wake.hovered && Hub.pendingCount === 0 && Hub.chip === ""
         && (Hub.mood === "idle" || Hub.mood === "sleep") && !tune
+        && !(Prefs.rinNotes && Notes.available && Notes.pending) // (Rin has something to show)
     onCanTuckChanged: if (!canTuck) tucked = false
     onTuckedChanged: updateHit()
     Timer { interval: 60000; running: root.canTuck && !root.tucked; onTriggered: { if (root.zundaLive) root.idleTune = true; else root.tucked = true } } // (a tune playing: the player instead)
@@ -1350,6 +1390,43 @@ Item {
             paused: !visible || root.tucked
             gazeOn: true
             gaze: root.duoLook ? Qt.point(-0.9, 0) : Qt.point(0, 0.25)
+        }
+
+        // Rin with a notification, after whoever is at the head (see "Rin and the notifications")
+        Mascot {
+            id: herald
+            z: 2
+            size: 20
+            x: card.x + root.miniLead + root.mini + 3 + root.duoW
+            y: (root.atBottom ? card.y + card.height - root.pillT : card.y) + (root.pillT - height) / 2
+            character: "rin"
+            instant: true
+            mood: "idle"
+            property real pop: root.heraldRin ? 1 : 0
+            Behavior on pop { NumberAnimation { duration: 320; easing.type: Theme.reduced ? Easing.OutCubic : Easing.OutBack } }
+            scale: pop
+            visible: pop > 0.01
+            paused: !visible || root.tucked
+            gazeOn: true
+            gaze: Qt.point(0.5, -0.3) // (up at her sign)
+        }
+        NoteSign {
+            id: sign
+            z: 3
+            x: card.x + root.miniLead + root.mini + 3 + root.duoW + root.heraldSeat
+            y: (root.atBottom ? card.y + card.height - root.pillT : card.y) + 3
+            on: root.note
+            still: root.tucked
+            app: Notes.app
+            count: Notes.count
+        }
+        MouseArea { // looked at
+            z: 4
+            visible: root.note
+            x: herald.x; y: sign.y
+            width: root.heraldSeat + sign.fullW; height: 26
+            cursorShape: Qt.PointingHandCursor
+            onClicked: { Hub.poke(); Sfx.play("click"); Notes.open() }
         }
 
         // the star that passes between the two
