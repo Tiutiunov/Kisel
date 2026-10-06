@@ -30,6 +30,7 @@ class IslandWindow : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(bool debugOn READ debugOn CONSTANT)
+    Q_PROPERTY(bool canAvoidPanels READ canAvoidPanels CONSTANT)    // there is a taskbar to keep clear of
     Q_PROPERTY(bool floating READ floating NOTIFY floatingChanged)
     Q_PROPERTY(QString edge READ edge NOTIFY dockChanged)           // top | bottom | left | right
     Q_PROPERTY(qreal along READ along NOTIFY dockChanged)           // the pill's centre along the edge, output px
@@ -72,6 +73,13 @@ public:
     Q_INVOKABLE void log(const QString &text) const;
 
     bool debugOn() const { return qEnvironmentVariableIsSet("KISEL_DEBUG"); }
+    // Windows: the taskbar is topmost as well and would cover an island docked on its
+    // edge. With this on, "the output" everywhere below is the work area, the part of
+    // the monitor the taskbar leaves free, so a dock on that side sits against the
+    // taskbar instead of under it. Layer-shell draws over panels and needs none of it.
+    bool canAvoidPanels() const;
+    bool avoidPanels() const { return m_avoidPanels; }
+    void setAvoidPanels(bool on);
     bool floating() const { return m_floating; }
     QString edge() const { return m_edge; }
     qreal along() const { return m_along; }
@@ -131,6 +139,8 @@ private:
     void setFloatPos(qreal x, qreal y);
     void applyPlacement();
     void applySurfaceSize(bool wide);
+    QRect area() const; // the output, or its work area (see setAvoidPanels)
+    bool m_avoidPanels = true;
 #ifdef Q_OS_WIN
     void trackPointer();
     QRectF m_hit;

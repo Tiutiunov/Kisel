@@ -379,8 +379,9 @@ Item {
         for (const s of Displays.screens) { x0 = Math.min(x0, s.x); y0 = Math.min(y0, s.y); x1 = Math.max(x1, s.x + s.w); y1 = Math.max(y1, s.y + s.h) }
         return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }
     }
-    readonly property real screenW: Shell.screenWidth()
-    readonly property real screenH: Shell.screenHeight()
+    // (read again whenever the placement changes: the work area can change under us)
+    readonly property real screenW: { Shell.originX; return Shell.screenWidth() }
+    readonly property real screenH: { Shell.originY; return Shell.screenHeight() }
 
     // where the mascot's slot is on the final collapsed pill, in output coordinates
     function slotCenterFinal() {

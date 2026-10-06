@@ -122,7 +122,15 @@ int main(int argc, char *argv[])
 
     QQuickView view;
     IslandWindow shell(&view);
+    shell.setAvoidPanels(prefs.avoidPanels());
     Displays displays(&shell, &prefs);
+    QObject::connect(&prefs, &Preferences::changed, &shell, [&] {
+        if (shell.avoidPanels() == prefs.avoidPanels())
+            return;
+        shell.setAvoidPanels(prefs.avoidPanels());
+        if (!shell.floating())
+            displays.applyDock(); // the same place along an edge that is now longer or shorter
+    });
     Sounds sounds(&prefs);
     Launcher launcher;
     SeamWindows seams;

@@ -68,6 +68,18 @@ IslandWindow::IslandWindow(QQuickView *view, QObject *parent)
     auto *poll = new QTimer(this);
     connect(poll, &QTimer::timeout, this, &IslandWindow::trackPointer);
     poll->start(33);
+    // the taskbar moved, grew or started hiding itself: the work area changed under us
+    auto follow = [this](QScreen *s) {
+        connect(s, &QScreen::availableGeometryChanged, this, [this, s] {
+            if (s != m_view->screen() || m_grabbing)
+                return;
+            applyPlacement();
+            emit placementChanged();
+        });
+    };
+    for (QScreen *s : QGuiApplication::screens())
+        follow(s);
+    connect(qApp, &QGuiApplication::screenAdded, this, follow);
 #else
     m_view->setFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
 #endif
@@ -100,8 +112,36 @@ IslandWindow::IslandWindow(QQuickView *view, QObject *parent)
 
 // ---- geometry ---------------------------------------------------------------
 
-qreal IslandWindow::screenWidth() const { return m_view->screen() ? m_view->screen()->geometry().width() : 1920; }
-qreal IslandWindow::screenHeight() const { return m_view->screen() ? m_view->screen()->geometry().height() : 1080; }
+bool IslandWindow::canAvoidPanels() const
+{
+#ifdef Q_OS_WIN
+    return true;
+#else
+    return false;
+#endif
+}
+
+QRect IslandWindow::area() const
+{
+    const QScreen *s = m_view->screen();
+    if (!s)
+        return QRect(0, 0, 1920, 1080);
+    return m_avoidPanels && canAvoidPanels() ? s->availableGeometry() : s->geometry();
+}
+
+void IslandWindow::setAvoidPanels(bool on)
+{
+    if (on == m_avoidPanels)
+        return;
+    m_avoidPanels = on;
+    m_along = clampAlong(m_edge, m_along);
+    applyPlacement();
+    emit dockChanged();
+    emit placementChanged();
+}
+
+qreal IslandWindow::screenWidth() const { return area().width(); }
+qreal IslandWindow::screenHeight() const { return area().height(); }
 bool IslandWindow::viewWide() const { return m_view->width() > kWidth + 40 || m_view->height() > kHeight + 40; }
 
 qreal IslandWindow::edgeLength(const QString &edge) const
@@ -173,7 +213,7 @@ void IslandWindow::placeOnX11()
     // X11 and compositors without layer-shell: a plain frameless window.
     if (useLayerShell() || !m_view->screen())
         return;
-    const QRect g = m_view->screen()->geometry();
+    const QRect g = area();
     m_view->setPosition(g.left() + int(originX()), g.top() + int(originY()));
 }
 
@@ -337,7 +377,7 @@ bool IslandWindow::beginGrab()
 #endif
     if (m_view->screen()) {
         // plain windows: the window itself becomes the size of the output
-        m_view->setGeometry(m_view->screen()->geometry());
+        m_view->setGeometry(area());
     }
     emit grabbingChanged();
     emit placementChanged();

@@ -214,6 +214,7 @@ Item {
             Text { text: "Look and sound"; color: Theme.ink; font.family: Theme.display; font.pixelSize: 16; font.weight: Font.DemiBold }
             KToggle { label: "Sounds"; checked: Prefs.soundOn; onToggled: (v) => Prefs.soundOn = v }
             KToggle { label: "Reduce motion"; checked: Prefs.reduceMotion; onToggled: (v) => Prefs.reduceMotion = v }
+            KToggle { visible: Shell.canAvoidPanels; label: "Stay clear of the taskbar"; checked: Prefs.avoidPanels; onToggled: (v) => Prefs.avoidPanels = v }
             Row {
                 spacing: Theme.space2
                 Repeater {

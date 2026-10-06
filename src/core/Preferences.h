@@ -20,6 +20,7 @@ class Preferences : public QObject
     Q_PROPERTY(bool floating READ floating WRITE setFloating NOTIFY changed)
     Q_PROPERTY(qreal floatX READ floatX WRITE setFloatX NOTIFY changed)
     Q_PROPERTY(qreal floatY READ floatY WRITE setFloatY NOTIFY changed)
+    Q_PROPERTY(bool avoidPanels READ avoidPanels WRITE setAvoidPanels NOTIFY changed)
     Q_PROPERTY(bool hookSeen READ hookSeen NOTIFY changed)
     Q_PROPERTY(int alwaysCount READ alwaysCount NOTIFY changed)
 
@@ -34,6 +35,8 @@ public:
     bool floating() const { return m_s.value("floating", false).toBool(); }
     qreal floatX() const { return m_s.value("floatX", 0).toReal(); }
     qreal floatY() const { return m_s.value("floatY", 0).toReal(); }
+    // Keep to the part of the screen the taskbar leaves free (where the platform has one).
+    bool avoidPanels() const { return m_s.value("avoidPanels", true).toBool(); }
     bool hookSeen() const { return m_s.value("hookSeen", false).toBool(); } // a hook event has reached Kisel once
     bool firstRunDone() const { return m_s.value("firstRunDone", false).toBool(); }
 
@@ -45,6 +48,7 @@ public:
     void setFloating(bool v) { set("floating", v); }
     void setFloatX(qreal v) { set("floatX", v); }
     void setFloatY(qreal v) { set("floatY", v); }
+    void setAvoidPanels(bool v) { set("avoidPanels", v); }
     void setHookSeen(bool v) { set("hookSeen", v); }
     void setFirstRunDone(bool v) { set("firstRunDone", v); }
 
