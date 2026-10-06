@@ -1,4 +1,4 @@
-﻿// The island: a dark pill docked to one edge of the screen that grows into a card,
+// The island: a dark pill docked to one edge of the screen that grows into a card,
 // or (floating) a mascot that lives free on the desktop and opens its card in
 // place. Sizes, timings and behaviour follow motion.md.
 //
