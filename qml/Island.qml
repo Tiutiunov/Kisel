@@ -139,6 +139,7 @@ Item {
     Behavior on heraldW { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
     readonly property Item rinNow: stage === "rin" ? mascot : duo && buddyWho === "rin" ? buddy : herald
     property int lastNoteScene: -1
+    property int lastNoteSkit: -1
     // the other two (or the one), nearest to Rin first
     function noteOthers() {
         const r = rinNow, all = duo ? [buddy, mascot] : [mascot]
@@ -147,6 +148,17 @@ Item {
     function noteScene() {
         if (skTrade.running || sweeping || noteWave.running) return
         for (const k of skits) if (k.running) return
+        for (const k of noteSkits) if (k.running) return
+        // all three seated: mostly the scenes with Rin in them bodily
+        if (duo && rinNow === herald && herald.pop > 0.9 && Math.random() < 0.75) {
+            let n = Math.floor(Math.random() * noteSkits.length)
+            if (n === lastNoteSkit) n = (n + 1) % noteSkits.length
+            lastNoteSkit = n
+            mainDx = 0; buddyDx = 0
+            duoLook = true; duoLookOff.restart()
+            noteSkits[n].restart()
+            return
+        }
         const r = rinNow, o = noteOthers(), a = o[0] || null, b = o[1] || null
         let i = Math.floor(Math.random() * 9)
         if (i === lastNoteScene) i = (i + 1) % 9
@@ -162,6 +174,102 @@ Item {
         else if (i === 7) { r.play("proud", 1300); for (const m of o) m.play("hype", 1000) }                       // they cheer her sign
         else { if (a) { a.play("love", 1200); a.jump(0.3, false) } r.play("flustered", 1200); if (b) b.play("laugh", 1100) } // one of them is too fond of her
     }
+    // ...and the scenes the three have together, with Rin in them bodily (she is the
+    // third in the row: `heraldDx` slides her, `heraldPop` ducks her; the sign goes
+    // where she goes). These play when all three are seated; otherwise the faces above.
+    property real heraldDx: 0
+    property real heraldPop: 1
+    readonly property real seatW: mini + 3
+    readonly property var noteSkits: [nkBump, nkSwap, nkLeap, nkToss, nkHuddle, nkConga, nkPeek, nkChase]
+    function stopNoteSkits() { for (const k of noteSkits) k.stop(); noteWave.stop(); heraldDx = 0; heraldPop = 1 }
+    // Rin barges into the partner, who bumps into the first: dominoes
+    SequentialAnimation {
+        id: nkBump
+        NumberAnimation { target: root; property: "heraldDx"; to: -8; duration: 120; easing.type: Easing.InQuad }
+        ScriptAction { script: { buddy.st.sqv += 7; buddy.st.shake = 0.6; buddy.play("surprised", 800) } }
+        ParallelAnimation { NumberAnimation { target: root; property: "heraldDx"; to: 0; duration: 280; easing.type: Easing.OutBack } NumberAnimation { target: root; property: "buddyDx"; to: -6; duration: 120; easing.type: Easing.InQuad } }
+        ScriptAction { script: { mascot.st.sqv += 6; mascot.st.shake = 0.5; mascot.play("surprised", 800) } }
+        NumberAnimation { target: root; property: "buddyDx"; to: 0; duration: 280; easing.type: Easing.OutBack }
+        PauseAnimation { duration: 250 }
+        ScriptAction { script: { herald.play("laugh", 1000); herald.jump(0.4, true) } }
+    }
+    // Rin and the partner jump over each other, and after a moment jump back
+    SequentialAnimation {
+        id: nkSwap
+        ScriptAction { script: { herald.jump(1, true); buddy.jump(0.8, true) } }
+        ParallelAnimation { NumberAnimation { target: root; property: "heraldDx"; to: -root.seatW; duration: 420; easing.type: Easing.InOutCubic } NumberAnimation { target: root; property: "buddyDx"; to: root.seatW; duration: 420; easing.type: Easing.InOutCubic } }
+        ScriptAction { script: { herald.play("hype", 1000); buddy.play("laugh", 1000); mascot.play("surprised", 800) } }
+        PauseAnimation { duration: 1500 }
+        ScriptAction { script: { herald.jump(1, true); buddy.jump(0.8, true) } }
+        ParallelAnimation { NumberAnimation { target: root; property: "heraldDx"; to: 0; duration: 420; easing.type: Easing.InOutCubic } NumberAnimation { target: root; property: "buddyDx"; to: 0; duration: 420; easing.type: Easing.InOutCubic } }
+    }
+    // Rin leaps to the head of the row and the other two shuffle along; then back
+    SequentialAnimation {
+        id: nkLeap
+        ScriptAction { script: { herald.jump(1.2, true); herald.play("hype", 1400) } }
+        ParallelAnimation { NumberAnimation { target: root; property: "heraldDx"; to: -2 * root.seatW; duration: 480; easing.type: Easing.InOutCubic } NumberAnimation { target: root; property: "mainDx"; to: root.seatW; duration: 480; easing.type: Easing.InOutCubic } NumberAnimation { target: root; property: "buddyDx"; to: root.seatW; duration: 480; easing.type: Easing.InOutCubic } }
+        ScriptAction { script: { mascot.play("unimpressed", 1200); buddy.play("laugh", 1000); herald.st.sqv += 6 } }
+        PauseAnimation { duration: 1600 }
+        ScriptAction { script: { herald.jump(1.2, true); mascot.jump(0.4, true); buddy.jump(0.4, true) } }
+        ParallelAnimation { NumberAnimation { target: root; property: "heraldDx"; to: 0; duration: 480; easing.type: Easing.InOutCubic } NumberAnimation { target: root; property: "mainDx"; to: 0; duration: 480; easing.type: Easing.InOutCubic } NumberAnimation { target: root; property: "buddyDx"; to: 0; duration: 480; easing.type: Easing.InOutCubic } }
+    }
+    // a star from Rin down the row and all the way back
+    SequentialAnimation {
+        id: nkToss
+        ScriptAction { script: { root.tossU = 2; root.tossA = 1; herald.st.sqv += 4 } }
+        NumberAnimation { target: root; property: "tossU"; to: 1; duration: 380; easing.type: Easing.InOutSine }
+        ScriptAction { script: { buddy.jump(0.45, true); buddy.play("hype", 700) } }
+        NumberAnimation { target: root; property: "tossU"; to: 0; duration: 380; easing.type: Easing.InOutSine }
+        ScriptAction { script: { mascot.jump(0.45, true); mascot.play("laugh", 800) } }
+        PauseAnimation { duration: 300 }
+        ScriptAction { script: { mascot.st.sqv += 5 } }
+        NumberAnimation { target: root; property: "tossU"; to: 2; duration: 620; easing.type: Easing.InOutSine }
+        ScriptAction { script: { herald.jump(0.6, true); herald.play("proud", 1000) } }
+        NumberAnimation { target: root; property: "tossA"; to: 0; duration: 180; easing.type: Easing.OutCubic }
+    }
+    // all three lean in, a star where they meet
+    SequentialAnimation {
+        id: nkHuddle
+        ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: 5; duration: 150; easing.type: Easing.OutQuad } NumberAnimation { target: root; property: "heraldDx"; to: -5; duration: 150; easing.type: Easing.OutQuad } }
+        ScriptAction { script: { root.tossU = 1; root.tossA = 1; for (const m of [mascot, buddy, herald]) { m.st.sqv += 6; m.play("laugh", 900) } } }
+        ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: 0; duration: 260; easing.type: Easing.OutBack } NumberAnimation { target: root; property: "heraldDx"; to: 0; duration: 260; easing.type: Easing.OutBack } NumberAnimation { target: root; property: "tossA"; to: 0; duration: 460; easing.type: Easing.OutCubic } }
+    }
+    // a little line dance: they sway one after another and hop
+    SequentialAnimation {
+        id: nkConga
+        ScriptAction { script: { for (const m of [mascot, buddy, herald]) { m.st.swing = 1; m.play("hum", 1900) } } }
+        NumberAnimation { target: root; property: "heraldDx"; to: 4; duration: 200; easing.type: Easing.InOutSine }
+        ScriptAction { script: { herald.jump(0.35, true) } }
+        ParallelAnimation { NumberAnimation { target: root; property: "heraldDx"; to: 0; duration: 200; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "buddyDx"; to: 4; duration: 200; easing.type: Easing.InOutSine } }
+        ScriptAction { script: { buddy.jump(0.35, true) } }
+        ParallelAnimation { NumberAnimation { target: root; property: "buddyDx"; to: 0; duration: 200; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "mainDx"; to: 4; duration: 200; easing.type: Easing.InOutSine } }
+        ScriptAction { script: { mascot.jump(0.35, true) } }
+        NumberAnimation { target: root; property: "mainDx"; to: 0; duration: 200; easing.type: Easing.InOutSine }
+        ScriptAction { script: { for (const m of [mascot, buddy, herald]) m.jump(0.45, true) } }
+        PauseAnimation { duration: 300 }
+    }
+    // Rin ducks out of sight; the others look for her; up she pops
+    SequentialAnimation {
+        id: nkPeek
+        NumberAnimation { target: root; property: "heraldPop"; to: 0; duration: 200; easing.type: Easing.InBack }
+        PauseAnimation { duration: 350 }
+        ScriptAction { script: { buddy.play("surprised", 900); mascot.play("surprised", 900) } }
+        PauseAnimation { duration: 650 }
+        ScriptAction { script: { herald.jump(0.9, true); herald.play("hype", 1100) } }
+        NumberAnimation { target: root; property: "heraldPop"; to: 1; duration: 300; easing.type: Easing.OutBack }
+        ScriptAction { script: { buddy.jump(0.5, true); mascot.jump(0.4, true); buddy.st.shake = 0.5 } }
+    }
+    // the partner goes after Rin, Rin dodges away and comes back laughing
+    SequentialAnimation {
+        id: nkChase
+        ScriptAction { script: { buddy.play("annoyed", 1300) } }
+        NumberAnimation { target: root; property: "buddyDx"; to: 7; duration: 160; easing.type: Easing.InQuad }
+        ScriptAction { script: { herald.jump(0.6, true); herald.play("laugh", 1200) } }
+        ParallelAnimation { NumberAnimation { target: root; property: "heraldDx"; to: 9; duration: 160; easing.type: Easing.OutQuad } NumberAnimation { target: root; property: "buddyDx"; to: 0; duration: 300; easing.type: Easing.OutBack } }
+        PauseAnimation { duration: 350 }
+        NumberAnimation { target: root; property: "heraldDx"; to: 0; duration: 320; easing.type: Easing.OutBack }
+        ScriptAction { script: { mascot.play("laugh", 900) } }
+    }
     SequentialAnimation {
         id: noteWave
         ScriptAction { script: root.rinNow.jump(0.5, true) }
@@ -174,7 +282,7 @@ Item {
         PauseAnimation { duration: 150 }
         ScriptAction { script: { root.rinNow.jump(0.6, true); root.rinNow.play("laugh", 900) } }
     }
-    onNoteChanged: { updateHit(); if (note) { rinNow.jump(0.8, true); if (stage !== "rin") mascot.play("surprised", 900) } else noteWave.stop() }
+    onNoteChanged: { updateHit(); if (note) { rinNow.jump(0.8, true); if (stage !== "rin") mascot.play("surprised", 900) } else { stopNoteSkits(); mainDx = 0; buddyDx = 0; tossA = 0 } }
     Timer {
         interval: 4000
         repeat: true
@@ -213,13 +321,14 @@ Item {
     function playSkit() {
         if (skTrade.running || sweeping) return // (nothing interrupts the sweeping)
         for (const k of skits) if (k.running) return
+        for (const k of noteSkits) if (k.running) return
         let i = Math.floor(Math.random() * skits.length)
         if (i === lastSkit) i = (i + 1) % skits.length
         lastSkit = i
         duoLook = true; duoLookOff.restart()
         skits[i].restart()
     }
-    onDuoChanged: if (!duo) { skTrade.stop(); for (const k of skits) k.stop(); mainDx = 0; buddyDx = 0; buddyPop = 1; tossA = 0 }
+    onDuoChanged: if (!duo) { skTrade.stop(); for (const k of skits) k.stop(); stopNoteSkits(); mainDx = 0; buddyDx = 0; buddyPop = 1; tossA = 0 }
     // The two trading places while they sit together (Miku's visit ends and the other
     // takes the lead, or the other way round). Neither vanishes and reappears: each is
     // drawn where she was a moment ago, in the other's seat, and they jump over to their
@@ -229,6 +338,7 @@ Item {
         id: skTrade
         ScriptAction { script: {
             for (const k of root.skits) k.stop()
+            root.stopNoteSkits()
             root.buddyPop = 1; root.tossA = 0
             root.mainDx = 27; root.buddyDx = -27
             root.duoLook = true; duoLookOff.restart()
@@ -1430,18 +1540,18 @@ Item {
             id: herald
             z: 2
             size: root.mini
-            x: card.x + root.miniLead + root.mini + 3 + root.duoW
+            x: card.x + root.miniLead + root.mini + 3 + root.duoW + root.heraldDx
             y: (root.atBottom ? card.y + card.height - root.pillT : card.y) + (root.pillT - height) / 2
             character: "rin"
             instant: true
             mood: "idle"
             property real pop: root.heraldRin ? 1 : 0
             Behavior on pop { NumberAnimation { duration: 320; easing.type: Theme.reduced ? Easing.OutCubic : Easing.OutBack } }
-            scale: pop
+            scale: pop * root.heraldPop
             visible: pop > 0.01
             paused: !visible || root.tucked
             gazeOn: true
-            gaze: Qt.point(0.5, -0.3) // (up at her sign)
+            gaze: root.duoLook ? Qt.point(-0.9, 0) : Qt.point(0.5, -0.3) // (at the others, or up at her sign)
         }
         NoteSign {
             id: sign
@@ -1481,8 +1591,8 @@ Item {
             tint: "#FFE08A"
             opacity: root.duo ? root.tossA : 0
             visible: opacity > 0.01
-            x: card.x + root.miniLead + root.mini / 2 + root.tossU * 26 - size / 2
-            y: (root.atBottom ? card.y + card.height - root.pillT : card.y) + root.pillT / 2 - 3 - Math.sin(Math.PI * root.tossU) * 9 - size / 2
+            x: card.x + root.miniLead + root.mini / 2 + root.tossU * root.seatW - size / 2
+            y: (root.atBottom ? card.y + card.height - root.pillT : card.y) + root.pillT / 2 - 3 - Math.abs(Math.sin(Math.PI * root.tossU)) * 9 - size / 2
             rotation: root.tossU * 180
             scale: 0.8 + root.tossA * 0.5
         }
@@ -1757,7 +1867,7 @@ Item {
                 if (picked) { release(); return }
                 const progressed = hold
                 hold = 0
-                if (clicked && !moved && root.dockT === 0) {
+                if (clicked && !moved && !dockAnim.running) { // (not `dockT === 0`: it rests at 1 once she has landed)
                     // a click opens the card quietly; on the open card it is a slap
                     // (she sulks, and three in a row make her dizzy)
                     Hub.poke()
