@@ -123,7 +123,8 @@ Item {
     // Rin is the notifications'. While Windows holds one that has not been looked at she
     // stands at the head of the bar, after whoever is there already (second, or third
     // while two are at work), and waves a sign with the name of the program it came
-    // from. She does not stand still: every few seconds she does something, and the
+    // from. The sign is held up out of the bar (above it, or below a bar on the top
+    // edge), so the bar only makes room for Rin herself. She does not stand still: every few seconds she does something, and the
     // others answer. A click on her or her sign counts as looking: it opens the
     // notification centre and she goes back to the bench.
     readonly property bool note: Prefs.rinNotes && Notes.available && Notes.pending
@@ -132,9 +133,10 @@ Item {
     readonly property bool heraldRin: note && stage !== "rin" && !(duo && buddyWho === "rin")
     property real heraldSeat: heraldRin ? 23 : 0
     Behavior on heraldSeat { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
-    property real heraldW: note ? (heraldRin ? 23 : 0) + sign.fullW + 2 : 0
+    property real heraldW: heraldRin ? 23 : 0
     Behavior on heraldW { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
     function rinItem() { return stage === "rin" ? mascot : duo && buddyWho === "rin" ? buddy : herald }
+    readonly property Item rinNow: stage === "rin" ? mascot : duo && buddyWho === "rin" ? buddy : herald
     property int lastNoteScene: -1
     function noteScene() {
         if (skTrade.running || sweeping) return
@@ -150,7 +152,7 @@ Item {
         else if (i === 4) { r.play("laugh", 1200); if (o) o.play("laugh", 1200) }
         else { r.st.sqv += 6; if (o) o.play("fond", 1100) }
     }
-    onNoteChanged: if (note) { rinItem().jump(0.8, true); if (stage !== "rin") mascot.play("surprised", 900) }
+    onNoteChanged: { updateHit(); if (note) { rinItem().jump(0.8, true); if (stage !== "rin") mascot.play("surprised", 900) } }
     Timer {
         interval: 4000
         repeat: true
@@ -668,9 +670,13 @@ Item {
         // while the assembly plays, the whole top of the surface takes the click that skips it
         if (assembling) { Shell.setHitRect(0, 0, root.width, 300); return }
         // the card and the mascot (which can overhang it), in the surface's coordinates
-        const x0 = Math.min(card.x, mascot.x), y0 = Math.min(card.y, mascot.y)
-        const x1 = Math.max(card.x + card.width, mascot.x + mascot.width)
-        const y1 = Math.max(card.y + card.height, mascot.y + mascot.height)
+        let x0 = Math.min(card.x, mascot.x), y0 = Math.min(card.y, mascot.y)
+        let x1 = Math.max(card.x + card.width, mascot.x + mascot.width)
+        let y1 = Math.max(card.y + card.height, mascot.y + mascot.height)
+        if (note) { // (Rin's sign stands out of the bar and takes clicks too)
+            y0 = Math.min(y0, sign.y); y1 = Math.max(y1, sign.y + sign.height)
+            x1 = Math.max(x1, sign.x + sign.width)
+        }
         if (mfree) Shell.setHitRect(root.x + mascot.x, root.y + mascot.y, mascot.width, mascot.height)
         else Shell.setHitRect(root.x + x0, root.y + body.y + y0, x1 - x0, y1 - y0)
     }
@@ -1413,18 +1419,30 @@ Item {
         NoteSign {
             id: sign
             z: 3
-            x: card.x + root.miniLead + root.mini + 3 + root.duoW + root.heraldSeat
-            y: (root.atBottom ? card.y + card.height - root.pillT : card.y) + 3
+            flip: !root.atBottom
+            x: root.rinNow.x + root.rinNow.width - 9
+            y: (root.atBottom ? card.y + card.height - root.pillT - 19 : card.y + root.pillT - 11)
             on: root.note
             still: root.tucked
             app: Notes.app
             count: Notes.count
+            onXChanged: root.updateHit()
+            onWidthChanged: root.updateHit()
         }
-        MouseArea { // looked at
+        // looked at: a click on Rin, or on her sign
+        MouseArea {
             z: 4
             visible: root.note
-            x: herald.x; y: sign.y
-            width: root.heraldSeat + sign.fullW; height: 26
+            x: root.rinNow.x; y: (root.atBottom ? card.y + card.height - root.pillT : card.y)
+            width: root.rinNow.width; height: root.pillT
+            cursorShape: Qt.PointingHandCursor
+            onClicked: { Hub.poke(); Sfx.play("click"); Notes.open() }
+        }
+        MouseArea {
+            z: 4
+            visible: root.note
+            x: sign.x; y: sign.flip ? sign.y + 10 : sign.y
+            width: sign.fullW; height: 20
             cursorShape: Qt.PointingHandCursor
             onClicked: { Hub.poke(); Sfx.play("click"); Notes.open() }
         }
