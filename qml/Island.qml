@@ -90,7 +90,11 @@ Item {
     //   goes to Zundamon and her player whoever was chosen (`idleTune`), until Claude
     //   works again or someone is picked by hand. With no tune the bar tucks away instead.
     property bool idleTune: false
-    readonly property string rest: idleTune && zundaLive ? "zunda"
+    //   A click on Miku herself in the bar (while she visits, or sits there as the
+    //   partner) is a wish for Miku and Claude's Home, not for whoever rests: the card
+    //   opens hers and stays hers until it closes (`mikuAsked`).
+    property bool mikuAsked: false
+    readonly property string rest: mikuAsked ? "miku" : idleTune && zundaLive ? "zunda"
         : Prefs.character !== "miku" || mikuPinned ? Prefs.character
         : tetoLive ? "teto" : zundaLive ? "zunda" : "miku"
     readonly property string stage: guest !== "" ? guest : rest
@@ -117,7 +121,7 @@ Item {
     // The chosen one with a service of her own (Zundamon with Spotify) minds that service:
     // Claude's working is Miku's news, not hers.
     readonly property bool ownAct: guest === "" && rest === "zunda" && Prefs.zundaSpotify && Media.available
-    readonly property var bench: cast.filter(c => c !== stage && !(duo && c === buddyWho) && !(heraldRin && c === "rin"))
+    readonly property var bench: cast.filter(c => c !== stage && !(duo && c === buddyWho) && !((heraldRin || rinFlying) && c === "rin"))
 
     // ---- Rin and the notifications --------------------------------------------------
     // Rin is the notifications'. While Windows holds one that has not been looked at she
@@ -138,6 +142,26 @@ Item {
     property real heraldW: heraldRin ? mini + 3 : 0
     Behavior on heraldW { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
     readonly property Item rinNow: stage === "rin" ? mascot : duo && buddyWho === "rin" ? buddy : herald
+    // When the notifications have been looked at she does not just vanish from the head
+    // of the bar: she somersaults over it, in an arc, to her seat on the bench at the far
+    // end, and lands there (`rinFlying`, `flyU` 0..1 along the way).
+    property bool rinFlying: false
+    property real flyU: 0
+    property real flyFromX: 0
+    // where her seat on the bench will be (the bench is two wide, in the cast's order)
+    readonly property int flySeat: cast.filter(c => c !== stage && !(duo && c === buddyWho)).indexOf("rin")
+    onHeraldRinChanged: {
+        if (heraldRin || expanded || floating || vertical || mfree || tucked || Theme.reduced || flySeat < 0) return
+        flyFromX = herald.x
+        rinFlying = true
+        flyer.play("hype", 900)
+        flyAnim.restart()
+    }
+    SequentialAnimation {
+        id: flyAnim
+        NumberAnimation { target: root; property: "flyU"; from: 0; to: 1; duration: 620; easing.type: Easing.InOutSine }
+        ScriptAction { script: { root.rinFlying = false; root.flyU = 0 } }
+    }
     property int lastNoteScene: -1
     property int lastNoteSkit: -1
     // the other two (or the one), nearest to Rin first
@@ -840,6 +864,8 @@ Item {
         NumberAnimation { target: Shell; property: "floatY"; to: fitAnim.toY; duration: Theme.tBase; easing.type: Easing.OutCubic }
     }
     onExpandedChanged: {
+        if (!expanded) mikuAsked = false
+        if (expanded && rinFlying) { flyAnim.stop(); rinFlying = false; flyU = 0 }
         if (!expanded && doneHold) doneHoldTimer.restart()
         if (!expanded) mikuPinned = false
         if (Shell.debugOn) Shell.log(Date.now() % 100000 + " expanded=" + expanded + " card=" + Math.round(card.x) + "," + Math.round(card.y) + " " + Math.round(card.width) + "x" + Math.round(card.height) + " mascot=" + Math.round(mascot.x) + "," + Math.round(mascot.y) + " size " + Math.round(mascot.width))
@@ -1222,7 +1248,7 @@ Item {
                 Spark { // the head: a star that turns while the tune plays
                     size: 9
                     x: tuneFill.width - size / 2
-                    y: root.dockSide === "bottom" ? 2 - size : 0
+                    y: 1 - size / 2 // (its middle on the line; the half past the bar's edge is cut off with it)
                     tint: "#FFFFFF"
                     opacity: Media.playing ? 1 : 0.5
                     RotationAnimation on rotation { running: root.miniPlayer && Media.playing && !Theme.reduced && !root.tucked; from: 0; to: 90; duration: 2400; loops: Animation.Infinite }
@@ -1542,6 +1568,15 @@ Item {
             gazeOn: true
             gaze: root.duoLook ? Qt.point(-0.9, 0) : Qt.point(0, 0.25)
         }
+        // a click on the partner opens the card, and if she is Miku it opens Miku's
+        MouseArea {
+            z: 4
+            visible: buddy.visible
+            x: buddy.x; y: buddy.y
+            width: buddy.width; height: buddy.height
+            cursorShape: Qt.PointingHandCursor
+            onClicked: { Hub.poke(); if (root.buddyWho === "miku") root.mikuAsked = true; root.autoOpened = false; root.open() }
+        }
 
         // Rin with a notification, after whoever is at the head (see "Rin and the notifications")
         Mascot {
@@ -1556,10 +1591,29 @@ Item {
             property real pop: root.heraldRin ? 1 : 0
             Behavior on pop { NumberAnimation { duration: 320; easing.type: Theme.reduced ? Easing.OutCubic : Easing.OutBack } }
             scale: pop * root.heraldPop
-            visible: pop > 0.01
+            visible: pop > 0.01 && !root.rinFlying
             paused: !visible || root.tucked
             gazeOn: true
             gaze: root.duoLook ? Qt.point(-0.9, 0) : Qt.point(0.5, -0.3) // (at the others, or up at her sign)
+        }
+        // ...and Rin on her way back to the bench (see `rinFlying`)
+        Mascot {
+            id: flyer
+            z: 5
+            readonly property real barTop: root.atBottom ? card.y + card.height - root.pillT : card.y
+            readonly property real toX: card.x + card.width - 8 - 40 + (root.flySeat % 2) * 21
+            readonly property real toY: barTop + 1 + Math.floor(root.flySeat / 2) * 15 - 1.5
+            size: root.mini - (root.mini - 18) * root.flyU
+            x: root.flyFromX + (toX - root.flyFromX) * root.flyU
+            // (the arc goes over the bar where there is room for it, and under it on the top edge)
+            y: barTop + (root.pillT - root.mini) / 2 + (toY - (barTop + (root.pillT - root.mini) / 2)) * root.flyU
+               + (root.atBottom ? -1 : 1) * Math.sin(Math.PI * root.flyU) * 24
+            rotation: root.flyU * 360
+            character: "rin"
+            instant: true
+            mood: "idle"
+            visible: root.rinFlying
+            paused: !visible
         }
         NoteSign {
             id: sign
@@ -1912,6 +1966,7 @@ Item {
                         if (root.expanded) root.collapseNow()
                         else { root.autoOpened = false; root.open() }
                     } else if (!root.expanded) {
+                        if (root.stage === "miku") root.mikuAsked = true // (Miku clicked: her card)
                         root.open()
                     } else {
                         mascot.poke()

@@ -225,6 +225,9 @@ Notices::Notices(QObject *parent)
         m_available = true;
         QTimer::singleShot(at, this, [this] { m_count = 3; m_app = QStringLiteral("Telegram");
             m_apps = {QStringLiteral("Telegram"), QStringLiteral("Discord")}; m_counts = {2, 1}; emit changed(); });
+        // KISEL_DEMO_NOTE_END=<ms>: ...and they are looked at
+        if (const int end = qEnvironmentVariableIntValue("KISEL_DEMO_NOTE_END"); end > 0)
+            QTimer::singleShot(end, this, &Notices::dismiss);
         return;
     }
     m_worker->thread = std::thread([w = m_worker.get()] { w->run(); });
