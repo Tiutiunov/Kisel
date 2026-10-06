@@ -9,6 +9,11 @@
 //   gumi  goggles on her head; sunny and sporty. Laughs a slap off.
 //   teto  twin drills; smug, and flustered the moment anyone is nice to her.
 //
+// Miku is the first to be redrawn after coucou's Mochi (`mochi: true` in `chars`): its
+// flattened superellipse, a plain cream-white body that takes the mood's colour from
+// below, and two ink pills for eyes. What makes her Miku is what she wears on it: the
+// twin tails, their ties and the headset. The other four follow.
+//
 // `character` picks one. They share every mood and differ in looks (`chars`), in how
 // fast and how high they move, and in the emotes of their own: the quirk each falls into
 // when idle, what a slap does, what resting the pointer on them does, and the favourite
@@ -68,7 +73,7 @@ Item {
     readonly property var chars: ({
         miku: { name: "Miku", hair: "#39C5BB", hairD: "#22968E", hairTop: "#55DACF", eye: ["#0B3F45", "#1C9C97", "#63E6DB"], style: "twintails",
                 vest: "#C6CFD6", trim: "#39C5BB", tie: "#2FB9AF", set: "#1b1f25", tip: "#E12885", sleeve: "#2B3138", cuff: "#39C5BB",
-                energy: 1, bounce: 1, mouth: "smile", fav: "leek", slap: "annoyed", rest: "love", quirk: "hum" },
+                energy: 1, bounce: 1, mouth: "smile", fav: "leek", slap: "annoyed", rest: "love", quirk: "hum", mochi: true },
         rin:  { name: "Rin", hair: "#FFD24A", hairD: "#E0A92E", hairTop: "#FFE585", eye: ["#0E4A5E", "#2BA6C9", "#8BE3F5"], style: "bow",
                 vest: "#F4F6F8", trim: "#F2B705", tie: "#F2B705", set: "#F4F6F8", tip: "#F2B705", sleeve: "#2B3138", cuff: "#F2B705",
                 energy: 1.3, bounce: 1.4, mouth: "grin", fav: "orange", slap: "angry", rest: "love", quirk: "hype" },
@@ -94,7 +99,7 @@ Item {
     // The hair that hangs on springs: where it is rooted (in body radii), how many links,
     // how long each, how wide along its length, and how far it is pushed outward.
     readonly property var hairs: ({
-        twintails: { x: 1.0,  y: -0.74, n: 6, seg: 0.36, out: 5,  w: [0.2, 0.33, 0.36, 0.32, 0.22, 0.05] },
+        twintails: { x: 0.9,  y: -0.6,  n: 6, seg: 0.36, out: 5,  w: [0.2, 0.33, 0.36, 0.32, 0.22, 0.05] },
         long:      { x: 0.9,  y: -0.2,  n: 6, seg: 0.38, out: 2,  w: [0.3, 0.36, 0.38, 0.36, 0.3, 0.14] },
         drills:    { x: 1.06, y: -0.5,  n: 5, seg: 0.25, out: 22, w: [0.26, 0.3, 0.26, 0.2, 0.1], coil: true },
         bow: null, goggles: null
@@ -246,6 +251,7 @@ Item {
     function look() {
         const a = looks[m] || looks.idle, e = emotes[emote] || (music && m === "idle" ? emotes.hum : null)
         const L = e ? Object.assign({}, a, e) : Object.assign({}, a)
+        L.tinted = !!L.color // a mood with a colour of its own (idle has none)
         if (!L.color) L.color = hair
         if (!L.mouth) L.mouth = who.mouth
         return L
@@ -454,11 +460,12 @@ Item {
         g.bezierCurveTo(x + s * 0.7, y - s * 1.2, x + s * 1.5, y - s * 0.2, x, y + s * 0.9); g.fill()
     }
     function bodyPath(g) {
-        const R = cR, rx = 1.1 * R, ry = 0.96 * R, e = 2 / 4.6 // a rounded square, not a ball
+        // a rounded square, not a ball; the mochi is coucou's: wider, flatter, exponent 2.7
+        const R = cR, M = who.mochi, rx = (M ? 1.14 : 1.1) * R, ry = (M ? 0.88 : 0.96) * R, e = 2 / (M ? 2.7 : 4.6), dy = R * (M ? 0.06 : 0.04)
         g.beginPath()
         for (let i = 0; i <= 64; i++) {
             const a = i / 64 * 2 * Math.PI, c = Math.cos(a), s = Math.sin(a)
-            const x = Math.sign(c) * Math.pow(Math.abs(c), e) * rx, y = Math.sign(s) * Math.pow(Math.abs(s), e) * ry + R * 0.04
+            const x = Math.sign(c) * Math.pow(Math.abs(c), e) * rx, y = Math.sign(s) * Math.pow(Math.abs(s), e) * ry + dy
             if (i) g.lineTo(x, y); else g.moveTo(x, y)
         }
         g.closePath()
@@ -538,6 +545,7 @@ Item {
 
     function paintBody(g, L) {
         const s = st, R = cR, TAU = 2 * Math.PI, W = who
+        if (W.mochi) { paintMochi(g, L); return }
         g.save(); g.translate(0, -R * 0.07); g.scale(1.07, 1.03); bodyPath(g); g.fillStyle = hairD; g.fill(); g.restore()
 
         bodyPath(g)
@@ -618,8 +626,42 @@ Item {
         g.fillStyle = W.tip; g.beginPath(); g.arc(-R * 0.5 + fx * 0.5, R * 0.56, R * 0.055, 0, TAU, false); g.fill()
     }
 
+    // Coucou's Mochi: cream from the top right to the bottom left, the mood's colour rising
+    // from below, a soft shade at the rim and a highlight. No hair on it, no clothes.
+    function paintMochi(g, L) {
+        const s = st, R = cR, TAU = 2 * Math.PI, W = who, ry = R * 0.88
+        bodyPath(g)
+        const sk = g.createLinearGradient(R, -R, -R, R); sk.addColorStop(0, "#FFFAF5"); sk.addColorStop(1, "#DDCCBF")
+        g.fillStyle = sk; g.fill()
+        g.save(); bodyPath(g); g.clip()
+        if (L.tinted && skin !== "github") {
+            const tg = g.createLinearGradient(0, ry + R * 0.06, 0, -ry * 0.25)
+            tg.addColorStop(0, rgba(L.color, 0.62)); tg.addColorStop(1, rgba(L.color, 0))
+            g.fillStyle = tg; g.fillRect(-R * 1.3, -R * 1.1, R * 2.6, R * 2.3)
+        }
+        const sh = g.createRadialGradient(R * 0.2, -R * 0.2, R * 0.5, 0, 0, R * 1.35); sh.addColorStop(0, "rgba(0,0,0,0)"); sh.addColorStop(1, "rgba(0,0,0,0.2)")
+        g.fillStyle = sh; g.fillRect(-R * 1.3, -R * 1.1, R * 2.6, R * 2.3)
+        const hl = g.createRadialGradient(R * 0.5, -R * 0.5, 0, R * 0.5, -R * 0.5, R * 0.6); hl.addColorStop(0, "rgba(255,255,255,0.55)"); hl.addColorStop(1, "rgba(255,255,255,0)")
+        g.fillStyle = hl; g.fillRect(-R * 1.3, -R * 1.1, R * 2.6, R * 2.3)
+        g.restore()
+
+        // the face: it travels with the glance, further still in the bar's mini
+        const reach = 1 + (1 - detail) * 0.6
+        const fx = s.gx * R * 0.24 * reach, fy = s.gy * R * 0.15 * reach
+        g.fillStyle = "rgba(255,120,150," + 0.5 * Math.max(0.35, s.blush) + ")"
+        for (const d of [-1, 1]) { g.beginPath(); ell(g, d * R * 0.64 + fx, R * 0.3 + fy, R * 0.16, R * 0.095); g.fill() }
+        paintEyes(g, L, fx, fy)
+        paintMouth(g, L, fx * 0.9, fy - R * 0.1)
+
+        // headset: the ear piece carries the mood's light, the boom ends in a pink tip
+        g.fillStyle = W.set; g.beginPath(); ell(g, -R * 1.12, R * 0.04, R * 0.12, R * 0.21); g.fill()
+        g.strokeStyle = L.color; g.lineWidth = R * 0.045; g.beginPath(); ell(g, -R * 1.12, R * 0.04, R * 0.055, R * 0.125); g.stroke()
+        g.strokeStyle = W.set; g.lineWidth = R * 0.045; g.lineCap = "round"; g.beginPath(); g.moveTo(-R * 1.1, R * 0.22); g.quadraticCurveTo(-R * 1.0, R * 0.56, -R * 0.62 + fx * 0.4, R * 0.56); g.stroke()
+        g.fillStyle = W.tip; g.beginPath(); g.arc(-R * 0.62 + fx * 0.4, R * 0.56, R * 0.055, 0, TAU, false); g.fill()
+    }
+
     function paintEyes(g, L, fx, fy) {
-        const s = st, R = cR, t = s.t, TAU = 2 * Math.PI, INK = "#12383A", E = who.eye
+        const s = st, R = cR, t = s.t, TAU = 2 * Math.PI, M = who.mochi, INK = M ? "#1A1412" : "#12383A", E = who.eye
         const type = eyesShut ? "closed" : L.eyes
         const soft = type === "normal" || type === "big" || type === "tired" || type === "smug"
         const open = soft ? clampv(1 - Math.max(0, s.blink), 0.08, 1) : 1
@@ -628,8 +670,18 @@ Item {
         // lowered lids: Luka always, anyone tired, Teto when she is pleased with herself
         const lid = type === "tired" ? 0.62 : type === "smug" ? 0.66 : who.calm && type === "normal" ? 0.8 : 1
         for (const d of [-1, 1]) {
-            const x = d * R * 0.44 + fx, y = R * 0.1 + fy, w = R * 0.15 * kk, h = R * 0.2 * kk
+            const x = d * R * (M ? 0.37 : 0.44) + fx, y = R * (M ? -0.02 : 0.1) + fy, w = R * (M ? 0.12 : 0.15) * kk, h = R * (M ? 0.19 : 0.2) * kk
             g.lineCap = "round"; g.lineJoin = "round"
+            if (soft && M) { // an ink pill; lowered lids cut its top off
+                const hh = Math.max(h * open, R * 0.03)
+                g.fillStyle = INK
+                if (lid < 1) {
+                    const slant = type === "smug" ? d * h * 0.3 : 0, top = y - hh + hh * 2 * (1 - lid)
+                    g.save(); g.beginPath(); g.moveTo(x - w * 1.2, top + slant); g.lineTo(x + w * 1.2, top - slant); g.lineTo(x + w * 1.2, y + h * 1.2); g.lineTo(x - w * 1.2, y + h * 1.2); g.closePath(); g.clip()
+                    rr(g, x - w, y - hh, w * 2, hh * 2, Math.min(w, hh)); g.fill(); g.restore()
+                } else { rr(g, x - w, y - hh, w * 2, hh * 2, Math.min(w, hh)); g.fill() }
+                continue
+            }
             if (soft) {
                 const hh = h * open * lid
                 const eg = g.createLinearGradient(0, y - hh, 0, y + hh); eg.addColorStop(0, E[0]); eg.addColorStop(0.55, E[1]); eg.addColorStop(1, E[2])
@@ -667,7 +719,9 @@ Item {
 
     function paintMouth(g, L, fx, fy) {
         const R = cR, t = st.t, x = fx, y = R * 0.46 + fy, mo = L.mouth, TAU = 2 * Math.PI
-        g.strokeStyle = "#12383A"; g.fillStyle = "#7A2137"; g.lineWidth = R * 0.05; g.lineCap = "round"; g.lineJoin = "round"
+        // the mochi's face at rest is its eyes and cheeks: a mouth appears only to say something
+        if (who.mochi && (mo === "smile" || mo === "soft" || mo === "flat")) return
+        g.strokeStyle = who.mochi ? "#1A1412" : "#12383A"; g.fillStyle = "#7A2137"; g.lineWidth = R * 0.05; g.lineCap = "round"; g.lineJoin = "round"
         if (mo === "smile") { g.beginPath(); g.arc(x, y - R * 0.06, R * 0.13, Math.PI * 0.18, Math.PI * 0.82, false); g.stroke() }
         if (mo === "soft")  { g.beginPath(); g.arc(x, y - R * 0.1, R * 0.12, Math.PI * 0.3, Math.PI * 0.7, false); g.stroke() }      // Luka's small, even smile
         if (mo === "flat")  { g.beginPath(); g.moveTo(x - R * 0.08, y); g.lineTo(x + R * 0.08, y); g.stroke() }
@@ -691,6 +745,11 @@ Item {
         for (let i = 0; i < 2; i++) {
             const h = toWorld(P, s.hand[i].x, s.hand[i].y), sh = toWorld(P, (i ? 1 : -1) * 0.9, 0.5)
             g.save(); g.translate(h.x, h.y); g.rotate(Math.atan2(h.y - sh.y, h.x - sh.x))
+            if (who.mochi) { // a plain cream paw
+                const mg = g.createRadialGradient(R * 0.05, -R * 0.06, R * 0.02, 0, 0, R * 0.2); mg.addColorStop(0, "#FFFAF5"); mg.addColorStop(1, "#DDCCBF")
+                g.fillStyle = mg; g.beginPath(); g.arc(0, 0, R * 0.17, 0, TAU, false); g.fill()
+                g.restore(); continue
+            }
             // the detached sleeve: flared toward the hand, trimmed at the cuff
             g.fillStyle = who.sleeve; g.beginPath(); g.moveTo(-R * 0.3, -R * 0.08); g.lineTo(-R * 0.03, -R * 0.15); g.lineTo(-R * 0.03, R * 0.15); g.lineTo(-R * 0.3, R * 0.08); g.closePath(); g.fill()
             g.fillStyle = who.cuff; g.fillRect(-R * 0.08, -R * 0.15, R * 0.05, R * 0.3)
