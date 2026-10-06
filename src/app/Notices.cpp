@@ -14,6 +14,7 @@
 #include <QTimer>
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <mutex>
 #include <iterator>
@@ -40,6 +41,33 @@ struct Notices::Worker
     }
 
 #ifdef Q_OS_WIN
+    // the program whose window is in front: its file's name without ".exe", lower case
+    static QString frontProgram()
+    {
+        DWORD pid = 0;
+        GetWindowThreadProcessId(GetForegroundWindow(), &pid);
+        QString name;
+        if (HANDLE h = pid ? OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid) : nullptr) {
+            wchar_t path[MAX_PATH];
+            DWORD size = MAX_PATH;
+            if (QueryFullProcessImageNameW(h, 0, path, &size))
+                name = QString::fromWCharArray(path, int(size));
+            CloseHandle(h);
+        }
+        name = name.mid(name.lastIndexOf(QLatin1Char('\\')) + 1).toLower();
+        if (name.endsWith(QLatin1String(".exe")))
+            name.chop(4);
+        return name;
+    }
+
+    struct Note
+    {
+        quint32 id;
+        QString name;  // the program, as Windows shows it
+        QString key;   // its name and its identifier, lower case: what the program in front is matched against
+        std::chrono::steady_clock::time_point came;
+    };
+
     void run()
     {
         namespace un = winrt::Windows::UI::Notifications;
@@ -61,7 +89,7 @@ struct Notices::Worker
         }
 
         std::set<quint32> seen;                            // looked at, or there before we started
-        std::vector<std::pair<quint32, QString>> unseen;   // in the order they came
+        std::vector<Note> unseen;                          // in the order they came
         bool first = true;
         bool told = false;
         int lastCount = -1;
@@ -81,14 +109,16 @@ struct Notices::Worker
                         continue;
                     bool known = false;
                     for (const auto &u : unseen)
-                        known = known || u.first == id;
+                        known = known || u.id == id;
                     if (known)
                         continue;
-                    QString name;
+                    QString name, key;
                     try {
                         if (const auto info = n.AppInfo()) {
                             const winrt::hstring s = info.DisplayInfo().DisplayName();
                             name = QString::fromWCharArray(s.c_str(), int(s.size()));
+                            const winrt::hstring a = info.AppUserModelId();
+                            key = (name + QLatin1Char(' ') + QString::fromWCharArray(a.c_str(), int(a.size()))).toLower();
                         }
                     } catch (...) {
                     }
@@ -96,23 +126,52 @@ struct Notices::Worker
                         seen.insert(id);
                         continue;
                     }
-                    unseen.emplace_back(id, name);
+                    unseen.push_back({id, name, key, std::chrono::steady_clock::now()});
                 }
                 first = false;
-                // gone from the notification centre: looked at
-                for (auto it = unseen.begin(); it != unseen.end();)
-                    it = now.count(it->first) ? it + 1 : unseen.erase(it);
+                // Gone from the notification centre after having lain there a while:
+                // someone dismissed it, so it has been looked at. Gone within moments is
+                // something else (a passing banner, or a program such as Discord taking
+                // its own notification back): nobody has looked, and Rin keeps her sign up.
+                for (auto it = unseen.begin(); it != unseen.end();) {
+                    const bool lain = std::chrono::steady_clock::now() - it->came > std::chrono::seconds(25);
+                    if (now.count(it->id)) {
+                        ++it;
+                    } else if (lain && it->id != 0) {
+                        it = unseen.erase(it);
+                    } else {
+                        it->id = 0; // (kept, and no longer tied to the centre)
+                        it->came = std::chrono::steady_clock::now() - std::chrono::hours(1);
+                        ++it;
+                    }
+                }
                 for (auto it = seen.begin(); it != seen.end();)
                     it = now.count(*it) ? std::next(it) : seen.erase(it);
             } catch (...) {
             }
+            // The program itself brought to the front: its notifications have been looked at.
+            if (!unseen.empty()) {
+                const QString front = frontProgram();
+                if (front.size() >= 3) {
+                    for (auto it = unseen.begin(); it != unseen.end();) {
+                        if (it->key.contains(front)) {
+                            if (it->id)
+                                seen.insert(it->id);
+                            it = unseen.erase(it);
+                        } else {
+                            ++it;
+                        }
+                    }
+                }
+            }
             if (dismissed.exchange(false)) {
                 for (const auto &u : unseen)
-                    seen.insert(u.first);
+                    if (u.id)
+                        seen.insert(u.id);
                 unseen.clear();
             }
             const int count = int(unseen.size());
-            const QString app = unseen.empty() ? QString() : unseen.back().second;
+            const QString app = unseen.empty() ? QString() : unseen.back().name;
             if (!told || count != lastCount || app != lastApp) {
                 told = true;
                 lastCount = count;

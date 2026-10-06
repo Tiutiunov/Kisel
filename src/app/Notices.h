@@ -13,8 +13,10 @@ namespace kisel {
 //
 // On Windows this is the system's notification listener. What was already in the
 // notification centre when Kisel started is old news and is not announced. A
-// notification counts as looked at when it leaves the notification centre (opened,
-// dismissed, or it was a passing banner that is gone), or when Rin's sign is clicked.
+// notification counts as looked at when Rin's sign is clicked, when the program it came
+// from is brought to the front, or when it is dismissed from the notification centre
+// after lying there a while. One that vanishes within moments (a passing banner, or a
+// program such as Discord withdrawing its own) has not been looked at, and stays.
 // Elsewhere `available` is false and nothing happens.
 //
 // The listener is read on a thread of its own; QML sees plain properties.
