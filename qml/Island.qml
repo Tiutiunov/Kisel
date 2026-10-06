@@ -784,7 +784,7 @@ Item {
                 }
                 Text {
                     x: 150; y: 12
-                    width: 330
+                    width: 270
                     height: 24
                     elide: Text.ElideRight
                     verticalAlignment: Text.AlignVCenter
@@ -798,7 +798,38 @@ Item {
                     font.weight: Font.DemiBold
                     font.pixelSize: 20
                 }
+                // the bench again, on the open card: a click swaps her in
                 Row {
+                    anchors.right: headerBtns.left
+                    anchors.rightMargin: 10
+                    y: 11
+                    spacing: 4
+                    Repeater {
+                        model: root.bench
+                        Item {
+                            id: chair
+                            required property string modelData
+                            width: 26; height: 26
+                            Mascot {
+                                anchors.centerIn: parent
+                                size: 24
+                                still: true
+                                character: chair.modelData
+                                scale: chairArea.containsMouse ? 1.2 : 1
+                                Behavior on scale { NumberAnimation { duration: Theme.tHover; easing.type: Easing.OutCubic } }
+                            }
+                            MouseArea {
+                                id: chairArea
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: { Sfx.play("click"); Prefs.character = chair.modelData }
+                            }
+                        }
+                    }
+                }
+                Row {
+                    id: headerBtns
                     anchors.right: parent.right
                     anchors.rightMargin: 12
                     y: 8
