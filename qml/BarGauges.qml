@@ -1,6 +1,6 @@
 // Teto's gauges in the collapsed bar: the processor, the graphics card and the memory as
 // short candy canes with their figures. Nothing here moves by itself: the canes only
-// grow and shrink with what they measure. They slide in
+// grow and shrink with what they measure (and the gauges and the news trade places). They slide in
 // from the right like Zundamon's player, and turn red where something is too full. A small
 // red key at the end cleans the memory, and for a few seconds after a clean the gauges
 // give way to what was freed.
@@ -22,17 +22,34 @@ Row {
     Behavior on opacity { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
     transform: Translate { x: root.on ? 0 : 18; Behavior on x { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } } }
 
+    // The gauges and the news of a clean share one place and trade it: the gauges lift
+    // away and fade as the news rises into their place with its star popping, and back.
     readonly property bool said: Sys.justCleaned
-    Item { // the news of a clean, in the gauges' place
-        visible: root.said
-        width: news.implicitWidth; height: 24
-        Row {
-            id: news
-            anchors.verticalCenter: parent.verticalCenter
+    property real told: said ? 1 : 0
+    Behavior on told { NumberAnimation { duration: Theme.reduced ? 0 : 460; easing.type: Easing.InOutCubic } }
+    readonly property real keyW: Sys.canClean ? 18 + spacing : 0
+    Item {
+        width: root.room - root.keyW; height: 24
+        Row { // the gauges
+            spacing: root.spacing
+            y: -9 * root.told
+            opacity: 1 - Math.min(1, root.told * 2) // (gone before the news shows)
+            visible: opacity > 0.01
+            Meter { name: "CPU"; value: Sys.cpu }
+            Meter { visible: Sys.hasGpu; name: "GPU"; value: Sys.gpu }
+            Meter { name: "RAM"; value: Sys.mem }
+        }
+        Row { // the news of a clean, in the gauges' place
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: (parent.height - height) / 2 + 9 * (1 - root.told)
             spacing: 5
+            opacity: Math.max(0, root.told * 2 - 1)
+            visible: opacity > 0.01
             Spark {
                 anchors.verticalCenter: parent.verticalCenter
                 size: 11; tint: "#FFE08A"
+                scale: root.said ? 1 : 0
+                Behavior on scale { NumberAnimation { duration: Theme.reduced ? 0 : 520; easing.type: Easing.OutBack; easing.overshoot: 3 } }
             }
             Text {
                 anchors.verticalCenter: parent.verticalCenter
@@ -42,9 +59,6 @@ Row {
             }
         }
     }
-    Meter { visible: !root.said; name: "CPU"; value: Sys.cpu }
-    Meter { visible: Sys.hasGpu && !root.said; name: "GPU"; value: Sys.gpu }
-    Meter { visible: !root.said; name: "RAM"; value: Sys.mem }
 
     Item { // the Clean key: a red key with a broom on it
         visible: Sys.canClean
@@ -75,7 +89,7 @@ Row {
         property string name: ""
         property real value: 0
         readonly property bool hot: value > 0.9
-        width: Math.floor((root.room - (Sys.canClean ? 18 + root.spacing : 0) - root.spacing * (root.meters - 1)) / root.meters)
+        width: Math.floor((root.room - root.keyW - root.spacing * (root.meters - 1)) / root.meters)
         height: 24
         Text {
             y: 1

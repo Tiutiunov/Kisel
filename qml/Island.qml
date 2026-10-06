@@ -86,7 +86,12 @@ Item {
     //   before music.
     //   (...or when the memory has just been cleaned: she comes to say what was freed)
     readonly property bool tetoLive: Prefs.tetoSystem && Sys.available && (Sys.strain || Sys.cleaning || Sys.justCleaned)
-    readonly property string rest: Prefs.character !== "miku" || mikuPinned ? Prefs.character
+    //   And when a minute has passed with nothing to show while a tune plays, the stage
+    //   goes to Zundamon and her player whoever was chosen (`idleTune`), until Claude
+    //   works again or someone is picked by hand. With no tune the bar tucks away instead.
+    property bool idleTune: false
+    readonly property string rest: idleTune && zundaLive ? "zunda"
+        : Prefs.character !== "miku" || mikuPinned ? Prefs.character
         : tetoLive ? "teto" : zundaLive ? "zunda" : "miku"
     readonly property string stage: guest !== "" ? guest : rest
     function stepIn() {
@@ -97,6 +102,7 @@ Item {
     // picked by hand, from the bench or in Settings
     function choose(who) {
         Prefs.character = who
+        idleTune = false
         guest = ""
         mikuPinned = who === "miku" && expanded
         if (who === "miku") stepIn() // (with music on the stage is Zundamon's: Miku at least comes out to say hello)
@@ -107,7 +113,7 @@ Item {
     readonly property string sessionId: Hub.session.id || ""
     onSessionIdChanged: if (sessionId !== "") stepIn()
     readonly property bool claudeBusy: Hub.mood === "work" || Hub.mood === "think"
-    onClaudeBusyChanged: if (claudeBusy) stepIn()
+    onClaudeBusyChanged: if (claudeBusy) { idleTune = false; stepIn() }
     // The chosen one with a service of her own (Zundamon with Spotify) minds that service:
     // Claude's working is Miku's news, not hers.
     readonly property bool ownAct: guest === "" && rest === "zunda" && Prefs.zundaSpotify && Media.available
@@ -389,7 +395,7 @@ Item {
     onHoldOpenChanged: if (!holdOpen && !hover.hovered) closeIn(600)
 
     // ---- tucked into the edge ----------------------------------------------------
-    // A minute with nothing to show and the bar slides out of sight, leaving a 240 x 6
+    // A minute with nothing to show (and no tune playing) and the bar slides out of sight, leaving a 240 x 6
     // strip on the edge that brings it back when the pointer touches it.
     property bool tucked: false
     readonly property bool canTuck: !floating && !expanded && !mfree && !assembling && !dragArea.pressed
@@ -397,7 +403,7 @@ Item {
         && (Hub.mood === "idle" || Hub.mood === "sleep") && !tune
     onCanTuckChanged: if (!canTuck) tucked = false
     onTuckedChanged: updateHit()
-    Timer { interval: 60000; running: root.canTuck && !root.tucked; onTriggered: root.tucked = true }
+    Timer { interval: 60000; running: root.canTuck && !root.tucked; onTriggered: { if (root.zundaLive) root.idleTune = true; else root.tucked = true } } // (a tune playing: the player instead)
     // the bar and its shadow clear the edge
     property real tuckA: tucked ? pillT + 14 : 0
     Behavior on tuckA { NumberAnimation { duration: Theme.reduced ? 0 : 340; easing.type: Easing.InOutCubic } }
