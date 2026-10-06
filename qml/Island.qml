@@ -915,8 +915,12 @@ Item {
             doneBadge: Hub.chip === "done"
             mood: root.dropActive ? "wow" : root.dropHappy ? "happy" : root.walking ? "walk" : Hub.mood
             paused: root.tucked && root.tuckA > root.pillT
-            looking: hover.hovered
-            lookAt: mascot.mapFromItem(card, hover.point.position.x, hover.point.position.y)
+            // She watches the pointer all over the screen where the platform says where it
+            // is (Shell.pointerKnown), in the bar as well; elsewhere only while it is on the island.
+            hovered: hover.hovered
+            looking: Shell.pointerKnown || hover.hovered
+            lookAt: Shell.pointerKnown ? Qt.point(Shell.pointerX - root.isoX - mascot.x, Shell.pointerY - root.isoY - mascot.y)
+                                       : mascot.mapFromItem(card, hover.point.position.x, hover.point.position.y)
         }
 
         // the hold ring around the mascot, and the ripples (output coordinates, island offset)

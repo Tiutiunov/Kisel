@@ -88,6 +88,7 @@ Everything outside `IslandWindow`, `Tray`, `Secrets`, `Sounds`, `Paths` and the 
 | Window | layer-shell overlay | topmost frameless tool window (no taskbar button, no Alt-Tab entry) |
 | Click-through | input region = the island's shape (`setMask`) | A window region would clip the drawing too, so the whole window turns input-transparent (`WS_EX_TRANSPARENT`, set directly: through Qt it costs 2 ms on the frame an animation starts) while the pointer is outside the island's shape. A transparent window gets no pointer events, so a 30 Hz timer reads the cursor position and flips the flag. |
 | Taskbar | drawn over panels (exclusive zone -1) | The taskbar is topmost too and wins, so "the output" is the work area (`QScreen::availableGeometry`): a dock on the taskbar's side sits against it. Settings has "Stay clear of the taskbar"; off, the whole monitor is used again. |
+| Pointer | known only over the island | the same poll publishes the cursor's place (`Shell.pointerX/Y`), so the mascot's eyes follow it all over the screen, in the bar too |
 | Focus | keyboard interactivity `OnDemand` | `WS_EX_NOACTIVATE` unless a view needs keys; when that ends the keyboard goes back to the window it was taken from |
 | Secrets | KWallet | Credential Manager, one generic credential per key (`Kisel/<name>`) |
 | Tray | `KStatusNotifierItem` | `QSystemTrayIcon` |

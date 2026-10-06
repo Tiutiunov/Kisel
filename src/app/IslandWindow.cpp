@@ -121,6 +121,15 @@ bool IslandWindow::canAvoidPanels() const
 #endif
 }
 
+bool IslandWindow::pointerKnown() const
+{
+#ifdef Q_OS_WIN
+    return QGuiApplication::platformName() == QLatin1String("windows");
+#else
+    return false;
+#endif
+}
+
 QRect IslandWindow::area() const
 {
     const QScreen *s = m_view->screen();
@@ -475,7 +484,13 @@ void IslandWindow::trackPointer()
     // the pointer wherever it goes.
     // (Not "while grabbing": the greeting uses the output-sized surface with no button down.)
     const bool held = QGuiApplication::mouseButtons() != Qt::NoButton;
-    const bool pass = !held && !m_hit.contains(m_view->mapFromGlobal(QCursor::pos()));
+    const QPoint cursor = QCursor::pos();
+    const QPointF onOutput = cursor - area().topLeft();
+    if (onOutput != m_pointer) {
+        m_pointer = onOutput;
+        emit pointerMoved();
+    }
+    const bool pass = !held && !m_hit.contains(m_view->mapFromGlobal(cursor));
     if (pass == m_passThrough)
         return;
     m_passThrough = pass;

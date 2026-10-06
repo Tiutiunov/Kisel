@@ -23,7 +23,8 @@ Item {
     property string mood: "idle"
     property string skin: ""           // "" or "github"
     property point lookAt: Qt.point(0, 0) // pointer in this item's coordinates
-    property bool looking: false
+    property bool looking: false          // follow `lookAt` with the eyes
+    property bool hovered: false          // the pointer is on the island: bigger eyes, a blush, hearts if it rests
     property int walkDir: 1               // -1 left, 1 right (mood walk)
     property bool celebrating: false      // sparkles and a jump without the mint badge
     property bool doneBadge: false        // keep the mint badge for 25 s after a task
@@ -76,7 +77,7 @@ Item {
     Timer {
         id: stillTimer
         interval: 1900
-        running: root.looking && root.detail > 0.5 && !root.dragging
+        running: root.hovered && root.detail > 0.5 && !root.dragging
         onTriggered: if (root.emote === "" && (root.m === "idle" || root.m === "walk")) { root.play("love", 2400); Sfx.play("hover") }
     }
 
@@ -118,7 +119,7 @@ Item {
         idle:  { color: "#39C5BB", eyes: "normal", mouth: "smile", hands: "rest" },
         walk:  { color: "#39C5BB", eyes: "normal", mouth: "smile", hands: "rest", sway: true },
         think: { color: "#8B5CF6", eyes: "normal", mouth: "flat",  hands: "chin", badge: "dots", look: [0.6, -0.7] },
-        work:  { color: "#3B9EFF", eyes: "normal", mouth: "smile", hands: "typing", badge: "dots", look: [0, 0.7] },
+        work:  { color: "#3B9EFF", eyes: "normal", mouth: "smile", hands: "typing", badge: "dots" },
         alert: { color: "#F5A524", eyes: "big",    mouth: "open",  hands: "wave2", badge: "!", hop: true },
         wow:   { color: "#22D3EE", eyes: "big",    mouth: "o",     hands: "wide" },
         happy: { color: "#34D399", eyes: "happy",  mouth: "open",  hands: "cheer", fx: "spark" },
@@ -234,13 +235,15 @@ Item {
         const s = st, L = look(), R = cR
         s.t += dt * (L.slow ? 0.6 : 1)
 
-        // gaze: at the pointer, at the wall's far side, or wherever the mood looks
+        // Gaze. The pointer comes first, through every mood and every emote: she waves,
+        // rolls, sulks and types with her eyes on it. Only where the pointer is not known
+        // does the mood say where to look, and asleep she looks nowhere.
         let tx = 0, ty = 0
         if (gazeOn) { tx = gaze.x; ty = gaze.y }
+        else if (m === "sleep") { tx = 0; ty = 0.2 }
+        else if (looking) { tx = Math.tanh((lookAt.x - width / 2) / 260); ty = Math.tanh((lookAt.y - height / 2) / 200) } // screen px, whatever her size
         else if (L.look) { tx = L.look[0]; ty = L.look[1] }
         else if (m === "walk") { tx = walkDir * 0.8 }
-        else if (looking) { tx = Math.tanh((lookAt.x - width / 2) / (size * 0.9)); ty = Math.tanh((lookAt.y - height / 2) / (size * 0.7)) }
-        if (L.eyes === "closed" || L.eyes === "spiral") { tx = 0; ty = 0.2 }
         const kk = 1 - Math.exp(-dt * 9)
         s.gx += (tx - s.gx) * kk; s.gy += (ty - s.gy) * kk
 
@@ -257,7 +260,7 @@ Item {
         const want = carried + (L.wobble ? Math.sin(s.t * 3.1) * 0.12 : 0) + (L.sway ? Math.sin(s.t * 6) * 0.07 * walkDir : 0)
                    + (m === "think" ? 0.1 : 0) + Math.sin(s.t * 7) * s.swing * 0.25
         s.lean += (want - s.lean) * (1 - Math.exp(-dt * 8))
-        s.blush += (((L.blush || 0.4) + (looking ? 0.15 : 0)) - s.blush) * (1 - Math.exp(-dt * 6))
+        s.blush += (((L.blush || 0.4) + (hovered ? 0.15 : 0)) - s.blush) * (1 - Math.exp(-dt * 6))
 
         const fn = poses[dragging ? "cling" : (L.hands || "rest")] || poses.rest
         const p = fn(s.t), hk = 1 - Math.exp(-dt * 14)
@@ -425,7 +428,9 @@ Item {
         g.restore()
 
         // face
-        const fx = s.gx * R * 0.15, fy = s.gy * R * 0.1
+        // the face travels further in the bar's mini, where a glance must show in two pixels
+        const reach = 1 + (1 - detail) * 0.9
+        const fx = s.gx * R * 0.15 * reach, fy = s.gy * R * 0.1 * reach
         g.fillStyle = "rgba(255,110,150," + 0.55 * s.blush + ")"
         for (const d of [-1, 1]) { g.beginPath(); ell(g, d * R * 0.72 + fx, R * 0.38 + fy, R * 0.17, R * 0.1); g.fill() }
         paintEyes(g, L, fx, fy)
@@ -444,7 +449,7 @@ Item {
         const soft = type === "normal" || type === "big" || type === "tired"
         const open = soft ? clampv(1 - Math.max(0, s.blink), 0.08, 1) : 1
         // the mini in the bar has a handful of pixels for a face: bigger, simpler eyes
-        const kk = (type === "big" ? 1.2 : 1) * (looking ? 1.08 : 1) * (1 + (1 - detail) * 0.35)
+        const kk = (type === "big" ? 1.2 : 1) * (hovered ? 1.08 : 1) * (1 + (1 - detail) * 0.35)
         for (const d of [-1, 1]) {
             const x = d * R * 0.44 + fx, y = R * 0.1 + fy, w = R * 0.15 * kk, h = R * 0.2 * kk
             g.lineCap = "round"; g.lineJoin = "round"

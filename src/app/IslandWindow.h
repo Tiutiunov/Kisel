@@ -40,6 +40,12 @@ class IslandWindow : public QObject
     Q_PROPERTY(bool grabbing READ grabbing NOTIFY grabbingChanged)
     // The surface is currently as big as the output (during a drag).
     Q_PROPERTY(bool viewWide READ viewWide NOTIFY viewWideChanged)
+    // Where the pointer is on the output, wherever that is, so the mascot can watch it.
+    // Known on Windows only: Wayland tells no client where the pointer is outside its
+    // own surface.
+    Q_PROPERTY(bool pointerKnown READ pointerKnown CONSTANT)
+    Q_PROPERTY(qreal pointerX READ pointerX NOTIFY pointerMoved)
+    Q_PROPERTY(qreal pointerY READ pointerY NOTIFY pointerMoved)
     Q_PROPERTY(qreal grabX READ grabX NOTIFY placementChanged)      // the island's origin while the surface is wide
     Q_PROPERTY(qreal grabY READ grabY NOTIFY placementChanged)
     Q_PROPERTY(qreal floatX READ floatX WRITE setFloatX NOTIFY placementChanged)
@@ -79,6 +85,9 @@ public:
     // taskbar instead of under it. Layer-shell draws over panels and needs none of it.
     bool canAvoidPanels() const;
     bool avoidPanels() const { return m_avoidPanels; }
+    bool pointerKnown() const;
+    qreal pointerX() const { return m_pointer.x(); }
+    qreal pointerY() const { return m_pointer.y(); }
     void setAvoidPanels(bool on);
     bool floating() const { return m_floating; }
     QString edge() const { return m_edge; }
@@ -132,6 +141,7 @@ signals:
     void placementChanged();
     void grabbingChanged();
     void viewWideChanged();
+    void pointerMoved();
 
 private:
     void placeOnX11();
@@ -141,6 +151,7 @@ private:
     void applySurfaceSize(bool wide);
     QRect area() const; // the output, or its work area (see setAvoidPanels)
     bool m_avoidPanels = true;
+    QPointF m_pointer;
 #ifdef Q_OS_WIN
     void trackPointer();
     void applyPassThrough();
