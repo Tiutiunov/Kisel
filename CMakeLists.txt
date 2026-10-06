@@ -109,6 +109,7 @@ qt_add_qml_module(kisel
         qml/DotWave.qml
         qml/Spinner.qml
         qml/KToggle.qml
+        qml/KSlider.qml
         qml/KField.qml
         qml/Mascot.qml
         qml/StatusBadge.qml

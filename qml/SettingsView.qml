@@ -214,6 +214,12 @@ Item {
             Text { text: "Look and sound"; color: Theme.ink; font.family: Theme.display; font.pixelSize: 16; font.weight: Font.DemiBold }
             KToggle { label: "Sounds"; checked: Prefs.soundOn; onToggled: (v) => Prefs.soundOn = v }
             KToggle { label: "Reduce motion"; checked: Prefs.reduceMotion; onToggled: (v) => Prefs.reduceMotion = v }
+            KSlider {
+                from: 0; to: 10
+                value: Prefs.closeDelay
+                label: Prefs.closeDelay === 0 ? "Close at once when the pointer leaves" : "Close " + Prefs.closeDelay + " s after the pointer leaves"
+                onMoved: (v) => Prefs.closeDelay = v
+            }
             KToggle { visible: Shell.canAvoidPanels; label: "Stay clear of the taskbar"; checked: Prefs.avoidPanels; onToggled: (v) => Prefs.avoidPanels = v }
             Row {
                 spacing: Theme.space2

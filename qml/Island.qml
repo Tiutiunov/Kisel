@@ -5,8 +5,8 @@
 //   docked   on top, bottom, left or right: collapsed 184-288 x 32 (32 x 176 on the
 //            sides) -> home 660x200 | session 300 | permission 236/310/290 | github
 //            276 | chat 412 | settings 440. The bar's size and manners follow Coucou's
-//            island: a click opens it (280 ms OutCubic), it closes 15 s after the
-//            pointer leaves unless something holds it open, and after a minute with
+//            island: a click opens it (280 ms OutCubic), it closes a moment after the
+//            pointer leaves (Settings: at once to 10 s) unless something holds it open, and after a minute with
 //            nothing to show it slides into the edge; touching the edge there, or any
 //            activity, brings it back.
 //   floating the mascot (120 px) is the whole window; click opens the card where it
@@ -160,7 +160,7 @@ Item {
     }
     function toggleView(v) { view = view === v ? "home" : v }
 
-    // 15 s after the pointer leaves; 600 ms once an answer or a peek is over
+    // Prefs.closeDelay after the pointer leaves; 600 ms once an answer or a peek is over
     function closeIn(ms) { closeTimer.interval = ms; closeTimer.restart() }
     Timer {
         id: closeTimer
@@ -591,7 +591,7 @@ Item {
                     // the pointer alone never opens the card: the top of a screen is where
                     // tabs and title bars live. It only keeps an open card open.
                     if (hovered) closeTimer.stop()
-                    else root.closeIn(15000)
+                    else root.closeIn(Prefs.closeDelay * 1000)
                 }
             }
             // a click anywhere on the bar opens it (on the mascot: see dragArea)

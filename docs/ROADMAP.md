@@ -39,7 +39,7 @@ Status of every behaviour in the design system (`README.md`, `motion.md`, `compo
 
 ## Done in the "Windows and Coucou's manners" pass
 * **Windows port**: see "Windows" in `ARCHITECTURE.md`. Built with MSVC 2022 and Qt 6.10; the 18 core tests pass, a permission request sent through `kisel-hook.exe` was answered with a real click on the island.
-* **The bar, after Coucou's island** (this replaces the 176 to 280 x 44 pill and "hover open" above): 32 px thick, 184 to 288 px wide, the mini Kisel 32 px and still hanging 6 px out of it. A click opens the card, the pointer alone never does; an open card closes 15 s after the pointer leaves (600 ms after an answer), and a click on Kisel puts it away. After a minute with nothing to show the bar slides into the edge and leaves a 240 x 6 strip that brings it back at a touch; any activity brings it back too.
+* **The bar, after Coucou's island** (this replaces the 176 to 280 x 44 pill and "hover open" above): 32 px thick, 184 to 288 px wide, the mini Kisel 32 px and still hanging 6 px out of it. A click opens the card, the pointer alone never does; an open card closes 3 s after the pointer leaves (Settings: at once to 10 s; 600 ms after an answer), and a click on Kisel puts it away. After a minute with nothing to show the bar slides into the edge and leaves a 240 x 6 strip that brings it back at a touch; any activity brings it back too.
 * Not taken from Coucou: its 640 px card width and 160 px view heights (Kisel's views are laid out for 660 and are taller), global shortcuts.
 
 ## Not applied from the pass
