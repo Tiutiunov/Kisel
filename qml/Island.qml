@@ -228,7 +228,7 @@ Item {
             Sfx.play("done")
             const inPill = !root.expanded && !root.floating
             if (inPill) // the burst starts from the pill's "Done" chip...
-                burst.fire(card.x + (root.vertical ? root.pillT / 2 : root.labelX + 28), card.y + (root.vertical ? 34 : root.pillT / 2), root.mini)
+                burst.fire(card.x + (root.vertical ? root.pillT / 2 : root.pillW / 2), card.y + (root.vertical ? 34 : root.pillT / 2), root.mini)
             else
                 burst.fire(mascot.x + mascot.width / 2, mascot.y + mascot.height * 0.55, mascot.width)
             if (!root.expanded) {
@@ -724,7 +724,7 @@ Item {
                 }
                 PillBars { visible: Hub.mood === "work" && Hub.chip === "" && !root.miniPlayer; running: visible; anchors.verticalCenter: parent.verticalCenter }
                 PillDots { visible: Hub.mood === "think" && Hub.chip === "" && !root.miniPlayer; running: visible; anchors.verticalCenter: parent.verticalCenter }
-                PillChip { id: pillChip; kind: root.miniPlayer ? "" : Hub.chip }
+                PillChip { id: pillChip; kind: root.miniPlayer || Hub.chip === "done" ? "" : Hub.chip } // ("Done" has a chip of its own, below)
                 // Zundamon's player in the bar: three bars that dance to the tune, the title (it
                 // scrolls when it does not fit) over the artist, and the three keys
                 Row {
@@ -817,6 +817,13 @@ Item {
                     }
                     }
                 }
+            }
+
+            // "Done", in the middle of the bar, glowing and throwing stars
+            DoneChip {
+                x: (root.pillW - width) / 2
+                y: (root.pillT - height) / 2
+                on: Hub.chip === "done" && !root.miniPlayer && !root.expanded && !root.floating && !root.vertical && !root.mfree
             }
 
             // the tune's progress: a hairline along the side of the bar that lies on the

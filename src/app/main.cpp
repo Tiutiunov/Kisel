@@ -58,8 +58,11 @@ void runDemo(AgentHub &hub)
                    {"old_string", "return total / 100;"},
                    {"new_string", "return Math.round(total) / 100;"}}));
     // KISEL_DEMO_DONE=<ms> finishes the task at that time (to see the burst)
-    if (qEnvironmentVariableIntValue("KISEL_DEMO_DONE") > 0)
+    // (and nothing is asked afterwards, so the bar's "Done" can be looked at too)
+    if (qEnvironmentVariableIntValue("KISEL_DEMO_DONE") > 0) {
         ev(qEnvironmentVariableIntValue("KISEL_DEMO_DONE"), base("Stop"));
+        return;
+    }
     // KISEL_DEMO_ASK=1 shows a question instead of a command
     if (!qEnvironmentVariableIsSet("KISEL_DEMO_ASK"))
         ev(6000, tool("PermissionRequest", "Bash", {{"command", "npm test -- invoice"}}));

@@ -111,6 +111,8 @@ qt_add_qml_module(kisel
         qml/KToggle.qml
         qml/KSlider.qml
         qml/PlayGlyph.qml
+        qml/Spark.qml
+        qml/DoneChip.qml
         qml/PlayerView.qml
         qml/KField.qml
         qml/Mascot.qml
