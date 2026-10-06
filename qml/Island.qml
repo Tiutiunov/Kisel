@@ -717,7 +717,7 @@ Item {
                 visible: opacity > 0
                 Behavior on opacity { NumberAnimation { duration: root.expanded ? 100 : 120 } }
 
-                readonly property string label: root.miniPlayer ? Media.title
+                readonly property string label: root.miniPlayer ? ""
                     : Hub.chip !== "" ? ""
                     : Hub.mood === "work" ? Hub.statusLine
                     : Hub.mood === "think" ? "Thinking"
@@ -729,7 +729,7 @@ Item {
                     verticalAlignment: Text.AlignVCenter
                     text: pillRow.label
                     // the label never pushes the pill past its widest
-                    width: Math.min(implicitWidth, root.pillMax - root.labelX - 16 - root.castW - (root.miniPlayer ? 68 : Hub.mood === "work" ? 34 : 0))
+                    width: Math.min(implicitWidth, root.pillMax - root.labelX - 16 - root.castW - (Hub.mood === "work" ? 34 : 0))
                     elide: Text.ElideRight
                     color: Hub.mood === "sleep" ? Theme.inkFaint : Theme.ink
                     Behavior on color { ColorAnimation { duration: 160 } }
@@ -740,8 +740,69 @@ Item {
                 PillBars { visible: Hub.mood === "work" && Hub.chip === "" && !root.miniPlayer; running: visible; anchors.verticalCenter: parent.verticalCenter }
                 PillDots { visible: Hub.mood === "think" && Hub.chip === "" && !root.miniPlayer; running: visible; anchors.verticalCenter: parent.verticalCenter }
                 PillChip { id: pillChip; kind: root.miniPlayer ? "" : Hub.chip }
+                // GUMI's player in the bar: three bars that dance to the tune, the title (it
+                // scrolls when it does not fit) over the artist, and the three keys
                 Row {
                     visible: root.miniPlayer
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 8
+                    Row {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 10; height: 12
+                        spacing: 2
+                        opacity: Media.playing ? 1 : 0.45
+                        Behavior on opacity { NumberAnimation { duration: 200 } }
+                        Repeater {
+                            model: 3
+                            Rectangle {
+                                id: beat
+                                required property int index
+                                width: 2; radius: 1
+                                height: 4
+                                anchors.bottom: parent.bottom
+                                color: Theme.mint
+                                SequentialAnimation on height {
+                                    running: root.miniPlayer && Media.playing && !Theme.reduced && !root.tucked
+                                    loops: Animation.Infinite
+                                    NumberAnimation { to: 12 - beat.index * 3; duration: 240 + beat.index * 90; easing.type: Easing.InOutSine }
+                                    NumberAnimation { to: 3 + beat.index * 2; duration: 310 - beat.index * 40; easing.type: Easing.InOutSine }
+                                }
+                            }
+                        }
+                    }
+                    Item {
+                        id: tune
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: root.pillMax - root.labelX - 16 - root.castW - 104
+                        height: 24
+                        clip: true
+                        Text {
+                            id: tuneTitle
+                            y: -1
+                            text: Media.title
+                            color: Theme.ink
+                            font.family: Theme.sans; font.pixelSize: 12; font.weight: Font.ExtraBold
+                            readonly property real over: Math.max(0, implicitWidth - tune.width)
+                            onTextChanged: x = 0
+                            SequentialAnimation on x {
+                                running: tuneTitle.over > 0 && root.miniPlayer && !Theme.reduced && !root.tucked
+                                loops: Animation.Infinite
+                                PauseAnimation { duration: 1800 }
+                                NumberAnimation { to: -tuneTitle.over; duration: 400 + tuneTitle.over * 40 }
+                                PauseAnimation { duration: 1800 }
+                                NumberAnimation { to: 0; duration: 500; easing.type: Easing.InOutCubic }
+                            }
+                        }
+                        Text {
+                            y: 13
+                            width: tune.width
+                            text: Media.artist
+                            elide: Text.ElideRight
+                            color: Theme.inkMuted
+                            font.family: Theme.sans; font.pixelSize: 9; font.weight: Font.DemiBold
+                        }
+                    }
+                    Row {
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 2
                     Repeater {
@@ -769,6 +830,36 @@ Item {
                             }
                         }
                     }
+                    }
+                }
+            }
+
+            // the tune's progress: a hairline along the bar's inner edge, with a bright head
+            Item {
+                x: 10
+                y: root.dockSide === "bottom" ? 0 : root.pillT - 2
+                width: root.pillW - 20
+                height: 2
+                opacity: root.miniPlayer && !root.expanded && !root.floating && !root.vertical && !root.mfree ? 1 : 0
+                visible: opacity > 0
+                Behavior on opacity { NumberAnimation { duration: 120 } }
+                Rectangle { anchors.fill: parent; radius: 1; color: Theme.ink; opacity: 0.1 }
+                Rectangle {
+                    id: tuneFill
+                    height: 2; radius: 1
+                    width: parent.width * Media.progress
+                    Behavior on width { NumberAnimation { duration: 500 } }
+                    gradient: Gradient {
+                        orientation: Gradient.Horizontal
+                        GradientStop { position: 0; color: "#7ED957" }
+                        GradientStop { position: 1; color: Theme.mint }
+                    }
+                }
+                Rectangle {
+                    width: 4; height: 4; radius: 2
+                    x: tuneFill.width - 2; y: -1
+                    color: "#FFFFFF"
+                    opacity: Media.playing ? 1 : 0.5
                 }
             }
 
