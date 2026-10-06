@@ -21,6 +21,13 @@ Item {
     readonly property rect buttonRect: Qt.rect(width - 150 - 10, 5, 150, 36)
     readonly property var tileRects: [Qt.rect(0, height - 84, 104, 84), Qt.rect(112, height - 84, 104, 84)]
     readonly property bool hasSession: !!s.id
+    // Home belongs to whoever is chosen. Miku's is this one, Claude Code's; GUMI's is her
+    // Spotify player. The ones with no service of their own yet show Claude's.
+    readonly property bool ownHome: Prefs.character === "gumi" && Prefs.gumiSpotify && Media.available
+    // one Home dissolves into the other: Claude's goes first, hers follows
+    property real ownU: ownHome ? 1 : 0
+    Behavior on ownU { NumberAnimation { duration: Theme.reduced ? 140 : 320; easing.type: Easing.InOutCubic } }
+    readonly property real claudeU: Math.max(0, 1 - ownU * 2)
 
     width: 494
 
@@ -29,8 +36,8 @@ Item {
     // ---- top row: newest session, or "ready and listening" ----
     Rectangle {
         id: sessionTile
-        visible: root.hasSession
-        opacity: root.revealCard * Motion.rise(root.age, 0)
+        visible: root.hasSession && root.claudeU > 0
+        opacity: root.revealCard * Motion.rise(root.age, 0) * root.claudeU
         transform: Translate { y: Motion.lift(root.age, 0) }
         width: parent.width
         height: 40
@@ -79,8 +86,8 @@ Item {
     // becomes this card, the small pill becomes the button.
     Rectangle {
         id: empty
-        visible: !root.hasSession
-        opacity: root.revealCard * Motion.rise(root.age, 0)
+        visible: !root.hasSession && root.claudeU > 0
+        opacity: root.revealCard * Motion.rise(root.age, 0) * root.claudeU
         transform: Translate { y: Motion.lift(root.age, 0) }
         width: parent.width
         height: 46
@@ -149,6 +156,8 @@ Item {
 
     // ---- launch tiles ----
     Row {
+        visible: root.claudeU > 0
+        opacity: root.claudeU
         y: parent.height - 84
         spacing: Theme.space2
         LaunchTile {
@@ -165,12 +174,10 @@ Item {
         }
     }
 
-    // ---- GUMI's own: the Spotify player, beside the tiles ----
-    PlayerTile {
-        x: 224
-        y: parent.height - 84
-        visible: Prefs.character === "gumi" && Prefs.gumiSpotify && Media.available
-        opacity: Motion.rise(root.age, 3)
-        transform: Translate { y: Motion.lift(root.age, 3) }
+    // ---- GUMI's Home is her player ----
+    PlayerView {
+        visible: root.ownU > 0.01
+        opacity: root.ownU
+        age: root.age
     }
 }

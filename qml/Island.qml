@@ -85,7 +85,7 @@ Item {
     readonly property bool tune: ownAct && Media.active && Media.playing
     // ...and whenever the bar has nothing more pressing to say it is her mini player:
     // the track's name and the three buttons, without opening the card
-    readonly property bool miniPlayer: ownAct && Media.active && Hub.chip === "" && Hub.pendingCount === 0
+    readonly property bool miniPlayer: ownAct && Media.active && Hub.pendingCount === 0
     readonly property real pillContentW: labelX + pillRow.implicitWidth + 16
     readonly property real pillW: Math.max(pillMin, Math.min(pillMax, pillContentW))
     readonly property real closedW: floating ? 120 : (vertical ? pillT : pillW)
@@ -717,8 +717,8 @@ Item {
                 visible: opacity > 0
                 Behavior on opacity { NumberAnimation { duration: root.expanded ? 100 : 120 } }
 
-                readonly property string label: Hub.chip !== "" ? ""
-                    : root.miniPlayer ? Media.title
+                readonly property string label: root.miniPlayer ? Media.title
+                    : Hub.chip !== "" ? ""
                     : Hub.mood === "work" ? Hub.statusLine
                     : Hub.mood === "think" ? "Thinking"
                     : (Hub.mood === "alert" || Hub.mood === "happy" || Hub.mood === "sad") ? ""
@@ -739,7 +739,7 @@ Item {
                 }
                 PillBars { visible: Hub.mood === "work" && Hub.chip === "" && !root.miniPlayer; running: visible; anchors.verticalCenter: parent.verticalCenter }
                 PillDots { visible: Hub.mood === "think" && Hub.chip === "" && !root.miniPlayer; running: visible; anchors.verticalCenter: parent.verticalCenter }
-                PillChip { id: pillChip; kind: Hub.chip }
+                PillChip { id: pillChip; kind: root.miniPlayer ? "" : Hub.chip }
                 Row {
                     visible: root.miniPlayer
                     anchors.verticalCenter: parent.verticalCenter

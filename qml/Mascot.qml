@@ -82,7 +82,10 @@ Item {
                 vest: "#8E99A6", trim: "#E0405A", tie: "#E0405A", set: "#1b1f25", tip: "#E0405A", sleeve: "#4A525C", cuff: "#E0405A",
                 energy: 1, bounce: 0.9, mouth: "smug", fav: "bread", slap: "tsun", rest: "flustered", quirk: "smug" }
     })
-    readonly property var who: chars[character] || chars.miku
+    // Who is drawn. It follows `character` through the change of places below, so the
+    // one leaving is still herself while she goes.
+    property string shown: "miku"
+    readonly property var who: chars[shown] || chars.miku
     readonly property string displayName: who.name
     readonly property string hair: skin === "github" ? "#8b949e" : who.hair
     readonly property string hairD: skin === "github" ? "#57606a" : who.hairD
@@ -117,13 +120,34 @@ Item {
     }
     onDraggingChanged: if (dragging) play("surprised", 900)
     onEyesShutChanged: if (!eyesShut) blinkNow()
+    // Changing places. The one on stage spins away and shrinks to nothing (200 ms); the
+    // new one springs up in her place with a ring of sparks in her own colour, and waves
+    // if the card is open. Portraits, and "reduce motion", simply change.
+    property real swap: 1 // 1 = there, 0 = gone
     onCharacterChanged: {
+        if (still || Theme.reduced) { shown = character; arrive(); return }
+        swapAnim.restart()
+    }
+    function arrive() {
         st.tails = null; st.parts = []; emote = ""
         if (still) { settle(); return }
-        st.sqv -= 6                                   // she pops into place
+        if (Theme.reduced) return
+        st.sqv -= 6
+        const R = cR
+        for (let i = 0; i < 12; i++) {
+            const a = i / 12 * 2 * Math.PI
+            st.parts.push({ type: "spark", life: 0, rot: a, x: cX + Math.cos(a) * R * 0.9, y: cY + Math.sin(a) * R * 0.9,
+                            vx: Math.cos(a) * R * 2.2, vy: Math.sin(a) * R * 2.2, max: 0.55, size: R * 0.16, hue: i % 2 ? hair : "#FFFFFF" })
+        }
         if (detail > 0.9) { wavedAt = Date.now(); play("hello", 1900) }
     }
-    Component.onCompleted: if (still) settle()
+    SequentialAnimation {
+        id: swapAnim
+        NumberAnimation { target: root; property: "swap"; to: 0; duration: 200; easing.type: Easing.InBack; easing.overshoot: 1.6 }
+        ScriptAction { script: { root.shown = root.character; root.arrive() } }
+        NumberAnimation { target: root; property: "swap"; to: 1; duration: 420; easing.type: Easing.OutBack; easing.overshoot: 2.2 }
+    }
+    Component.onCompleted: { swapAnim.stop(); swap = 1; shown = character; st.tails = null; if (still) settle() }
     function settle() { for (let i = 0; i < 40; i++) step(0.016); canvas.requestPaint() }
 
     // a wave when the card first opens, and not again for a minute
@@ -266,7 +290,8 @@ Item {
             id: canvas
             width: 288; height: 288
             anchors.centerIn: parent
-            scale: root.k
+            scale: root.k * Math.max(0, root.swap)
+            rotation: (1 - root.swap) * -70
             antialiasing: true
             onPaint: root.paint(getContext("2d"))
         }
@@ -395,7 +420,7 @@ Item {
         const s = st
         let fx = L.fx || ""
         if (celebrating) fx = "spark"
-        if (fx === "" || detail < 0.5 || Theme.reduced || still) return
+        if (fx === "" || detail < 0.5 || Theme.reduced || still) return // (arrive() adds its sparks itself, at any size)
         s.fxClock -= dt; if (s.fxClock > 0) return
         const R = cR, P = pose(), r = () => Math.random() - 0.5
         const add = o => s.parts.push(Object.assign({ life: 0, rot: 0, x: P.x, y: P.y }, o))
