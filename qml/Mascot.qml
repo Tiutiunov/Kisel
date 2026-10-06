@@ -365,7 +365,8 @@ Item {
     // she is carried, so the drag's velocity is fed in as a wind that blows them back.
     function simTails(dt, L) {
         const s = st, P = pose(), R = cR, H = hairs[who.style]
-        if (!s.tails) s.tails = H ? [{ side: -1, p: [] }, { side: 1, p: [] }] : []
+        // (the chains are remade whenever the hair style is not the one they were made for)
+        if (!s.tails || s.tailStyle !== who.style) { s.tails = H ? [{ side: -1, p: [] }, { side: 1, p: [] }] : []; s.tailStyle = who.style }
         if (!H) return
         // short hair in the bar, so that it ends inside it; full length on the card
         const seg = R * H.seg * Math.max(0.15, leafScale) * (0.42 + 0.58 * detail), n = H.n
@@ -450,14 +451,15 @@ Item {
             if (!dragging) { g.fillStyle = "rgba(0,0,0," + 0.25 * detail + ")"; g.beginPath(); ell(g, cX, cY + R * 1.02, R * 0.95, R * 0.12); g.fill() }
         }
 
-        const H = hairs[who.style]
-        for (const T of s.tails) { if (H.coil) paintDrill(g, T, H, L); else paintTail(g, T, H) }
+        const H = hairs[s.tailStyle]
+        if (H) for (const T of s.tails) { if (T.p.length !== H.n) continue; if (H.coil) paintDrill(g, T, H, L); else paintTail(g, T, H) }
 
         g.save(); g.translate(P.x, P.y); g.rotate(P.angle); g.scale(P.sx, P.sy)
         paintBody(g, L)
         g.restore()
 
-        if (who.style === "twintails") for (const T of s.tails) { // the ties sit on the tails' roots, over the body's corners
+        if (s.tailStyle === "twintails") for (const T of s.tails) {
+            if (!T.p.length) continue // the ties sit on the tails' roots, over the body's corners
             const a = T.p[0]; g.save(); g.translate(a.x, a.y); g.rotate(P.angle + T.side * 0.5)
             g.fillStyle = "#1b1f25"; rr(g, -R * 0.2, -R * 0.14, R * 0.4, R * 0.28, R * 0.06); g.fill()
             g.fillStyle = "#E12885"; g.fillRect(-R * 0.2, -R * 0.03, R * 0.4, R * 0.06); g.restore()

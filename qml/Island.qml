@@ -61,10 +61,31 @@ Item {
     // The cast. One of them is the mascot; the other four wait at the bar's far end, two
     // by two, as Coucou keeps its other agents, and a click on one swaps her in.
     readonly property var cast: ["miku", "rin", "luka", "gumi", "teto"]
-    readonly property var bench: cast.filter(c => c !== Prefs.character)
+    // Who is on stage. Miku is Claude Code's own: whoever else was chosen, she steps in
+    // for a few seconds when Claude starts on something or finishes, and stays for as
+    // long as a request waits for an answer; then the chosen one comes back. With Miku
+    // chosen nobody changes places.
+    property string guest: ""
+    readonly property string stage: guest !== "" ? guest : Prefs.character
+    function stepIn() {
+        if (Prefs.character === "miku") return
+        guest = "miku"
+        guestTimer.restart()
+    }
+    Timer { id: guestTimer; interval: 3000
+        onTriggered: { if (Hub.pendingCount > 0) restart(); else root.guest = "" } }
+    readonly property bool claudeBusy: Hub.mood === "work" || Hub.mood === "think"
+    onClaudeBusyChanged: if (claudeBusy) stepIn()
+    // The chosen one with a service of her own (GUMI with Spotify) minds that service:
+    // Claude's working is Miku's news, not hers.
+    readonly property bool ownAct: guest === "" && Prefs.character === "gumi" && Prefs.gumiSpotify && Media.available
+    readonly property var bench: cast.filter(c => c !== stage)
     readonly property int castW: 44
     // GUMI with Spotify playing: the bar names the track and she hums along
-    readonly property bool tune: Prefs.character === "gumi" && Prefs.gumiSpotify && Media.active && Media.playing
+    readonly property bool tune: ownAct && Media.active && Media.playing
+    // ...and whenever the bar has nothing more pressing to say it is her mini player:
+    // the track's name and the three buttons, without opening the card
+    readonly property bool miniPlayer: ownAct && Media.active && Hub.chip === "" && Hub.pendingCount === 0
     readonly property real pillContentW: labelX + pillRow.implicitWidth + 16
     readonly property real pillW: Math.max(pillMin, Math.min(pillMax, pillContentW))
     readonly property real closedW: floating ? 120 : (vertical ? pillT : pillW)
@@ -122,7 +143,7 @@ Item {
     property bool tucked: false
     readonly property bool canTuck: !floating && !expanded && !mfree && !assembling && !dragArea.pressed
         && !hover.hovered && !wake.hovered && Hub.pendingCount === 0 && Hub.chip === ""
-        && (Hub.mood === "idle" || Hub.mood === "sleep")
+        && (Hub.mood === "idle" || Hub.mood === "sleep") && !tune
     onCanTuckChanged: if (!canTuck) tucked = false
     onTuckedChanged: updateHit()
     Timer { interval: 60000; running: root.canTuck && !root.tucked; onTriggered: root.tucked = true }
@@ -189,6 +210,7 @@ Item {
     Connections {
         target: Hub
         function onPermissionArrived() {
+            root.stepIn()
             Sfx.play("alert")
             root.autoOpened = !root.expanded
             root.view = "permission"
@@ -201,6 +223,7 @@ Item {
         }
         function onPermissionCleared() { root.afterAnswer() }
         function onTaskFinished() {
+            root.stepIn()
             Sfx.play("done")
             const inPill = !root.expanded && !root.floating
             if (inPill) // the burst starts from the pill's "Done" chip...
@@ -695,17 +718,18 @@ Item {
                 Behavior on opacity { NumberAnimation { duration: root.expanded ? 100 : 120 } }
 
                 readonly property string label: Hub.chip !== "" ? ""
+                    : root.miniPlayer ? Media.title
                     : Hub.mood === "work" ? Hub.statusLine
                     : Hub.mood === "think" ? "Thinking"
                     : (Hub.mood === "alert" || Hub.mood === "happy" || Hub.mood === "sad") ? ""
-                    : root.tune ? Media.title : mascot.displayName
+                    : mascot.displayName
                 Text {
                     visible: pillRow.label !== ""
                     height: parent.height
                     verticalAlignment: Text.AlignVCenter
                     text: pillRow.label
                     // the label never pushes the pill past its widest
-                    width: Math.min(implicitWidth, root.pillMax - root.labelX - 16 - root.castW - (Hub.mood === "work" ? 34 : 0))
+                    width: Math.min(implicitWidth, root.pillMax - root.labelX - 16 - root.castW - (root.miniPlayer ? 68 : Hub.mood === "work" ? 34 : 0))
                     elide: Text.ElideRight
                     color: Hub.mood === "sleep" ? Theme.inkFaint : Theme.ink
                     Behavior on color { ColorAnimation { duration: 160 } }
@@ -713,9 +737,39 @@ Item {
                     font.pixelSize: 13
                     font.weight: Font.ExtraBold
                 }
-                PillBars { visible: Hub.mood === "work" && Hub.chip === ""; running: visible; anchors.verticalCenter: parent.verticalCenter }
-                PillDots { visible: Hub.mood === "think" && Hub.chip === ""; running: visible; anchors.verticalCenter: parent.verticalCenter }
+                PillBars { visible: Hub.mood === "work" && Hub.chip === "" && !root.miniPlayer; running: visible; anchors.verticalCenter: parent.verticalCenter }
+                PillDots { visible: Hub.mood === "think" && Hub.chip === "" && !root.miniPlayer; running: visible; anchors.verticalCenter: parent.verticalCenter }
                 PillChip { id: pillChip; kind: Hub.chip }
+                Row {
+                    visible: root.miniPlayer
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 2
+                    Repeater {
+                        model: ["prev", Media.playing ? "pause" : "play", "next"]
+                        Item {
+                            id: key
+                            required property string modelData
+                            width: 18; height: 18
+                            Rectangle { anchors.fill: parent; radius: 9; color: Theme.surface3; opacity: keyArea.containsMouse ? 1 : 0
+                                Behavior on opacity { NumberAnimation { duration: Theme.tHover } } }
+                            PlayGlyph { anchors.centerIn: parent; kind: key.modelData; size: 9; tint: Theme.ink
+                                scale: keyArea.pressed ? 0.85 : 1 }
+                            MouseArea {
+                                id: keyArea
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                // (a MouseArea, so the click stays here and does not open the card)
+                                onClicked: {
+                                    Hub.poke()
+                                    if (key.modelData === "prev") Media.previous()
+                                    else if (key.modelData === "next") Media.next()
+                                    else Media.playPause()
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             // collapsed, on top or bottom: the four who are not on stage, at the bar's far end
@@ -747,7 +801,7 @@ Item {
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
-                            onClicked: { Hub.poke(); Sfx.play("click"); Prefs.character = seat.modelData }
+                            onClicked: { Hub.poke(); Sfx.play("click"); root.guest = ""; Prefs.character = seat.modelData }
                         }
                     }
                 }
@@ -774,7 +828,7 @@ Item {
                 Row {
                     x: 14; y: 12
                     spacing: Theme.space2
-                    Mascot { size: 24; still: true; character: Prefs.character }
+                    Mascot { size: 24; still: true; character: root.stage }
                     Text {
                         text: mascot.displayName
                         color: Theme.ink
@@ -826,7 +880,7 @@ Item {
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: { Sfx.play("click"); Prefs.character = chair.modelData }
+                                onClicked: { Sfx.play("click"); root.guest = ""; Prefs.character = chair.modelData }
                             }
                         }
                     }
@@ -983,9 +1037,10 @@ Item {
             skin: root.expanded && root.view === "github" ? "github" : ""
             walkDir: root.walkDir
             doneBadge: Hub.chip === "done"
-            character: Prefs.character
+            character: root.stage
             music: root.tune
-            mood: root.dropActive ? "wow" : root.dropHappy ? "happy" : root.walking ? "walk" : Hub.mood
+            mood: root.dropActive ? "wow" : root.dropHappy ? "happy" : root.walking ? "walk"
+                : root.ownAct && root.claudeBusy ? "idle" : Hub.mood
             paused: root.tucked && root.tuckA > root.pillT
             // She watches the pointer all over the screen where the platform says where it
             // is (Shell.pointerKnown), in the bar as well; elsewhere only while it is on the island.
