@@ -140,6 +140,7 @@ qt_add_qml_module(kisel
         resources/fonts/jetbrains-mono-latin-400-normal.ttf
         resources/logo/kisel-mark.svg
         resources/logo/kisel-mini.svg
+        resources/logo/miku-mini.svg
         resources/sounds/open.wav
         resources/sounds/close.wav
         resources/sounds/click.wav

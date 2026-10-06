@@ -42,6 +42,11 @@ Status of every behaviour in the design system (`README.md`, `motion.md`, `compo
 * **The bar, after Coucou's island** (this replaces the 176 to 280 x 44 pill and "hover open" above): Coucou's compact bar exactly, 288 x 32 with 14 px corners, the mini Kisel 24 px and wholly inside it. The card opens on a soft spring (480 ms, a little past its size and back) and closes on a plain ease (340 ms); content follows 120 ms behind. A click opens the card, the pointer alone never does; an open card closes 3 s after the pointer leaves (Settings: at once to 10 s; 600 ms after an answer), and a click on Kisel puts it away. After a minute with nothing to show the bar slides into the edge and leaves a 240 x 6 strip that brings it back at a touch; any activity brings it back too.
 * Not taken from Coucou: its 640 px card width and 160 px view heights (Kisel's views are laid out for 660 and are taller), global shortcuts.
 
+## Done in the "Miku" pass
+* **The mascot is Miku**: `Mascot.qml` is rewritten on a Canvas with the same interface; the wordmark, the bar's label and the tray icon follow. Interactive prototype with every state and emote: `design/miku-mochi.html`.
+* **Hello at every start**: she comes up from the bottom centre of the screen, waves, and flies along the docking arc into the bar (`Island.greet`). Skipped when floating, with reduce motion, or when the card is already open.
+* Left as it was: the first-launch assembly still builds the old silhouette before she appears; the leek, the microphone and the petting from the prototype are not in the app.
+
 ## Not applied from the pass
 * **Tab indicator**: the design describes a tab row; Kisel's header uses icon buttons, so there is no tab to stretch.
 * **"Bump" sound** at the wall, and the optional follow-the-active-window leap to another monitor (there is no such setting yet).

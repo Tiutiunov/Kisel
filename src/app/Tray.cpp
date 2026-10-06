@@ -19,7 +19,7 @@ Tray::Tray(QObject *parent)
     auto *item = new KStatusNotifierItem(QStringLiteral("kisel"), this);
     item->setCategory(KStatusNotifierItem::ApplicationStatus);
     item->setTitle(QStringLiteral("Kisel"));
-    item->setIconByPixmap(QIcon(QStringLiteral(":/qt/qml/Kisel/resources/logo/kisel-mini.svg")));
+    item->setIconByPixmap(QIcon(QStringLiteral(":/qt/qml/Kisel/resources/logo/miku-mini.svg")));
     item->setStatus(KStatusNotifierItem::Active);
 
     auto *menu = new QMenu;
@@ -33,7 +33,7 @@ Tray::Tray(QObject *parent)
     // Windows, and desktops without StatusNotifierItem: the plain system tray.
     if (!QSystemTrayIcon::isSystemTrayAvailable())
         return;
-    auto *item = new QSystemTrayIcon(QIcon(QStringLiteral(":/qt/qml/Kisel/resources/logo/kisel-mini.svg")), this);
+    auto *item = new QSystemTrayIcon(QIcon(QStringLiteral(":/qt/qml/Kisel/resources/logo/miku-mini.svg")), this);
     item->setToolTip(QStringLiteral("Kisel"));
 
     auto *menu = new QMenu;

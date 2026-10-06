@@ -304,7 +304,34 @@ Item {
         if (Prefs.floating && !assembling)
             Shell.restoreFloat(Prefs.floatX, Prefs.floatY)
         updateHit()
+        if (!Prefs.floating && !assembling)
+            greetSoon.restart()
     }
+
+    // ---- hello: every start she comes up from the bottom of the screen, waves, and flies
+    // into the bar. It is the drag's machinery run by a clock instead of a pointer: the
+    // surface covers the output, she is "free" at an exact place on it, and the docking
+    // arc takes her home. Only her own box takes clicks meanwhile.
+    property bool greeting: false
+    Timer { id: greetSoon; interval: 500; onTriggered: root.greet() }
+    function greet() {
+        if (greeting || floating || assembling || expanded || mfree || Theme.reduced) return
+        greeting = true
+        freeSize = 120
+        freeCX = screenW / 2
+        freeCY = screenH + 80
+        mfree = true
+        Shell.beginGrab()
+        greetWide.restart()
+    }
+    // the surface needs a moment to become the size of the output
+    Timer { id: greetWide; interval: 60; repeat: true
+        onTriggered: if (Shell.viewWide) { stop(); root.freeCX = root.screenW / 2; root.freeCY = root.screenH + 80; greetRise.restart() } }
+    NumberAnimation { id: greetRise; target: root; property: "freeCY"; to: root.screenH - 92; duration: 620
+        easing.type: Easing.OutBack; easing.overshoot: 1.4
+        onFinished: { mascot.wavedAt = Date.now(); mascot.play("hello", 1900); Sfx.play("open"); greetHold.restart() } }
+    Timer { id: greetHold; interval: 2000
+        onTriggered: { mascot.jump(0.5, true); root.arcDone = false; dockAnim.duration = 760; root.startDockArc() } }
 
     function updateHit() {
         if (tucked) { Shell.setHitRect(root.x + wakeRect.x, root.y + wakeRect.y, wakeRect.width, wakeRect.height); return }
@@ -427,6 +454,7 @@ Item {
         landRipple.go(slotCenterFinal().x - isoX, slotCenterFinal().y - isoY)
         Sfx.play("click")
         arcDone = true
+        if (greeting) { greeting = false; dockAnim.duration = 320; Shell.endGrab() } // home: the surface shrinks back
         tryFinishFree()
     }
     property bool arcDone: true
@@ -662,7 +690,7 @@ Item {
                 readonly property string label: Hub.chip !== "" ? ""
                     : Hub.mood === "work" ? Hub.statusLine
                     : Hub.mood === "think" ? "Thinking"
-                    : (Hub.mood === "alert" || Hub.mood === "happy" || Hub.mood === "sad") ? "" : "Kisel"
+                    : (Hub.mood === "alert" || Hub.mood === "happy" || Hub.mood === "sad") ? "" : "Miku"
                 Text {
                     visible: pillRow.label !== ""
                     height: parent.height
@@ -704,12 +732,12 @@ Item {
                     x: 14; y: 12
                     spacing: Theme.space2
                     Image {
-                        source: "resources/logo/kisel-mini.svg"
+                        source: "resources/logo/miku-mini.svg"
                         width: 24; height: 24
                         sourceSize: Qt.size(48, 48)
                     }
                     Text {
-                        text: "Kisel"
+                        text: "Miku"
                         color: Theme.ink
                         font.family: Theme.display
                         font.weight: Font.Bold
@@ -880,6 +908,7 @@ Item {
             walkDir: root.walkDir
             doneBadge: Hub.chip === "done"
             mood: root.dropActive ? "wow" : root.dropHappy ? "happy" : root.walking ? "walk" : Hub.mood
+            paused: root.tucked && root.tuckA > root.pillT
             looking: hover.hovered
             lookAt: mascot.mapFromItem(card, hover.point.position.x, hover.point.position.y)
         }
@@ -909,6 +938,7 @@ Item {
             x: mascot.x; y: mascot.y
             width: mascot.width; height: mascot.height
             cursorShape: picked ? Qt.ClosedHandCursor : Qt.PointingHandCursor
+            enabled: !root.greeting
             property real hold: 0                 // the ring's progress, 0..1
             property bool picked: false           // the 350 ms are up and Kisel is in the hand
             property bool haveOff: false          // the first output-sized event has arrived

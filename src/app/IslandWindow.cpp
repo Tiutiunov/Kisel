@@ -473,7 +473,8 @@ void IslandWindow::trackPointer()
         m_lastForeground = quintptr(front);
     // A held button means a press or a drag that started on the island: it keeps
     // the pointer wherever it goes.
-    const bool held = m_grabbing || QGuiApplication::mouseButtons() != Qt::NoButton;
+    // (Not "while grabbing": the greeting uses the output-sized surface with no button down.)
+    const bool held = QGuiApplication::mouseButtons() != Qt::NoButton;
     const bool pass = !held && !m_hit.contains(m_view->mapFromGlobal(QCursor::pos()));
     if (pass == m_passThrough)
         return;
