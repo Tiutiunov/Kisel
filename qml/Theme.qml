@@ -74,6 +74,12 @@ QtObject {
     readonly property int tFast: 140
     readonly property int tBase: reduced ? 140 : 280
     readonly property int tSettle: 520
+    // The island's own size, after Coucou: it opens on a soft spring that runs a
+    // little past its size and settles, and closes on a plain ease with no overshoot.
+    readonly property int tOpen: reduced ? 140 : 480
+    readonly property int tClose: reduced ? 140 : 340
+    readonly property var springOpen: reduced ? [0.33, 1, 0.68, 1, 1, 1] : [0.3, 1.14, 0.4, 1, 1, 1]
+    readonly property var easeClose: [0.45, 0, 0.2, 1, 1, 1]
 
     readonly property FontLoader fredoka6: FontLoader { source: "resources/fonts/fredoka-latin-600-normal.ttf" }
     readonly property FontLoader fredoka: FontLoader { source: "resources/fonts/fredoka-latin-700-normal.ttf" }

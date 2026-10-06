@@ -52,8 +52,8 @@ public:
     static constexpr int kMascotLeft = 294, kMascotTop = 8, kMascotSize = 120;
     // ...and its card opens from the same spot: 24..684 x 8..448 in the surface.
     static constexpr int kCardLeft = 24, kCardTop = 8, kCardRight = 684, kCardBottom = 448;
-    // A docked pill keeps this far from the corners of the output.
-    static constexpr int kCornerKeepOut = 120;
+    // A docked pill keeps this far from the corners of the output (half the 288 px bar, and 6).
+    static constexpr int kCornerKeepOut = 150;
 
     explicit IslandWindow(QQuickView *view, QObject *parent = nullptr);
 
@@ -143,6 +143,7 @@ private:
     bool m_avoidPanels = true;
 #ifdef Q_OS_WIN
     void trackPointer();
+    void applyPassThrough();
     QRectF m_hit;
     bool m_passThrough = false;
     quintptr m_lastForeground = 0; // the window that had the keyboard before the island took it

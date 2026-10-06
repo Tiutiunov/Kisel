@@ -2,8 +2,8 @@
 // or (floating) a mascot that lives free on the desktop and opens its card in
 // place. Sizes, timings and behaviour follow motion.md.
 //
-//   docked   on top, bottom, left or right: collapsed 184-288 x 32 (32 x 176 on the
-//            sides) -> home 660x200 | session 300 | permission 236/310/290 | github
+//   docked   on top, bottom, left or right: collapsed 288 x 32, Coucou's compact bar,
+//            with Kisel wholly inside it (32 x 176 on the sides) -> home 660x200 | session 300 | permission 236/310/290 | github
 //            276 | chat 412 | settings 440. The bar's size and manners follow Coucou's
 //            island: a click opens it (280 ms OutCubic), it closes a moment after the
 //            pointer leaves (Settings: at once to 10 s) unless something holds it open, and after a minute with
@@ -48,32 +48,36 @@ Item {
     readonly property bool vertical: !floating && (edge === "left" || edge === "right")
     readonly property bool atBottom: !floating && edge === "bottom"
     readonly property string dockSide: floating ? "none" : edge
-    // Collapsed: a 32 px bar, 184 px at rest, widening to its status (max 288); a
-    // 32 x 176 one on the sides; the mascot alone (120 px) while floating.
+    // Collapsed: Coucou's compact bar, 288 x 32 with 14 px corners; a 32 x 176 one on the
+    // sides; the mascot alone (120 px) while floating. Kisel sits inside the bar, 4 px
+    // clear of its edges, and never reaches out of it.
     readonly property int pillT: 32      // the bar's thickness
-    readonly property int mini: 32       // the mascot in the bar
-    readonly property int pillMin: 184
+    readonly property int mini: 24       // the mascot in the bar
+    readonly property int miniPad: (pillT - mini) / 2
+    readonly property int miniLead: 14   // from the bar's leading end to the mascot
+    readonly property int pillMin: 288
     readonly property int pillMax: 288
-    readonly property int labelX: 12 + mini + 10
+    readonly property int labelX: miniLead + mini + 10
     readonly property real pillContentW: labelX + pillRow.implicitWidth + 16
     readonly property real pillW: Math.max(pillMin, Math.min(pillMax, pillContentW))
     readonly property real closedW: floating ? 120 : (vertical ? pillT : pillW)
     readonly property real closedH: floating ? 120 : (vertical ? 176 : pillT)
     readonly property real cardW: expanded ? 660 : closedW
     readonly property real cardH: expanded ? viewHeight : closedH
-    // the radius follows min(26, short side / 2), so the pill turns into a card without a jump
-    readonly property real radius: Math.min(26, Math.min(animW, animH) / 2)
-    // The card resizes first when it grows (content follows 60 ms behind); when it
-    // shrinks the content fades first and the card follows 60 ms later.
+    // the radius grows from the bar's 14 to the card's 26 as it opens, never past half the short side
+    readonly property real radius: Math.min(14 + 12 * openU, Math.min(animW, animH) / 2)
+    // The card resizes first when it grows (content follows 120 ms behind); when it
+    // shrinks the content fades first and the card follows 80 ms later. It opens on
+    // Theme.springOpen and closes on Theme.easeClose; the mascot glides on the same curves.
     property real animW: closedW
     property real animH: closedH
     property bool shrinking: false
     property bool snapSize: false  // a dock changes the pill's shape at once; the card morphs instead
-    readonly property int enterDelay: shrinking ? 180 : 60
+    readonly property int enterDelay: shrinking ? 200 : 120
     onCardHChanged: { shrinking = cardH < animH - 0.5; animH = cardH }
     onCardWChanged: animW = cardW
-    Behavior on animW { enabled: !root.snapSize; SequentialAnimation { PauseAnimation { duration: root.shrinking ? 60 : 0 } NumberAnimation { duration: Theme.tBase; easing.type: Easing.OutCubic } } }
-    Behavior on animH { enabled: !root.snapSize; SequentialAnimation { PauseAnimation { duration: root.shrinking ? 60 : 0 } NumberAnimation { duration: Theme.tBase; easing.type: Easing.OutCubic } } }
+    Behavior on animW { enabled: !root.snapSize; SequentialAnimation { PauseAnimation { duration: root.shrinking ? 80 : 0 } NumberAnimation { duration: root.shrinking ? Theme.tClose : Theme.tOpen; easing.type: Easing.BezierSpline; easing.bezierCurve: root.shrinking ? Theme.easeClose : Theme.springOpen } } }
+    Behavior on animH { enabled: !root.snapSize; SequentialAnimation { PauseAnimation { duration: root.shrinking ? 80 : 0 } NumberAnimation { duration: root.shrinking ? Theme.tClose : Theme.tOpen; easing.type: Easing.BezierSpline; easing.bezierCurve: root.shrinking ? Theme.easeClose : Theme.springOpen } } }
 
     // how far the card has opened, 0 (pill) .. 1 (card)
     readonly property real openU: Math.max(0, Math.min(1, (animW - closedW) / Math.max(1, 660 - closedW)))
@@ -84,7 +88,7 @@ Item {
     readonly property real cardX: floating ? (width - animW) / 2
         : edge === "left" ? -tuckA
         : edge === "right" ? width - animW + tuckA
-        : mix(Shell.pillAlong - animW / 2, 24, openU)
+        : mix(Shell.pillAlong - animW / 2, (width - animW) / 2, openU)
     readonly property real cardY: floating ? 8
         : edge === "top" ? -tuckA
         : edge === "bottom" ? height - animH + tuckA
@@ -115,7 +119,7 @@ Item {
     onCanTuckChanged: if (!canTuck) tucked = false
     onTuckedChanged: updateHit()
     Timer { interval: 60000; running: root.canTuck && !root.tucked; onTriggered: root.tucked = true }
-    // the bar, the mascot hanging 6 px out of it and the shadow all clear the edge
+    // the bar and its shadow clear the edge
     property real tuckA: tucked ? pillT + 14 : 0
     Behavior on tuckA { NumberAnimation { duration: Theme.reduced ? 0 : 340; easing.type: Easing.InOutCubic } }
     readonly property rect wakeRect: edge === "left" ? Qt.rect(0, Shell.pillAlong - 120, 6, 240)
@@ -243,7 +247,7 @@ Item {
         const ox = cardX + 150, oy = 48 // Home's content origin
         const pw = pillMin // the pill at rest
         assembly.pill = Qt.rect((root.width - pw) / 2, 0, pw, pillT)
-        assembly.leaf = Qt.point((root.width - pw) / 2 + 12 + 27 * mini / 44, 6 + 5 * mini / 44)
+        assembly.leaf = Qt.point((root.width - pw) / 2 + miniLead + 27 * mini / 44, miniPad + 5 * mini / 44)
         assembly.slot = Qt.rect(cardX + 14 + (132 - 110) / 2, 48, 110, 110)
         const hr = homeView.hookRect, br = homeView.buttonRect
         assembly.card = Qt.rect(ox + hr.x, oy + hr.y, hr.width, hr.height)
@@ -390,8 +394,8 @@ Item {
         const cw = vert ? pillT : pillW, ch = vert ? 176 : pillT
         const cx = e === "left" ? 0 : e === "right" ? width - cw : Shell.pillAlong - cw / 2
         const cy = e === "top" ? 0 : e === "bottom" ? height - ch : Shell.pillAlong - ch / 2
-        const sx = e === "left" ? 6 : e === "right" ? -6 : 12
-        const sy = e === "bottom" ? -6 : vert ? 12 : 6
+        const sx = vert ? miniPad : miniLead
+        const sy = vert ? miniLead : miniPad
         return Qt.point(Shell.originX + cx + sx + mini / 2, Shell.originY + cy + sy + mini / 2)
     }
     function freeBox() { return Qt.point(freeCX - freeSize / 2, freeCY - freeSize / 2) }
@@ -591,7 +595,9 @@ Item {
                     // the pointer alone never opens the card: the top of a screen is where
                     // tabs and title bars live. It only keeps an open card open.
                     if (hovered) closeTimer.stop()
-                    else root.closeIn(Prefs.closeDelay * 1000)
+                    // "at once" still waits a blink: a hover can drop out for a few
+                    // milliseconds while the card changes shape under a still pointer
+                    else root.closeIn(Math.max(150, Prefs.closeDelay * 1000))
                 }
             }
             // a click anywhere on the bar opens it (on the mascot: see dragArea)
@@ -680,7 +686,7 @@ Item {
             // the words appear when the card opens
             PillDisc {
                 x: (root.pillT - width) / 2
-                y: 12 + root.mini + 8
+                y: root.miniLead + root.mini + 8
                 opacity: root.vertical && !root.expanded ? 1 : 0
                 kind: Hub.chip !== "" ? Hub.chip : Hub.mood === "work" ? "work" : Hub.mood === "think" ? "think" : ""
             }
@@ -690,7 +696,7 @@ Item {
                 id: header
                 opacity: root.expanded ? 1 : 0
                 visible: opacity > 0
-                Behavior on opacity { NumberAnimation { duration: Theme.tFast } }
+                Behavior on opacity { NumberAnimation { duration: root.expanded ? 220 : 120; easing.type: Easing.OutCubic } }
                 width: parent.width
                 height: 48
 
@@ -850,21 +856,19 @@ Item {
             z: 2
             readonly property int slot: !root.expanded ? (root.floating ? 120 : root.mini)
                 : ({ home: 110, session: 88, permission: 88, github: 88, chat: 64, settings: 64 })[root.view]
-            // collapsed: 12 px from the left edge and 6 px below the pill's top, so it hangs
-            // 6 px below the pill like a charm; on the other docks it overhangs 6 px toward the
-            // screen (above the pill at the bottom, to the side on the sides)
+            // collapsed: inside the bar, centred across it and `miniLead` from its leading end
             property real slotX: root.expanded ? 14 + (132 - slot) / 2
-                : root.floating ? 0 : root.edge === "left" ? 6 : root.edge === "right" ? -6 : 12
+                : root.floating ? 0 : root.vertical ? root.miniPad : root.miniLead
             property real slotY: root.expanded ? (root.atBottom ? root.animH - slot - 12 : 48)
-                : root.floating ? 0 : root.atBottom ? -6 : root.vertical ? 12 : 6
+                : root.floating ? 0 : root.vertical ? root.miniLead : root.miniPad
             readonly property bool gliding: !root.mfree && !Theme.reduced
             size: root.mfree ? root.freeSize : slot
             x: root.mfree ? root.freeCX - root.freeSize / 2 - root.isoX : card.x + slotX
             y: root.mfree ? root.freeCY - root.freeSize / 2 - root.isoY : card.y + slotY
             // "Reduce motion": the mascot does not glide, it fades between slots
-            Behavior on size { enabled: mascot.gliding; NumberAnimation { duration: Theme.tBase; easing.type: Easing.OutCubic } }
-            Behavior on slotX { enabled: mascot.gliding; NumberAnimation { duration: Theme.tBase; easing.type: Easing.OutCubic } }
-            Behavior on slotY { enabled: mascot.gliding; NumberAnimation { duration: Theme.tBase; easing.type: Easing.OutCubic } }
+            Behavior on size { enabled: mascot.gliding; NumberAnimation { duration: root.shrinking ? Theme.tClose : Theme.tOpen; easing.type: Easing.BezierSpline; easing.bezierCurve: root.shrinking ? Theme.easeClose : Theme.springOpen } }
+            Behavior on slotX { enabled: mascot.gliding; NumberAnimation { duration: root.shrinking ? Theme.tClose : Theme.tOpen; easing.type: Easing.BezierSpline; easing.bezierCurve: root.shrinking ? Theme.easeClose : Theme.springOpen } }
+            Behavior on slotY { enabled: mascot.gliding; NumberAnimation { duration: root.shrinking ? Theme.tClose : Theme.tOpen; easing.type: Easing.BezierSpline; easing.bezierCurve: root.shrinking ? Theme.easeClose : Theme.springOpen } }
             // docked on a side it leans 8 degrees toward the screen
             inwardTilt: root.vertical && !root.expanded ? (root.edge === "left" ? 8 : -8) : 0
             Behavior on inwardTilt { NumberAnimation { duration: 200 } }

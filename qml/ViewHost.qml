@@ -1,10 +1,10 @@
 // Hosts one view of the island and owns how it appears and disappears.
 //
-//  * leaving: the old content fades out in 100 ms, at once;
-//  * entering: after `enterDelay` (60 ms when the card grows, so text never clips; about
-//    180 ms when it shrinks, once the card is 80 percent of the way) it fades in over
-//    140 ms and its blocks rise 8 px, staggered 30 ms (see Motion.rise and `age`);
-//  * same height: a plain 140 ms cross-fade, no rise.
+//  * leaving: the old content fades out in 120 ms, at once;
+//  * entering: after `enterDelay` (120 ms when the card grows, so text never clips; about
+//    200 ms when it shrinks, once the card is most of the way) it fades in over
+//    220 ms and its blocks rise 8 px, staggered 40 ms (see Motion.rise and `age`);
+//  * same height: a plain 220 ms cross-fade, no rise.
 import QtQuick
 
 Item {
@@ -42,7 +42,7 @@ Item {
     opacity: shown ? 1 : 0
     visible: opacity > 0.001
     enabled: active && shown
-    Behavior on opacity { NumberAnimation { duration: host.shown ? 140 : 100 } }
+    Behavior on opacity { NumberAnimation { duration: host.shown ? 220 : 120; easing.type: Easing.OutCubic } }
 
     Item { id: holder; width: parent.width }
 }

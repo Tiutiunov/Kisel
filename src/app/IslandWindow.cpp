@@ -446,6 +446,21 @@ void IslandWindow::setHitRect(qreal x, qreal y, qreal w, qreal h)
 }
 
 #ifdef Q_OS_WIN
+// The window style itself, not Qt::WindowTransparentForInput: going through Qt costs
+// about 2 ms of the GUI thread each time, on the very frames where the pointer enters
+// or leaves and an animation starts.
+void IslandWindow::applyPassThrough()
+{
+    const HWND self = HWND(m_view->winId());
+    const LONG_PTR ex = GetWindowLongPtrW(self, GWL_EXSTYLE);
+    // both bits together: a layered window that draws through DirectComposition has no
+    // bitmap to hit-test, so left layered it would let every click through for good
+    const LONG_PTR bits = WS_EX_LAYERED | WS_EX_TRANSPARENT;
+    const LONG_PTR want = m_passThrough ? (ex | bits) : (ex & ~bits);
+    if (want != ex)
+        SetWindowLongPtrW(self, GWL_EXSTYLE, want);
+}
+
 // An input-transparent window gets no pointer events at all, so nothing would
 // tell us the pointer came back: ask where it is, 30 times a second.
 void IslandWindow::trackPointer()
@@ -463,7 +478,7 @@ void IslandWindow::trackPointer()
     if (pass == m_passThrough)
         return;
     m_passThrough = pass;
-    m_view->setFlag(Qt::WindowTransparentForInput, pass);
+    applyPassThrough();
 }
 #endif
 
@@ -476,6 +491,7 @@ void IslandWindow::setKeyboard(bool wanted)
     if (QGuiApplication::platformName() != QLatin1String("windows"))
         return;
     m_view->setFlag(Qt::WindowDoesNotAcceptFocus, !wanted);
+    applyPassThrough(); // Qt has just rewritten the window's styles
     if (!wanted && m_lastForeground && GetForegroundWindow() == HWND(m_view->winId()))
         SetForegroundWindow(HWND(m_lastForeground));
 #endif
