@@ -123,9 +123,11 @@ Item {
     // Rin is the notifications'. While Windows holds one that has not been looked at she
     // stands at the head of the bar, after whoever is there already (second, or third
     // while two are at work), and waves a sign with the name of the program it came
-    // from. The sign is held up out of the bar (above it, or below a bar on the top
-    // edge), so the bar only makes room for Rin herself. She does not stand still: every few seconds she does something, and the
-    // others answer. A click on her or her sign counts as looking: it opens the
+    // from. The one on stage gets a partner for it as well (as while Claude works), so
+    // there are three of them. The sign is held up out of the bar (above it, or below a bar on the top
+    // edge), so the bar only makes room for Rin herself. None of them stands still: every
+    // few seconds a little scene plays among the three (`noteScene`), between the scenes
+    // the first two have of their own. A click on her or her sign counts as looking: it opens the
     // notification centre and she goes back to the bench.
     readonly property bool note: Prefs.rinNotes && Notes.available && Notes.pending
         && !expanded && !floating && !vertical && !mfree && !assembling && !greeting
@@ -135,29 +137,49 @@ Item {
     Behavior on heraldSeat { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
     property real heraldW: heraldRin ? mini + 3 : 0
     Behavior on heraldW { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
-    function rinItem() { return stage === "rin" ? mascot : duo && buddyWho === "rin" ? buddy : herald }
     readonly property Item rinNow: stage === "rin" ? mascot : duo && buddyWho === "rin" ? buddy : herald
     property int lastNoteScene: -1
-    function noteScene() {
-        if (skTrade.running || sweeping) return
-        for (const k of skits) if (k.running) return
-        const r = rinItem(), o = r === mascot ? (duo ? buddy : null) : mascot
-        let i = Math.floor(Math.random() * 6)
-        if (i === lastNoteScene) i = (i + 1) % 6
-        lastNoteScene = i
-        if (i === 0) { r.jump(0.7, true); r.play("hype", 1200) }                                  // look, look
-        else if (i === 1) { r.play("hello", 1300); if (o) o.play("surprised", 900) }               // over here
-        else if (i === 2) { r.jump(0.5, true); if (o) o.jump(0.35, false); if (duo && r === herald) buddy.jump(0.3, false) } // all hop
-        else if (i === 3) { r.play("angry", 1100); if (o) o.play("unimpressed", 1300) }            // will you look already
-        else if (i === 4) { r.play("laugh", 1200); if (o) o.play("laugh", 1200) }
-        else { r.st.sqv += 6; if (o) o.play("fond", 1100) }
+    // the other two (or the one), nearest to Rin first
+    function noteOthers() {
+        const r = rinNow, all = duo ? [buddy, mascot] : [mascot]
+        return all.filter(m => m !== r)
     }
-    onNoteChanged: { updateHit(); if (note) { rinItem().jump(0.8, true); if (stage !== "rin") mascot.play("surprised", 900) } }
+    function noteScene() {
+        if (skTrade.running || sweeping || noteWave.running) return
+        for (const k of skits) if (k.running) return
+        const r = rinNow, o = noteOthers(), a = o[0] || null, b = o[1] || null
+        let i = Math.floor(Math.random() * 9)
+        if (i === lastNoteScene) i = (i + 1) % 9
+        lastNoteScene = i
+        duoLook = true; duoLookOff.restart()
+        if (i === 0) { r.jump(0.7, true); r.play("hype", 1200); for (const m of o) m.play("surprised", 900) }      // look, look
+        else if (i === 1) { r.play("hello", 1300); if (a) a.play("hello", 1100); if (b) b.play("surprised", 900) } // over here
+        else if (i === 2) noteWave.restart()                                                                       // a wave down the row and back
+        else if (i === 3) { r.play("angry", 1100); if (a) a.play("unimpressed", 1300); if (b) b.play("flustered", 1100) } // will you look already
+        else if (i === 4) { r.play("laugh", 1200); for (const m of o) m.play("laugh", 1200) }
+        else if (i === 5) { r.st.sqv += 6; if (a) a.play("fond", 1100); if (b) b.st.sqv += 4 }
+        else if (i === 6) { r.jump(0.6, true); for (const m of o) m.jump(0.5, true); r.play("hype", 1000) }        // all three at once
+        else if (i === 7) { r.play("proud", 1300); for (const m of o) m.play("hype", 1000) }                       // they cheer her sign
+        else { if (a) { a.play("love", 1200); a.jump(0.3, false) } r.play("flustered", 1200); if (b) b.play("laugh", 1100) } // one of them is too fond of her
+    }
+    SequentialAnimation {
+        id: noteWave
+        ScriptAction { script: root.rinNow.jump(0.5, true) }
+        PauseAnimation { duration: 150 }
+        ScriptAction { script: { const o = root.noteOthers(); if (o[0]) o[0].jump(0.45, true) } }
+        PauseAnimation { duration: 150 }
+        ScriptAction { script: { const o = root.noteOthers(); if (o[1]) o[1].jump(0.45, true) } }
+        PauseAnimation { duration: 260 }
+        ScriptAction { script: { const o = root.noteOthers(); if (o[0]) o[0].jump(0.35, true) } }
+        PauseAnimation { duration: 150 }
+        ScriptAction { script: { root.rinNow.jump(0.6, true); root.rinNow.play("laugh", 900) } }
+    }
+    onNoteChanged: { updateHit(); if (note) { rinNow.jump(0.8, true); if (stage !== "rin") mascot.play("surprised", 900) } else noteWave.stop() }
     Timer {
         interval: 4000
         repeat: true
         running: root.note && !Theme.reduced && !root.tucked
-        onTriggered: { interval = 4500 + Math.random() * 4500; root.noteScene() }
+        onTriggered: { interval = 3500 + Math.random() * 3500; root.noteScene() }
     }
 
     // ---- two at work ----------------------------------------------------------------
@@ -166,9 +188,14 @@ Item {
     // on stage and a partner (Miku, or if Miku is the one on stage, the one who rests or
     // the first on the bench). They do not just sit there: every few seconds a little
     // scene plays between them (see `skits`). The bar grows by the partner's width.
-    readonly property bool duo: claudeBusy && !expanded && !floating && !vertical && !mfree && !assembling && !greeting
-    readonly property string buddyWho: stage !== "miku" ? "miku" : rest !== "miku" ? rest : "rin"
-    property real duoW: duo ? 23 : 0
+    // (A notification waiting does the same as Claude working: the one on stage gets a
+    // partner, and with Rin and her sign that makes three. See "Rin and the notifications".)
+    readonly property bool noteUp: Prefs.rinNotes && Notes.available && Notes.pending
+    readonly property bool duo: (claudeBusy || noteUp) && !expanded && !floating && !vertical && !mfree && !assembling && !greeting
+    // (not Rin while she is the one with the sign: then it is Luka)
+    readonly property string buddyWho: stage !== "miku" ? "miku"
+        : rest !== "miku" && !(noteUp && rest === "rin") ? rest : noteUp ? "luka" : "rin"
+    property real duoW: duo ? mini + 3 : 0 // (the partner is the size of the one on stage)
     Behavior on duoW { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
     property bool duoLook: false // they are looking at each other
     Timer { id: duoLookOff; interval: 2000; onTriggered: root.duoLook = false }
@@ -203,7 +230,7 @@ Item {
         ScriptAction { script: {
             for (const k of root.skits) k.stop()
             root.buddyPop = 1; root.tossA = 0
-            root.mainDx = 25; root.buddyDx = -27
+            root.mainDx = 27; root.buddyDx = -27
             root.duoLook = true; duoLookOff.restart()
             mascot.jump(1, true); buddy.jump(0.8, true)
         } }
@@ -1383,12 +1410,12 @@ Item {
         Mascot {
             id: buddy
             z: 2
-            size: 20
+            size: root.mini
             x: card.x + root.miniLead + root.mini + 3 + root.buddyDx
             y: (root.atBottom ? card.y + card.height - root.pillT : card.y) + (root.pillT - height) / 2
             character: root.buddyWho
             instant: true
-            mood: root.buddyWho === "miku" ? (Hub.mood === "think" ? "think" : "work") : "idle" // (only Miku does Claude's work)
+            mood: root.buddyWho === "miku" && root.claudeBusy ? (Hub.mood === "think" ? "think" : "work") : "idle" // (only Miku does Claude's work)
             property real pop: root.duo ? 1 : 0
             Behavior on pop { NumberAnimation { duration: 320; easing.type: Theme.reduced ? Easing.OutCubic : Easing.OutBack } }
             scale: pop * root.buddyPop
