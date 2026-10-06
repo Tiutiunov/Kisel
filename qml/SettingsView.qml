@@ -268,6 +268,7 @@ Item {
                 label: value === 10 ? "In the middle of the edge" : (Shell.edge === "left" || Shell.edge === "right" ? (value < 10 ? "Toward the top" : "Toward the bottom") : (value < 10 ? "Toward the left" : "Toward the right"))
                 onMoved: (v) => root.place(Shell.edge, v / 20)
             }
+            KToggle { label: "Start when I sign in"; checked: Shell.autostart; onToggled: (v) => Shell.autostart = v }
             KToggle { visible: Shell.canAvoidPanels; label: "Stay clear of the taskbar"; checked: Prefs.avoidPanels; onToggled: (v) => Prefs.avoidPanels = v }
             Row {
                 spacing: Theme.space2

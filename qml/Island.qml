@@ -960,101 +960,11 @@ Item {
                 PillBars { visible: Hub.mood === "work" && Hub.chip === "" && !root.miniPlayer; running: visible; anchors.verticalCenter: parent.verticalCenter }
                 PillDots { visible: Hub.mood === "think" && Hub.chip === "" && !root.miniPlayer; running: visible; anchors.verticalCenter: parent.verticalCenter }
                 PillChip { id: pillChip; kind: root.miniPlayer || Hub.chip === "done" ? "" : Hub.chip } // ("Done" has a chip of its own, below)
-                // Zundamon's player in the bar: three bars that dance to the tune, the title (it
-                // scrolls when it does not fit) over the artist, and the three keys
-                Row {
-                    // it slides in from the right when the tune starts, and out when it stops
-                    opacity: root.miniPlayer ? 1 : 0
-                    visible: opacity > 0.01
-                    Behavior on opacity { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
-                    transform: Translate { x: root.miniPlayer ? 0 : 18; Behavior on x { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } } }
+                BarPlayer {
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: 8
-                    Row {
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 10; height: 12
-                        spacing: 2
-                        opacity: Media.playing ? 1 : 0.45
-                        Behavior on opacity { NumberAnimation { duration: 200 } }
-                        Repeater {
-                            model: 3
-                            Rectangle {
-                                id: beat
-                                required property int index
-                                width: 2; radius: 1
-                                height: 4
-                                anchors.bottom: parent.bottom
-                                color: Theme.mint
-                                SequentialAnimation on height {
-                                    running: root.miniPlayer && Media.playing && !Theme.reduced && !root.tucked
-                                    loops: Animation.Infinite
-                                    NumberAnimation { to: 12 - beat.index * 3; duration: 240 + beat.index * 90; easing.type: Easing.InOutSine }
-                                    NumberAnimation { to: 3 + beat.index * 2; duration: 310 - beat.index * 40; easing.type: Easing.InOutSine }
-                                }
-                            }
-                        }
-                    }
-                    Item {
-                        id: tune
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: root.pillMax - root.labelX - 16 - root.castW - 104
-                        height: 24
-                        clip: true
-                        Text {
-                            id: tuneTitle
-                            y: -1
-                            text: Media.title
-                            color: Theme.ink
-                            font.family: Theme.sans; font.pixelSize: 12; font.weight: Font.ExtraBold
-                            readonly property real over: Math.max(0, implicitWidth - tune.width)
-                            onTextChanged: x = 0
-                            SequentialAnimation on x {
-                                running: tuneTitle.over > 0 && root.miniPlayer && !Theme.reduced && !root.tucked
-                                loops: Animation.Infinite
-                                PauseAnimation { duration: 1800 }
-                                NumberAnimation { to: -tuneTitle.over; duration: 400 + tuneTitle.over * 40 }
-                                PauseAnimation { duration: 1800 }
-                                NumberAnimation { to: 0; duration: 500; easing.type: Easing.InOutCubic }
-                            }
-                        }
-                        Text {
-                            y: 13
-                            width: tune.width
-                            text: Media.artist
-                            elide: Text.ElideRight
-                            color: Theme.inkMuted
-                            font.family: Theme.sans; font.pixelSize: 9; font.weight: Font.DemiBold
-                        }
-                    }
-                    Row {
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: 2
-                    Repeater {
-                        model: ["prev", Media.playing ? "pause" : "play", "next"]
-                        Item {
-                            id: key
-                            required property string modelData
-                            width: 18; height: 18
-                            Rectangle { anchors.fill: parent; radius: 9; color: Theme.surface3; opacity: keyArea.containsMouse ? 1 : 0
-                                Behavior on opacity { NumberAnimation { duration: Theme.tHover } } }
-                            PlayGlyph { anchors.centerIn: parent; kind: key.modelData; size: 9; tint: Theme.ink
-                                scale: keyArea.pressed ? 0.85 : 1 }
-                            MouseArea {
-                                id: keyArea
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                // (a MouseArea, so the click stays here and does not open the card)
-                                onClicked: {
-                                    Hub.poke()
-                                    if (key.modelData === "prev") Media.previous()
-                                    else if (key.modelData === "next") Media.next()
-                                    else Media.playPause()
-                                }
-                            }
-                        }
-                    }
-                    }
+                    on: root.miniPlayer
+                    still: root.tucked
+                    room: root.pillMax - root.labelX - 16 - root.castW
                 }
             }
 
@@ -1066,7 +976,7 @@ Item {
             }
 
             // the tune's progress: a hairline along the side of the bar that lies on the
-            // screen's edge (that side is square, so it runs the bar's whole width), with a bright head
+            // screen's edge (that side is square, so it runs the bar's whole width), with a star for a head
             Item {
                 x: 0
                 y: root.dockSide === "bottom" ? root.pillT - 2 : 0
@@ -1083,15 +993,18 @@ Item {
                     Behavior on width { NumberAnimation { duration: 500 } }
                     gradient: Gradient {
                         orientation: Gradient.Horizontal
-                        GradientStop { position: 0; color: "#7ED957" }
-                        GradientStop { position: 1; color: Theme.mint }
+                        GradientStop { position: 0; color: "#FF9EBB" }
+                        GradientStop { position: 0.6; color: "#FFE08A" }
+                        GradientStop { position: 1; color: "#B9DC6B" }
                     }
                 }
-                Rectangle {
-                    width: 4; height: 4; radius: 2
-                    x: tuneFill.width - 2; y: root.dockSide === "bottom" ? -2 : 0
-                    color: "#FFFFFF"
+                Spark { // the head: a star that turns while the tune plays
+                    size: 9
+                    x: tuneFill.width - size / 2
+                    y: root.dockSide === "bottom" ? 2 - size : 0
+                    tint: "#FFFFFF"
                     opacity: Media.playing ? 1 : 0.5
+                    RotationAnimation on rotation { running: root.miniPlayer && Media.playing && !Theme.reduced && !root.tucked; from: 0; to: 90; duration: 2400; loops: Animation.Infinite }
                 }
             }
 

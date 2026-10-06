@@ -31,6 +31,7 @@ class IslandWindow : public QObject
     Q_OBJECT
     Q_PROPERTY(bool debugOn READ debugOn CONSTANT)
     Q_PROPERTY(bool canAvoidPanels READ canAvoidPanels CONSTANT)    // there is a taskbar to keep clear of
+    Q_PROPERTY(bool autostart READ autostart WRITE setAutostart NOTIFY autostartChanged) // start with the session
     Q_PROPERTY(bool floating READ floating NOTIFY floatingChanged)
     Q_PROPERTY(QString edge READ edge NOTIFY dockChanged)           // top | bottom | left | right
     Q_PROPERTY(qreal along READ along NOTIFY dockChanged)           // the pill's centre along the edge, output px
@@ -84,6 +85,11 @@ public:
     // the monitor the taskbar leaves free, so a dock on that side sits against the
     // taskbar instead of under it. Layer-shell draws over panels and needs none of it.
     bool canAvoidPanels() const;
+    // Start when the user signs in. Windows: a value under the user's Run key (a shortcut
+    // named Kisel in the Startup folder counts too, and goes when this is switched off).
+    // Elsewhere: an XDG autostart entry.
+    bool autostart() const;
+    void setAutostart(bool on);
     bool avoidPanels() const { return m_avoidPanels; }
     bool pointerKnown() const;
     qreal pointerX() const { return m_pointer.x(); }
@@ -135,6 +141,7 @@ public:
     Q_INVOKABLE qreal screenHeight() const;
 
 signals:
+    void autostartChanged();
     void quitRequested();
     void floatingChanged();
     void dockChanged();

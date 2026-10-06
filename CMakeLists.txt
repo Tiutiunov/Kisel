@@ -113,6 +113,7 @@ qt_add_qml_module(kisel
         qml/PlayGlyph.qml
         qml/Spark.qml
         qml/DoneChip.qml
+        qml/BarPlayer.qml
         qml/PlayerView.qml
         qml/KField.qml
         qml/Mascot.qml

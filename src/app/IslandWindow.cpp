@@ -1,6 +1,12 @@
 #include "IslandWindow.h"
 
+#include <QCoreApplication>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
 #include <QGuiApplication>
+#include <QSettings>
+#include <QStandardPaths>
 #include <QMargins>
 #include <QRegion>
 #include <QScreen>
@@ -111,6 +117,56 @@ IslandWindow::IslandWindow(QQuickView *view, QObject *parent)
 }
 
 // ---- geometry ---------------------------------------------------------------
+
+namespace {
+#ifdef Q_OS_WIN
+const QString kRunKey = QStringLiteral("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run");
+QString startupShortcut()
+{
+    return QStandardPaths::writableLocation(QStandardPaths::ApplicationsLocation) + QStringLiteral("/Startup/Kisel.lnk");
+}
+#else
+QString autostartFile()
+{
+    return QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) + QStringLiteral("/autostart/kisel.desktop");
+}
+#endif
+} // namespace
+
+bool IslandWindow::autostart() const
+{
+#ifdef Q_OS_WIN
+    return QSettings(kRunKey, QSettings::NativeFormat).contains(QStringLiteral("Kisel")) || QFile::exists(startupShortcut());
+#else
+    return QFile::exists(autostartFile());
+#endif
+}
+
+void IslandWindow::setAutostart(bool on)
+{
+    if (on == autostart())
+        return;
+#ifdef Q_OS_WIN
+    QSettings run(kRunKey, QSettings::NativeFormat);
+    if (on)
+        run.setValue(QStringLiteral("Kisel"), QStringLiteral("\"%1\"").arg(QDir::toNativeSeparators(QCoreApplication::applicationFilePath())));
+    else {
+        run.remove(QStringLiteral("Kisel"));
+        QFile::remove(startupShortcut());
+    }
+#else
+    if (on) {
+        QDir().mkpath(QFileInfo(autostartFile()).absolutePath());
+        QFile f(autostartFile());
+        if (f.open(QIODevice::WriteOnly | QIODevice::Truncate))
+            f.write(QStringLiteral("[Desktop Entry]\nType=Application\nName=Kisel\nExec=%1\nX-GNOME-Autostart-enabled=true\n")
+                        .arg(QCoreApplication::applicationFilePath()).toUtf8());
+    } else {
+        QFile::remove(autostartFile());
+    }
+#endif
+    emit autostartChanged();
+}
 
 bool IslandWindow::canAvoidPanels() const
 {
