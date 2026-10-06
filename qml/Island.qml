@@ -63,6 +63,8 @@ Item {
     readonly property var cast: ["miku", "rin", "luka", "gumi", "teto"]
     readonly property var bench: cast.filter(c => c !== Prefs.character)
     readonly property int castW: 44
+    // GUMI with Spotify playing: the bar names the track and she hums along
+    readonly property bool tune: Prefs.character === "gumi" && Prefs.gumiSpotify && Media.active && Media.playing
     readonly property real pillContentW: labelX + pillRow.implicitWidth + 16
     readonly property real pillW: Math.max(pillMin, Math.min(pillMax, pillContentW))
     readonly property real closedW: floating ? 120 : (vertical ? pillT : pillW)
@@ -695,7 +697,8 @@ Item {
                 readonly property string label: Hub.chip !== "" ? ""
                     : Hub.mood === "work" ? Hub.statusLine
                     : Hub.mood === "think" ? "Thinking"
-                    : (Hub.mood === "alert" || Hub.mood === "happy" || Hub.mood === "sad") ? "" : mascot.displayName
+                    : (Hub.mood === "alert" || Hub.mood === "happy" || Hub.mood === "sad") ? ""
+                    : root.tune ? Media.title : mascot.displayName
                 Text {
                     visible: pillRow.label !== ""
                     height: parent.height
@@ -981,6 +984,7 @@ Item {
             walkDir: root.walkDir
             doneBadge: Hub.chip === "done"
             character: Prefs.character
+            music: root.tune
             mood: root.dropActive ? "wow" : root.dropHappy ? "happy" : root.walking ? "walk" : Hub.mood
             paused: root.tucked && root.tuckA > root.pillT
             // She watches the pointer all over the screen where the platform says where it

@@ -164,4 +164,13 @@ Item {
             onClicked: root.go("github")
         }
     }
+
+    // ---- GUMI's own: the Spotify player, beside the tiles ----
+    PlayerTile {
+        x: 224
+        y: parent.height - 84
+        visible: Prefs.character === "gumi" && Prefs.gumiSpotify && Media.available
+        opacity: Motion.rise(root.age, 3)
+        transform: Translate { y: Motion.lift(root.age, 3) }
+    }
 }

@@ -41,6 +41,7 @@ Item {
     property bool eyesShut: false         // first launch: the eyes open with one blink when released
     property real leafScale: 1            // first launch: the hair grows from its roots
     property bool paused: false           // out of sight: nothing is simulated or painted
+    property bool music: false            // a tune is playing: idle, she hums along
     property bool still: false            // a portrait: painted once, never animated (the bar's small ones)
 
     // ---- dragging (motion.md, "Dragging, edges and monitors") ----------------------
@@ -219,7 +220,7 @@ Item {
         smug:        { eyes: "smug",  mouth: "smug",  hands: "hips", spin: true }
     })
     function look() {
-        const a = looks[m] || looks.idle, e = emotes[emote]
+        const a = looks[m] || looks.idle, e = emotes[emote] || (music && m === "idle" ? emotes.hum : null)
         const L = e ? Object.assign({}, a, e) : Object.assign({}, a)
         if (!L.color) L.color = hair
         if (!L.mouth) L.mouth = who.mouth

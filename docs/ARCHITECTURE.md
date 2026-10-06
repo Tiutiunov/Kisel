@@ -53,6 +53,7 @@ Kisel is a desktop companion for KDE Plasma that watches Claude Code, asks permi
 * `Displays` – which output the island lives on (remembered by name, hot-plug aware); `IslandWindow::moveToScreen` re-creates the layer surface on the target output.
 * `Sounds` – plays the WAVs through `paplay`/`pw-play` as a plain "Kisel" stream. (Not `media.role=event`: Plasma can mute that whole role.)
 * `Launcher` – opens https links only (a pull request).
+* `Media` – what Spotify is playing and its three buttons, for GUMI's player. Windows: the system media session (`GlobalSystemMediaTransportControlsSessionManager`, C++/WinRT), read twice a second on a thread of its own; the cover reaches QML as a data: URL. Elsewhere `available` is false.
 * `Tray` – StatusNotifierItem (Open, Settings, Quit).
 * `main.cpp` – wiring, single-instance probe on the socket, `--demo` (replays a fake session), `--open <view>`, `--grab <png>` (renders one frame and quits; used for development and CI screenshots).
 
@@ -66,7 +67,7 @@ Kisel is a desktop companion for KDE Plasma that watches Claude Code, asks permi
 * Transitions: `ViewHost` (how each view enters and leaves), `Motion` (stagger helpers), `RollText`, `Assembly` (first launch).
 * Components: `KButton` (variants, success move), `StatusPill`, `LaunchTile`, `KToggle`, `KField`, `Toast`.
 * Brand-shape motion: `BrandShape` (the seven cover shapes), `FirstLaunch`, `DoneBurst`, `AttentionTab`, `JellyTrio`, `DotWave`, `HomeBackdrop` (drift + night sky), `DrawnCheck`.
-* C++ objects are QML singletons in the `Kisel.Core` module: `Hub`, `Prefs`, `Hooks`, `Chat`, `Vault`, `Shell`, `Displays`, `Sounds`, `Launcher`, `GitHub`.
+* C++ objects are QML singletons in the `Kisel.Core` module: `Hub`, `Prefs`, `Hooks`, `Chat`, `Vault`, `Shell`, `Displays`, `Sounds`, `Launcher`, `GitHub`, `Media`.
 
 ## Safety rules (carried over from the brief)
 

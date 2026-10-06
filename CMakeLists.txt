@@ -53,14 +53,14 @@ if(WIN32)
 endif()
 
 # ---- the app ----------------------------------------------------------------
-qt_add_executable(kisel src/app/main.cpp src/app/IslandWindow.cpp src/app/Tray.cpp src/app/Displays.cpp src/app/Sounds.cpp src/app/Launcher.cpp src/app/SeamWindows.cpp)
+qt_add_executable(kisel src/app/main.cpp src/app/IslandWindow.cpp src/app/Tray.cpp src/app/Displays.cpp src/app/Sounds.cpp src/app/Launcher.cpp src/app/SeamWindows.cpp src/app/Media.cpp)
 # Qt6::Test only feeds the development flag `kisel --drag-test` (synthetic pointer events).
 target_link_libraries(kisel PRIVATE kisel_core Qt6::Quick Qt6::QuickControls2 Qt6::Widgets Qt6::Test)
 target_compile_options(kisel PRIVATE ${KISEL_WARNINGS})
 if(WIN32)
     # No console window; started from a terminal it still prints (IslandWindow::preInit).
     set_target_properties(kisel PROPERTIES WIN32_EXECUTABLE TRUE)
-    target_link_libraries(kisel PRIVATE winmm) # PlaySound
+    target_link_libraries(kisel PRIVATE winmm WindowsApp) # PlaySound; the media session (Media.cpp)
 endif()
 if(LayerShellQt_FOUND)
     target_link_libraries(kisel PRIVATE LayerShellQt::Interface)
@@ -110,6 +110,7 @@ qt_add_qml_module(kisel
         qml/Spinner.qml
         qml/KToggle.qml
         qml/KSlider.qml
+        qml/PlayerTile.qml
         qml/KField.qml
         qml/Mascot.qml
         qml/StatusBadge.qml

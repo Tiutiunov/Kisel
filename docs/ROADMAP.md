@@ -51,7 +51,8 @@ Status of every behaviour in the design system (`README.md`, `motion.md`, `compo
 * **Five singers, one engine** (`Mascot.qml`, `character`): Miku (twin tails), Rin (bow and hair clips), Luka (long hair, gold band), GUMI (goggles), Teto (twin drills), each with her own colours, outfit and headset.
 * **In character**: they share the moods and differ in pace and bounce (Rin fast and high, Luka slow and low) and in the emotes of their own. Idle habit: Miku hums, Rin hypes herself up, Luka closes her eyes and stands cool, GUMI stretches, Teto looks smug while her drills spin. A slap: Miku sulks, Rin blows up, Luka is unimpressed, GUMI laughs, Teto looks away blushing. The pointer resting on her: hearts, except Luka's quiet smile and Teto's fluster. A finished task throws her favourite thing among the sparks: leek, orange, tuna, carrot, baguette.
 * **The bench**: the four who are not on stage sit two by two at the bar's far end, as Coucou keeps its other agents; a click swaps one in. Settings has the same choice. Remembered in `kisel.conf` (`character`).
-* Next: an integration per character in Settings (which service each one watches). Nothing is wired yet; the tray icon is still Miku whoever is on stage.
+* **GUMI and Spotify**, the first tie between a character and a service: with her on stage Home has a player beside the tiles (cover, title, artist, previous / play or pause / next, a hairline of progress), the bar names the track while it plays and she hums along. Read from Windows' own media session (`Media`), so no sign-in and no key. Settings can turn it off. Reading the track is checked against a running Spotify; the three buttons are wired but were not pressed in testing.
+* Next: ties for the other four. The tray icon is still Miku whoever is on stage.
 
 ## Not applied from the pass
 * **Tab indicator**: the design describes a tab row; Kisel's header uses icon buttons, so there is no tab to stretch.

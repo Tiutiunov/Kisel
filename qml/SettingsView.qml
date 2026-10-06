@@ -225,6 +225,8 @@ Item {
                 }
             }
 
+            KToggle { visible: Media.available; label: "GUMI shows and steers Spotify"; checked: Prefs.gumiSpotify; onToggled: (v) => Prefs.gumiSpotify = v }
+
             // ---- look and sound ----
             Text { text: "Look and sound"; color: Theme.ink; font.family: Theme.display; font.pixelSize: 16; font.weight: Font.DemiBold }
             KToggle { label: "Sounds"; checked: Prefs.soundOn; onToggled: (v) => Prefs.soundOn = v }
