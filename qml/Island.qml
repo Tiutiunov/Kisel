@@ -96,7 +96,8 @@ Item {
         if (who === "miku") stepIn() // (with music on the stage is Zundamon's: Miku at least comes out to say hello)
     }
     Timer { id: guestTimer; interval: 3000
-        onTriggered: { if (Hub.pendingCount > 0) restart(); else root.guest = "" } }
+        // (she also stays for as long as her "Done" is up: it is her news)
+        onTriggered: { if (Hub.pendingCount > 0 || (root.doneHold && Hub.chip === "done")) restart(); else root.guest = "" } }
     readonly property string sessionId: Hub.session.id || ""
     onSessionIdChanged: if (sessionId !== "") stepIn()
     readonly property bool claudeBusy: Hub.mood === "work" || Hub.mood === "think"
@@ -318,7 +319,8 @@ Item {
     // "Done" for two and a half seconds first, counted from when the card has closed: `doneHold`)
     readonly property bool miniPlayer: ownAct && Media.active && Media.playing && Hub.pendingCount === 0 && !(doneHold && Hub.chip === "done")
     property bool doneHold: false
-    Timer { id: doneHoldTimer; interval: 2500; onTriggered: root.doneHold = false }
+    Timer { id: doneHoldTimer; interval: 2500
+        onTriggered: { root.doneHold = false; if (Hub.pendingCount === 0) { guestTimer.stop(); root.guest = "" } } } // "Done" is over: Miku goes, and the one who rests is back
     readonly property real pillContentW: labelX + pillRow.implicitWidth + 16
     readonly property real pillW: Math.max(pillMin, Math.min(pillMax, pillContentW))
     readonly property real closedW: floating ? 120 : (vertical ? pillT : pillW)
