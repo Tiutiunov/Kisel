@@ -74,6 +74,8 @@ void Displays::applyDock()
 
 void Displays::applyInitial()
 {
+    if (qEnvironmentVariableIsSet("KISEL_DEBUG"))
+        qInfo("displays: target=%s window-screen=%s primary=%s", qPrintable(target()->name()), qPrintable(current()), qPrintable(QGuiApplication::primaryScreen()->name()));
     m_window->moveToScreen(target());
     if (m_prefs->floating())
         m_window->restoreFloat(m_prefs->floatX(), m_prefs->floatY());

@@ -300,6 +300,7 @@ Item {
         NumberAnimation { target: Shell; property: "floatY"; to: fitAnim.toY; duration: Theme.tBase; easing.type: Easing.OutCubic }
     }
     onExpandedChanged: {
+        if (Shell.debugOn) Shell.log(Date.now() % 100000 + " expanded=" + expanded + " card=" + Math.round(card.x) + "," + Math.round(card.y) + " " + Math.round(card.width) + "x" + Math.round(card.height) + " mascot=" + Math.round(mascot.x) + "," + Math.round(mascot.y) + " size " + Math.round(mascot.width))
         if (Theme.reduced) slotFade.restart()
         if (!floating) return
         if (expanded) { // slide so the whole card stays on screen
@@ -341,6 +342,14 @@ Item {
     property real zoneDist: 999
     property bool leaning: false      // within 20 px of the wall, still held
     property string crossTarget: ""   // the monitor a drop would move Kisel to
+    property bool straddling: false   // the mascot touches another monitor
+    property real hopOnLand: 0
+    // the bounding box of every monitor, in desktop coordinates
+    function desktopRect() {
+        let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9
+        for (const s of Displays.screens) { x0 = Math.min(x0, s.x); y0 = Math.min(y0, s.y); x1 = Math.max(x1, s.x + s.w); y1 = Math.max(y1, s.y + s.h) }
+        return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }
+    }
     readonly property real screenW: Shell.screenWidth()
     readonly property real screenH: Shell.screenHeight()
 
@@ -394,6 +403,7 @@ Item {
         mfree = false; settling = false; ghost = false; growing = false
         snapSize = false
         mascot.land()
+        if (hopOnLand > 0) { mascot.jump(hopOnLand); hopOnLand = 0 }
     }
     function wideChanged2() { if (!Shell.viewWide) tryFinishFree() }
 
@@ -543,6 +553,7 @@ Item {
             HoverHandler {
                 id: hover
                 onHoveredChanged: {
+                    if (Shell.debugOn) Shell.log(Date.now() % 100000 + " hover " + hovered + " at output " + Math.round(root.isoX + card.x + point.position.x) + "," + Math.round(root.isoY + card.y + point.position.y))
                     Hub.poke()
                     if (root.floating || root.mfree) return // floating opens and closes by click
                     if (hovered) {
@@ -860,6 +871,8 @@ Item {
             property bool snapped: true           // the neck has snapped (or there never was one)
             property bool moved: false
             property point offC: Qt.point(0, 0)   // pointer minus the mascot's centre, output coordinates
+            property point pressOff: Qt.point(0, 0) // the same, as it was when the button went down
+            property real catchUp: 1              // 0..1: Kisel eases onto the pointer after a late pick-up
             property point pressPt: Qt.point(0, 0)
             property point lastC: Qt.point(0, 0)
             property double lastT: 0
@@ -892,7 +905,12 @@ Item {
             // the first pointer event on the output-sized surface: from here Kisel is free
             function beginFree(P) {
                 const bc = Qt.point(mascot.x + mascot.width / 2 + root.isoX, mascot.y + mascot.height / 2 + root.isoY)
-                offC = Qt.point(P.x - bc.x, P.y - bc.y)
+                // Kisel is held by the spot where the button went down, not by wherever the
+                // pointer has got to during the 350 ms: if it moved, Kisel catches up
+                offC = pressOff
+                catchUp = Theme.reduced ? 1 : 0
+                catchAnim.restart()
+                bcStart = bc
                 root.freeCX = bc.x; root.freeCY = bc.y; root.freeSize = mascot.size
                 root.mfree = true
                 haveOff = true
@@ -903,11 +921,19 @@ Item {
                 neck.to = neck.from
             }
 
+            property point bcStart: Qt.point(0, 0)
+            NumberAnimation { id: catchAnim; target: dragArea; property: "catchUp"; from: 0; to: 1; duration: 160; easing.type: Easing.OutCubic }
+
             function carry(P) {
                 if (!haveOff) { beginFree(P); return }
                 const now = Date.now()
-                const tcx = P.x - offC.x, tcy = P.y - offC.y
+                let tcx = P.x - offC.x, tcy = P.y - offC.y
                 tC = Qt.point(tcx, tcy)
+                if (catchUp < 1) { // ease from where Kisel stood onto the pointer
+                    tcx = bcStart.x + (tcx - bcStart.x) * catchUp
+                    tcy = bcStart.y + (tcy - bcStart.y) * catchUp
+                }
+                if (Shell.debugOn) Shell.log("carry P=" + Math.round(P.x) + "," + Math.round(P.y) + " snapped=" + snapped)
                 const dt = Math.max(1, now - lastT)
                 vx = 0.55 * vx + 0.45 * (tcx - lastC.x) / dt * 1000
                 vy = 0.55 * vy + 0.45 * (tcy - lastC.y) / dt * 1000
@@ -936,21 +962,45 @@ Item {
                     return
                 }
 
-                // carried: the centre follows the pointer, kept on this output
+                // carried: the centre follows the pointer. Where another monitor touches this one
+                // the mascot goes on across the seam (drawn on both monitors, clipped at the
+                // seam); everywhere else the edge of the desktop is a wall.
                 const half = root.freeSize / 2
-                const Cx = Math.max(half, Math.min(root.screenW - half, tcx))
-                const Cy = Math.max(half, Math.min(root.screenH - half, tcy))
+                const g = geom(Displays.current)
+                const gcx = g.x + tcx, gcy = g.y + tcy             // the centre on the whole desktop
+                const here = Displays.screenAt(gcx, gcy)           // the monitor under the centre ("" in a gap)
+                let Cx, Cy
+                if (here !== "") {
+                    const U = root.desktopRect()
+                    Cx = Math.max(U.x + half, Math.min(U.x + U.w - half, gcx)) - g.x
+                    Cy = Math.max(U.y + half, Math.min(U.y + U.h - half, gcy)) - g.y
+                } else {
+                    Cx = Math.max(half, Math.min(root.screenW - half, tcx))
+                    Cy = Math.max(half, Math.min(root.screenH - half, tcy))
+                }
                 root.freeCX = Cx; root.freeCY = Cy
                 const overX = tcx - Cx, overY = tcy - Cy
 
-                // a seam between two monitors is not a wall
-                const g = geom(Displays.current)
-                const name = Displays.screenAt(g.x + P.x, g.y + P.y)
-                const crossing = name !== "" && name !== Displays.current
-                if (crossing && root.crossTarget === "") contactRipple.go(Cx - root.isoX, Cy - root.isoY)
-                root.crossTarget = crossing ? name : ""
+                // draw the mascot on every other monitor its box touches
+                let straddling = false
+                for (const s of Displays.screens) {
+                    if (s.name === Displays.current) continue
+                    const gx = g.x + Cx, gy = g.y + Cy
+                    const touches = gx + half > s.x && gx - half < s.x + s.w && gy + half > s.y && gy - half < s.y + s.h
+                    if (touches) {
+                        straddling = true
+                        Seams.show(s.name, gx - s.x, gy - s.y, root.freeSize, vx, vy, Hub.mood)
+                    } else {
+                        Seams.hideScreen(s.name)
+                    }
+                }
+                const crossing = here !== "" && here !== Displays.current
+                if (Shell.debugOn) Shell.log("carry C=" + Math.round(Cx) + "," + Math.round(Cy) + " here=" + here + " straddling=" + straddling + " cross=" + crossing)
+                if (straddling && !root.straddling) contactRipple.go(Cx - root.isoX, Cy - root.isoY) // contact: a ripple
+                root.straddling = straddling
+                root.crossTarget = crossing ? here : ""
 
-                if (crossing) { root.zoneEdge = ""; root.zoneDist = 999; root.leaning = false }
+                if (straddling) { root.zoneEdge = ""; root.zoneDist = 999; root.leaning = false }
                 else root.updateZone(P.x, P.y)
                 root.setWall(overX, overY)
             }
@@ -964,6 +1014,9 @@ Item {
             }
 
             function release() {
+                Seams.hideAll()
+                root.straddling = false
+                if (Shell.debugOn) Shell.log("release picked=" + picked + " haveOff=" + haveOff + " snapped=" + snapped + " cross=" + root.crossTarget + " zone=" + root.zoneEdge)
                 const had = haveOff
                 mascot.dragging = false
                 mascot.dragVx = 0; mascot.dragVy = 0; vx = 0; vy = 0; stillTimer.stop()
@@ -986,6 +1039,7 @@ Item {
                     root.settling = true
                     picked = false
                     Displays.crossTo(root.crossTarget, cx - 60, cy - 60)
+                    root.hopOnLand = 0.25                   // it settles on the new monitor with a small hop
                     Prefs.floating = true; Prefs.floatX = Shell.floatX; Prefs.floatY = Shell.floatY
                     root.crossTarget = ""
                     settleGuard.restart()
@@ -1028,10 +1082,12 @@ Item {
             }
 
             onPressed: (m) => {
+                if (Shell.debugOn) Shell.log(Date.now() % 100000 + " press at " + Math.round(m.x) + "," + Math.round(m.y))
                 if (root.walking) mascot.hang() // picked up mid-walk: the body hangs and sways
                 root.stopWander()
                 if (root.dockT > 0 && dockAnim.running) return
                 pressPt = rootPoint(m)
+                pressOff = Qt.point(m.x - width / 2, m.y - height / 2)
                 picked = false; haveOff = false; moved = false
                 ring.popped = false
                 hold = 0

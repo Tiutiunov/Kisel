@@ -26,6 +26,7 @@ namespace kisel {
 class IslandWindow : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(bool debugOn READ debugOn CONSTANT)
     Q_PROPERTY(bool floating READ floating NOTIFY floatingChanged)
     Q_PROPERTY(QString edge READ edge NOTIFY dockChanged)           // top | bottom | left | right
     Q_PROPERTY(qreal along READ along NOTIFY dockChanged)           // the pill's centre along the edge, output px
@@ -64,7 +65,10 @@ public:
     Q_INVOKABLE void setHitRect(qreal x, qreal y, qreal w, qreal h);
     Q_INVOKABLE void setKeyboard(bool wanted); // permission card or chat input focused
     Q_INVOKABLE void quit();
+    // KISEL_DEBUG=1: lines from QML (pointer, drag, crossing) end up on stderr
+    Q_INVOKABLE void log(const QString &text) const;
 
+    bool debugOn() const { return qEnvironmentVariableIsSet("KISEL_DEBUG"); }
     bool floating() const { return m_floating; }
     QString edge() const { return m_edge; }
     qreal along() const { return m_along; }
@@ -120,6 +124,7 @@ signals:
 
 private:
     void placeOnX11();
+    void bindOutput();
     void setFloatPos(qreal x, qreal y);
     void applyPlacement();
     void applySurfaceSize(bool wide);

@@ -41,7 +41,7 @@ target_link_libraries(kisel-hook PRIVATE Qt6::Core)
 target_compile_options(kisel-hook PRIVATE -Wall -Wextra)
 
 # ---- the app ----------------------------------------------------------------
-qt_add_executable(kisel src/app/main.cpp src/app/IslandWindow.cpp src/app/Tray.cpp src/app/Displays.cpp src/app/Sounds.cpp src/app/Launcher.cpp)
+qt_add_executable(kisel src/app/main.cpp src/app/IslandWindow.cpp src/app/Tray.cpp src/app/Displays.cpp src/app/Sounds.cpp src/app/Launcher.cpp src/app/SeamWindows.cpp)
 # Qt6::Test only feeds the development flag `kisel --drag-test` (synthetic pointer events).
 target_link_libraries(kisel PRIVATE kisel_core Qt6::Quick Qt6::QuickControls2 Qt6::Widgets Qt6::Test)
 target_compile_options(kisel PRIVATE -Wall -Wextra)
@@ -82,6 +82,7 @@ qt_add_qml_module(kisel
         qml/PillDisc.qml
         qml/DockZone.qml
         qml/Ripple.qml
+        qml/Seam.qml
         qml/HoldRing.qml
         qml/Neck.qml
         qml/PillBars.qml

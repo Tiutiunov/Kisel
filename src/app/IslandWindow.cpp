@@ -181,22 +181,48 @@ void IslandWindow::applyPlacement()
     placeOnX11();
 }
 
+// Tell the compositor which output the layer surface belongs to. Left to itself it
+// picks the output where the pointer is, whatever QWindow::screen() says.
+void IslandWindow::bindOutput()
+{
+#ifdef KISEL_WITH_LAYER_SHELL
+    if (useLayerShell() && m_view->screen()) {
+        if (auto *ls = LayerShellQt::Window::get(m_view)) {
+            ls->setScreen(m_view->screen());
+        }
+    }
+#endif
+}
+
 void IslandWindow::show()
 {
+    bindOutput();
     placeOnX11();
     m_view->show();
 }
 
 void IslandWindow::moveToScreen(QScreen *screen)
 {
-    if (!screen || m_view->screen() == screen)
+    if (!screen)
         return;
+    if (m_view->screen() == screen) {
+        // same output as far as Qt knows, but the compositor may have put the surface elsewhere
+        if (m_view->isVisible()) {
+            m_view->hide();
+            bindOutput();
+            m_view->show();
+        } else {
+            bindOutput();
+        }
+        return;
+    }
     // A layer surface belongs to one output for life, so moving means
     // dropping it and creating a new one on the target screen.
     const bool visible = m_view->isVisible();
     if (visible)
         m_view->hide();
     m_view->setScreen(screen);
+    bindOutput();
     applyPlacement();
     placeOnX11();
     if (visible)
@@ -319,6 +345,7 @@ void IslandWindow::crossTo(QScreen *screen, qreal ox, qreal oy)
         if (visible)
             m_view->hide();
         m_view->setScreen(screen);
+        bindOutput();
         const QPointF p = clampMascot(m_floatX, m_floatY);
         m_floatX = p.x();
         m_floatY = p.y();
@@ -356,6 +383,13 @@ void IslandWindow::setKeyboard(bool wanted)
 #else
     Q_UNUSED(wanted)
 #endif
+}
+
+void IslandWindow::log(const QString &text) const
+{
+    static const bool on = qEnvironmentVariableIsSet("KISEL_DEBUG");
+    if (on)
+        qInfo("%s", qPrintable(text));
 }
 
 void IslandWindow::quit()

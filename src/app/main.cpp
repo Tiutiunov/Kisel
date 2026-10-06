@@ -8,6 +8,7 @@
 #include "Paths.h"
 #include "Preferences.h"
 #include "Secrets.h"
+#include "SeamWindows.h"
 #include "Sounds.h"
 #include "Tray.h"
 
@@ -124,6 +125,7 @@ int main(int argc, char *argv[])
     Displays displays(&shell, &prefs);
     Sounds sounds(&prefs);
     Launcher launcher;
+    SeamWindows seams;
     GitHubClient github(&secrets);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Hub", &hub);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Prefs", &prefs);
@@ -134,6 +136,7 @@ int main(int argc, char *argv[])
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Displays", &displays);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Sounds", &sounds);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Launcher", &launcher);
+    qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Seams", &seams);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "GitHub", &github);
 
     view.loadFromModule("Kisel", "Main");
