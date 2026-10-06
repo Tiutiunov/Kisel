@@ -59,9 +59,9 @@ Item {
     readonly property int mini: 24       // the mascot in the bar
     readonly property int miniPad: (pillT - mini) / 2
     readonly property int miniLead: 14   // from the bar's leading end to the mascot
-    readonly property int pillMin: 288
-    readonly property int pillMax: 288
-    readonly property int labelX: miniLead + mini + 10
+    readonly property int pillMin: 288 + Math.round(duoW) // (a little wider while two sit at its head)
+    readonly property int pillMax: 288 + Math.round(duoW)
+    readonly property int labelX: miniLead + mini + 10 + Math.round(duoW)
     // The cast. One of them is the mascot; the other four wait at the bar's far end, two
     // by two, as Coucou keeps its other agents, and a click on one swaps her in.
     readonly property var cast: ["miku", "rin", "luka", "zunda", "teto"]
@@ -98,7 +98,47 @@ Item {
     // The chosen one with a service of her own (Zundamon with Spotify) minds that service:
     // Claude's working is Miku's news, not hers.
     readonly property bool ownAct: guest === "" && rest === "zunda" && Prefs.zundaSpotify && Media.available
-    readonly property var bench: cast.filter(c => c !== stage)
+    readonly property var bench: cast.filter(c => c !== stage && !(duo && c === buddyWho))
+
+    // ---- two at work ----------------------------------------------------------------
+    // While Claude works the bar holds two of them at its head, side by side: whoever is
+    // on stage and a partner (Miku, or if Miku is the one on stage, the one who rests or
+    // the first on the bench). They do not just sit there: every few seconds a little
+    // scene plays between them (see duoTimer). The bar grows by the partner's width.
+    readonly property bool duo: claudeBusy && !expanded && !floating && !vertical && !mfree && !assembling && !greeting
+    readonly property string buddyWho: stage !== "miku" ? "miku" : rest !== "miku" ? rest : "rin"
+    property real duoW: duo ? 23 : 0
+    Behavior on duoW { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
+    property bool duoLook: false // they are looking at each other
+    Timer { id: duoLookOff; interval: 1400; onTriggered: root.duoLook = false }
+    // the answer to what the partner just did, a beat later
+    Timer {
+        id: duoEcho
+        interval: 170
+        property int what: 0
+        onTriggered: {
+            if (what === 0) mascot.jump(0.35, false)
+            else if (what === 1) mascot.st.sqv += 5
+            else mascot.play("laugh", 1000)
+        }
+    }
+    Timer {
+        id: duoTimer
+        interval: 2200
+        repeat: true
+        running: root.duo && !Theme.reduced && !root.tucked
+        onTriggered: {
+            interval = 1800 + Math.random() * 2600
+            root.duoLook = true; duoLookOff.restart()
+            const r = Math.floor(Math.random() * 6)
+            if (r === 0) { buddy.jump(0.35, false); duoEcho.what = 0; duoEcho.restart() }             // a wave: one hops, the other follows
+            else if (r === 1) { buddy.st.sqv += 5; duoEcho.what = 1; duoEcho.restart() }             // nodding in turn
+            else if (r === 2) { buddy.play("surprised", 900); duoEcho.what = 2; duoEcho.restart() }  // one startles, the other laughs
+            else if (r === 3) { buddy.play("hum", 1500); mascot.play("hum", 1500) }                  // humming together
+            else if (r === 4) buddy.play(buddy.who.quirk, 1400)                                      // the partner's own habit
+            else { mascot.play("hype", 900); buddy.play("laugh", 1000) }                             // one is on a roll, the other is glad
+        }
+    }
     readonly property int castW: 50
     // Zundamon with Spotify playing: the bar names the track and she hums along
     readonly property bool tune: ownAct && Media.active && Media.playing
@@ -1057,6 +1097,7 @@ Item {
                     rises: false
                     ChatView {
                         id: chatView
+                        who: root.stage
                         active: hostChat.active
                         dropActive: root.dropActive
                         height: 412 - 62
@@ -1152,8 +1193,9 @@ Item {
             doneBadge: Hub.chip === "done"
             character: root.stage
             music: root.tune
-            mood: root.dropActive ? "wow" : root.dropHappy ? "happy" : root.walking ? "walk"
-                : root.ownAct && root.claudeBusy ? "idle" : Hub.mood
+            mood: root.dropActive ? "wow" : root.dropHappy ? "happy" : root.walking ? "walk" : Hub.mood
+            gazeOn: root.duo && root.duoLook
+            gaze: Qt.point(0.9, 0)
             paused: root.tucked && root.tuckA > root.pillT
             // She watches the pointer all over the screen where the platform says where it
             // is (Shell.pointerKnown), in the bar as well; elsewhere only while it is on the island.
@@ -1161,6 +1203,23 @@ Item {
             looking: Shell.pointerKnown || hover.hovered
             lookAt: Shell.pointerKnown ? Qt.point(Shell.pointerX - root.isoX - mascot.x, Shell.pointerY - root.isoY - mascot.y)
                                        : mascot.mapFromItem(card, hover.point.position.x, hover.point.position.y)
+        }
+
+        // the partner at work, beside her at the head of the bar (see "two at work")
+        Mascot {
+            id: buddy
+            z: 2
+            size: 20
+            x: card.x + root.miniLead + root.mini + 3
+            y: (root.atBottom ? card.y + card.height - root.pillT : card.y) + (root.pillT - height) / 2
+            character: root.buddyWho
+            mood: "work"
+            scale: root.duo ? 1 : 0
+            visible: scale > 0.01
+            Behavior on scale { NumberAnimation { duration: 320; easing.type: Theme.reduced ? Easing.OutCubic : Easing.OutBack } }
+            paused: !visible || root.tucked
+            gazeOn: true
+            gaze: root.duoLook ? Qt.point(-0.9, 0) : Qt.point(0, 0.25)
         }
 
         // the hold ring around the mascot, and the ripples (output coordinates, island offset)
