@@ -438,13 +438,15 @@ Item {
     function wideChanged2() { if (!Shell.viewWide) tryFinishFree() }
 
     // ---- the dock zone and the wall -----------------------------------------------------
-    // The pointer is `P` (output coordinates). Docking is allowed on all four edges of the
-    // monitor; the pill keeps 120 px from the corners; within 24 px of an edge's centre it
-    // snaps to the centre with a tick.
+    // Measured from Kisel's own side, not from the pointer: holding it by the foot must not
+    // make the top edge harder to reach than holding it by the leaf. Docking is allowed on
+    // all four edges of the monitor; the pill keeps 120 px from the corners; within 24 px of
+    // an edge's centre it snaps to the centre with a tick.
     property bool tickBrighter: false
     Timer { id: tickOff; interval: 120; onTriggered: root.tickBrighter = false }
-    function updateZone(Px, Py) {
-        const d = { top: Py, bottom: screenH - Py, left: Px, right: screenW - Px }
+    function updateZone() {
+        const Px = freeCX, Py = freeCY, half = freeSize / 2
+        const d = { top: Py - half, bottom: screenH - Py - half, left: Px - half, right: screenW - Px - half }
         let best = "", bd = 96
         for (const e of ["top", "bottom", "left", "right"])
             if (d[e] < bd) { bd = d[e]; best = e }
@@ -1039,7 +1041,7 @@ Item {
                 root.crossTarget = crossing ? here : ""
 
                 if (straddling) { root.zoneEdge = ""; root.zoneDist = 999; root.leaning = false }
-                else root.updateZone(P.x, P.y)
+                else root.updateZone()
                 root.setWall(overX, overY)
             }
 
