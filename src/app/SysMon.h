@@ -16,6 +16,11 @@ namespace kisel {
 // Where Mem Reduct is installed (Windows), `clean()` asks it to, by starting it with its
 // own `-clean` switch; Windows may ask the user to allow that. What it freed is read off
 // the memory figure a few seconds later.
+//
+// Mem Reduct also cleans by itself (on a timer, above a threshold, by hotkey). Those
+// cleans are noticed too: it keeps the time of its last clean in its settings file, and
+// when that moves, what was freed is announced here the same way. So its own balloon
+// can be switched off and the news still arrives.
 class SysMon : public QObject
 {
     Q_OBJECT
@@ -64,6 +69,8 @@ private:
     void read();
     bool readCpu(quint64 &idle, quint64 &total) const;
     void readGpu();
+    qint64 lastReduct() const;
+    void announce(qreal freed);
 
     QTimer m_timer;
     quint64 m_lastIdle = 0, m_lastTotal = 0;
@@ -74,6 +81,9 @@ private:
     QVariantList m_history;
     QString m_worry;
     QString m_cleaner; // Mem Reduct's program, or empty
+    QString m_cleanerIni; // its settings file
+    qint64 m_lastReduct = 0, m_iniStamp = 0;
+    qreal m_recent[3] = {0, 0, 0}; // the memory in use over the last three readings
     bool m_cleaning = false, m_justCleaned = false;
     qreal m_freed = 0;
 };

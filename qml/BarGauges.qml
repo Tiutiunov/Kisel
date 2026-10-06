@@ -1,7 +1,9 @@
 // Teto's gauges in the collapsed bar: the processor, the graphics card and the memory as
 // short candy ribbons with their figures. They slide in
 // from the right like Zundamon's player, and turn red where something is too full. Where
-// Mem Reduct is installed a small red key at the end has it clean the memory.
+// Mem Reduct is installed a small red key at the end has it clean the memory, and for a
+// few seconds after a clean (hers or one Mem Reduct did by itself) the gauges give way
+// to what was freed.
 import QtQuick
 import Kisel.Core
 
@@ -20,9 +22,30 @@ Row {
     Behavior on opacity { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
     transform: Translate { x: root.on ? 0 : 18; Behavior on x { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } } }
 
-    Meter { name: "CPU"; value: Sys.cpu }
-    Meter { visible: Sys.hasGpu; name: "GPU"; value: Sys.gpu }
-    Meter { name: "RAM"; value: Sys.mem }
+    readonly property bool said: Sys.justCleaned
+    Item { // the news of a clean, in the gauges' place
+        visible: root.said
+        width: news.implicitWidth; height: 24
+        Row {
+            id: news
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 5
+            Spark {
+                anchors.verticalCenter: parent.verticalCenter
+                size: 11; tint: "#FFE08A"
+                RotationAnimation on rotation { running: root.said && !Theme.reduced; from: 0; to: 90; duration: 1600; loops: Animation.Infinite }
+            }
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: Sys.freedGb >= 0.05 ? "Freed " + Sys.freedGb.toFixed(1) + " GB" : "Already tidy"
+                color: Theme.ink
+                font.family: Theme.sans; font.pixelSize: 13; font.weight: Font.ExtraBold
+            }
+        }
+    }
+    Meter { visible: !root.said; name: "CPU"; value: Sys.cpu }
+    Meter { visible: Sys.hasGpu && !root.said; name: "GPU"; value: Sys.gpu }
+    Meter { visible: !root.said; name: "RAM"; value: Sys.mem }
 
     Item { // the Clean key
         visible: Sys.canClean

@@ -2,6 +2,7 @@
 
 #ifdef Q_OS_WIN
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QHash>
 #include <qt_windows.h>
@@ -25,6 +26,11 @@ SysMon::SysMon(QObject *parent)
     for (const char *var : {"ProgramW6432", "ProgramFiles", "ProgramFiles(x86)"}) {
         const QString path = qEnvironmentVariable(var) + QStringLiteral("/Mem Reduct/memreduct.exe");
         if (QFileInfo::exists(path)) { m_cleaner = QDir::toNativeSeparators(path); break; }
+    }
+    if (!m_cleaner.isEmpty()) {
+        m_cleanerIni = qEnvironmentVariable("APPDATA") + QStringLiteral("/Henry++/Mem Reduct/memreduct.ini");
+        m_iniStamp = QFileInfo(m_cleanerIni).lastModified().toMSecsSinceEpoch();
+        m_lastReduct = lastReduct();
     }
 #endif
 #ifdef Q_OS_WIN
@@ -129,6 +135,32 @@ bool SysMon::readCpu(quint64 &idle, quint64 &total) const
 #endif
 }
 
+// when Mem Reduct last cleaned, by its own account (0 if it has not said)
+qint64 SysMon::lastReduct() const
+{
+#ifdef Q_OS_WIN
+    QFile f(m_cleanerIni);
+    if (!f.open(QIODevice::ReadOnly))
+        return 0;
+    while (!f.atEnd()) {
+        const QByteArray line = f.readLine().trimmed();
+        if (line.startsWith("StatisticLastReduct="))
+            return line.mid(20).toLongLong();
+    }
+#endif
+    return 0;
+}
+
+// the news of a clean, kept up for eight seconds
+void SysMon::announce(qreal freed)
+{
+    m_freed = qMax(0.0, freed);
+    m_cleaning = false;
+    m_justCleaned = true;
+    emit changed();
+    QTimer::singleShot(8000, this, [this] { m_justCleaned = false; emit changed(); });
+}
+
 void SysMon::clean()
 {
     const bool rehearsal = qEnvironmentVariableIsSet("KISEL_DEMO_SWEEP"); // (development: the show without the cleaning)
@@ -148,11 +180,8 @@ void SysMon::clean()
     emit changed();
     QTimer::singleShot(4000, this, [this, before] {
         read();
-        m_freed = qMax(0.0, before - m_memUsed);
-        m_cleaning = false;
-        m_justCleaned = true;
-        emit changed();
-        QTimer::singleShot(8000, this, [this] { m_justCleaned = false; emit changed(); });
+        m_lastReduct = lastReduct(); // (ours: not to be announced a second time)
+        announce(before - m_memUsed);
     });
 }
 
@@ -175,6 +204,20 @@ void SysMon::read()
         m_mem = m_memUsed / m_memTotal;
     }
     readGpu();
+    // a clean Mem Reduct did by itself: its settings file has a newer "last clean"
+    if (!m_cleanerIni.isEmpty()) {
+        const qint64 stamp = QFileInfo(m_cleanerIni).lastModified().toMSecsSinceEpoch();
+        if (stamp != m_iniStamp) {
+            m_iniStamp = stamp;
+            const qint64 last = lastReduct();
+            if (last != m_lastReduct) {
+                m_lastReduct = last;
+                if (!m_cleaning && !m_justCleaned)
+                    announce(qMax(m_recent[0], qMax(m_recent[1], m_recent[2])) - m_memUsed);
+            }
+        }
+    }
+    m_recent[0] = m_recent[1]; m_recent[1] = m_recent[2]; m_recent[2] = m_memUsed;
 #elif defined(Q_OS_LINUX)
     QFile f(QStringLiteral("/proc/meminfo"));
     if (f.open(QIODevice::ReadOnly)) {

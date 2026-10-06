@@ -84,7 +84,8 @@ Item {
     //   Teto is the computer's: she has something to show when it is in trouble (the
     //   processor flat out or the memory full), and that comes
     //   before music.
-    readonly property bool tetoLive: Prefs.tetoSystem && Sys.available && Sys.strain
+    //   (...or when the memory has just been cleaned: she comes to say what was freed)
+    readonly property bool tetoLive: Prefs.tetoSystem && Sys.available && (Sys.strain || Sys.cleaning || Sys.justCleaned)
     readonly property string rest: Prefs.character !== "miku" || mikuPinned ? Prefs.character
         : tetoLive ? "teto" : zundaLive ? "zunda" : "miku"
     readonly property string stage: guest !== "" ? guest : rest
