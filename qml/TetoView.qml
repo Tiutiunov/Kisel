@@ -132,11 +132,7 @@ Item {
         Column {
             anchors.centerIn: parent
             spacing: 1
-            Spark {
-                anchors.horizontalCenter: parent.horizontalCenter
-                size: 12; tint: "#FFFFFF"
-                RotationAnimation on rotation { running: Sys.cleaning; from: 0; to: 360; duration: 700; loops: Animation.Infinite }
-            }
+            BroomGlyph { anchors.horizontalCenter: parent.horizontalCenter; size: 15; opacity: Sys.cleaning ? 0.5 : 1 }
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "Clean"

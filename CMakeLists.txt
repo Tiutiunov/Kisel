@@ -115,6 +115,7 @@ qt_add_qml_module(kisel
         qml/DoneChip.qml
         qml/BarPlayer.qml
         qml/BarGauges.qml
+        qml/BroomGlyph.qml
         qml/TetoView.qml
         qml/PlayerView.qml
         qml/KField.qml
