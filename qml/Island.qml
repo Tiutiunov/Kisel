@@ -76,7 +76,12 @@ Item {
     // still visits); with no music the chosen one is who you see.
     property string guest: ""
     readonly property bool zundaLive: Prefs.zundaSpotify && Media.available && Media.active && Media.playing
-    readonly property string rest: Prefs.character === "miku" && zundaLive ? "zunda" : Prefs.character
+    // (Picking Miku by hand in the open card is a wish to see Miku and Claude's Home, music
+    // or not: she stays until the card closes. `mikuPinned`.)
+    property bool mikuPinned: false
+    readonly property string chosen: Prefs.character
+    onChosenChanged: mikuPinned = chosen === "miku" && expanded
+    readonly property string rest: Prefs.character === "miku" && zundaLive && !mikuPinned ? "zunda" : Prefs.character
     readonly property string stage: guest !== "" ? guest : rest
     function stepIn() {
         if (rest === "miku") return
@@ -87,6 +92,7 @@ Item {
     function choose(who) {
         Prefs.character = who
         guest = ""
+        mikuPinned = who === "miku" && expanded
         if (who === "miku") stepIn() // (with music on the stage is Zundamon's: Miku at least comes out to say hello)
     }
     Timer { id: guestTimer; interval: 3000
@@ -103,7 +109,7 @@ Item {
     // ---- two at work ----------------------------------------------------------------
     // While Claude works the bar holds two of them at its head, side by side: whoever is
     // on stage and a partner (Miku, or if Miku is the one on stage, the one who rests or
-    // the first on the bench). They do not just sit there: every couple of seconds a little
+    // the first on the bench). They do not just sit there: every few seconds a little
     // scene plays between them (see `skits`). The bar grows by the partner's width.
     readonly property bool duo: claudeBusy && !expanded && !floating && !vertical && !mfree && !assembling && !greeting
     readonly property string buddyWho: stage !== "miku" ? "miku" : rest !== "miku" ? rest : "rin"
@@ -114,7 +120,7 @@ Item {
     // What they do between them. Each scene is a short sequence: emotes, hops and squashes
     // on either of them, the two sliding toward or past each other (`mainDx`, `buddyDx`),
     // the partner ducking (`buddyPop`), and a star that passes between them (`tossU`,
-    // `tossA`). One plays every couple of seconds, never the same twice in a row.
+    // `tossA`). One plays every four to seven seconds, never the same twice in a row.
     property real mainDx: 0
     property real buddyDx: 0
     property real buddyPop: 1
@@ -154,10 +160,10 @@ Item {
     }
     Timer {
         id: duoTimer
-        interval: 1400
+        interval: 3000
         repeat: true
         running: root.duo && !Theme.reduced && !root.tucked
-        onTriggered: { interval = 1300 + Math.random() * 1900; root.playSkit() }
+        onTriggered: { interval = 3500 + Math.random() * 4000; root.playSkit() }
     }
     // one hops, the other follows
     SequentialAnimation {
@@ -309,10 +315,10 @@ Item {
     // ...and whenever the bar has nothing more pressing to say it is her mini player:
     // the track's name and the three buttons, without opening the card
     // (only while a tune is actually playing; and a finished task keeps the bar for its
-    // "Done" for five seconds first: `doneHold`)
+    // "Done" for two and a half seconds first, counted from when the card has closed: `doneHold`)
     readonly property bool miniPlayer: ownAct && Media.active && Media.playing && Hub.pendingCount === 0 && !(doneHold && Hub.chip === "done")
     property bool doneHold: false
-    Timer { id: doneHoldTimer; interval: 5000; onTriggered: root.doneHold = false }
+    Timer { id: doneHoldTimer; interval: 2500; onTriggered: root.doneHold = false }
     readonly property real pillContentW: labelX + pillRow.implicitWidth + 16
     readonly property real pillW: Math.max(pillMin, Math.min(pillMax, pillContentW))
     readonly property real closedW: floating ? 120 : (vertical ? pillT : pillW)
@@ -617,6 +623,7 @@ Item {
     }
     onExpandedChanged: {
         if (!expanded && doneHold) doneHoldTimer.restart()
+        if (!expanded) mikuPinned = false
         if (Shell.debugOn) Shell.log(Date.now() % 100000 + " expanded=" + expanded + " card=" + Math.round(card.x) + "," + Math.round(card.y) + " " + Math.round(card.width) + "x" + Math.round(card.height) + " mascot=" + Math.round(mascot.x) + "," + Math.round(mascot.y) + " size " + Math.round(mascot.width))
         if (Theme.reduced) slotFade.restart()
         if (!floating) return
