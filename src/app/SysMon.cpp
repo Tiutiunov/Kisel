@@ -135,20 +135,29 @@ bool SysMon::readCpu(quint64 &idle, quint64 &total) const
 #endif
 }
 
-// when Mem Reduct last cleaned, by its own account (0 if it has not said)
-qint64 SysMon::lastReduct() const
+// one value from Mem Reduct's settings file (empty if it is not there)
+QByteArray SysMon::cleanerSetting(const char *key) const
 {
 #ifdef Q_OS_WIN
     QFile f(m_cleanerIni);
     if (!f.open(QIODevice::ReadOnly))
-        return 0;
+        return {};
+    const QByteArray start = QByteArray(key) + '=';
     while (!f.atEnd()) {
         const QByteArray line = f.readLine().trimmed();
-        if (line.startsWith("StatisticLastReduct="))
-            return line.mid(20).toLongLong();
+        if (line.startsWith(start))
+            return line.mid(start.size());
     }
+#else
+    Q_UNUSED(key);
 #endif
-    return 0;
+    return {};
+}
+
+// when Mem Reduct last cleaned, by its own account (0 if it has not said)
+qint64 SysMon::lastReduct() const
+{
+    return cleanerSetting("StatisticLastReduct").toLongLong();
 }
 
 // the news of a clean, kept up for eight seconds
@@ -212,7 +221,8 @@ void SysMon::read()
             const qint64 last = lastReduct();
             if (last != m_lastReduct) {
                 m_lastReduct = last;
-                if (!m_cleaning && !m_justCleaned)
+                // (not if the user has told Mem Reduct to keep its results to itself)
+                if (!m_cleaning && !m_justCleaned && cleanerSetting("BalloonCleanResults") != "false")
                     announce(qMax(m_recent[0], qMax(m_recent[1], m_recent[2])) - m_memUsed);
             }
         }

@@ -19,8 +19,9 @@ namespace kisel {
 //
 // Mem Reduct also cleans by itself (on a timer, above a threshold, by hotkey). Those
 // cleans are noticed too: it keeps the time of its last clean in its settings file, and
-// when that moves, what was freed is announced here the same way. So its own balloon
-// can be switched off and the news still arrives.
+// when that moves, what was freed is announced here the same way. Its own setting
+// "Show memory cleaning results" is honoured: with that off, the cleans it does by
+// itself pass in silence here too, and only a clean asked for from here is reported.
 class SysMon : public QObject
 {
     Q_OBJECT
@@ -69,6 +70,7 @@ private:
     void read();
     bool readCpu(quint64 &idle, quint64 &total) const;
     void readGpu();
+    QByteArray cleanerSetting(const char *key) const;
     qint64 lastReduct() const;
     void announce(qreal freed);
 
