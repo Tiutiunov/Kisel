@@ -555,7 +555,10 @@ Item {
     readonly property real cardX: floating ? (width - animW) / 2
         : edge === "left" ? -tuckA
         : edge === "right" ? width - animW + tuckA
-        : mix(Shell.pillAlong - animW / 2, (width - animW) / 2, openU)
+        : mix(Math.max(0, Shell.pillAlong - animW / 2 - grownW / 2), (width - animW) / 2, openU)
+    // (When the bar grows for a partner or for Rin it grows to the left: its right end
+    // stays where it is. Only at the surface's left end does it grow rightward instead.)
+    readonly property real grownW: duoW + heraldW
     readonly property real cardY: floating ? 8
         : edge === "top" ? -tuckA
         : edge === "bottom" ? height - animH + tuckA
