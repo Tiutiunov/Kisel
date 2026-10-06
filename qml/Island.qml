@@ -103,52 +103,206 @@ Item {
     // ---- two at work ----------------------------------------------------------------
     // While Claude works the bar holds two of them at its head, side by side: whoever is
     // on stage and a partner (Miku, or if Miku is the one on stage, the one who rests or
-    // the first on the bench). They do not just sit there: every few seconds a little
-    // scene plays between them (see duoTimer). The bar grows by the partner's width.
+    // the first on the bench). They do not just sit there: every couple of seconds a little
+    // scene plays between them (see `skits`). The bar grows by the partner's width.
     readonly property bool duo: claudeBusy && !expanded && !floating && !vertical && !mfree && !assembling && !greeting
     readonly property string buddyWho: stage !== "miku" ? "miku" : rest !== "miku" ? rest : "rin"
     property real duoW: duo ? 23 : 0
     Behavior on duoW { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
     property bool duoLook: false // they are looking at each other
-    Timer { id: duoLookOff; interval: 1400; onTriggered: root.duoLook = false }
-    // the answer to what the partner just did, a beat later
-    Timer {
-        id: duoEcho
-        interval: 170
-        property int what: 0
-        onTriggered: {
-            if (what === 0) mascot.jump(0.35, false)
-            else if (what === 1) mascot.st.sqv += 5
-            else mascot.play("laugh", 1000)
+    Timer { id: duoLookOff; interval: 2000; onTriggered: root.duoLook = false }
+    // What they do between them. Each scene is a short sequence: emotes, hops and squashes
+    // on either of them, the two sliding toward or past each other (`mainDx`, `buddyDx`),
+    // the partner ducking (`buddyPop`), and a star that passes between them (`tossU`,
+    // `tossA`). One plays every couple of seconds, never the same twice in a row.
+    property real mainDx: 0
+    property real buddyDx: 0
+    property real buddyPop: 1
+    property real tossU: 0 // the star: 0 at her, 1 at the partner
+    property real tossA: 0
+    property int lastSkit: -1
+    readonly property var skits: [skWave, skNod, skStartle, skHum, skQuirk, skRoll, skBump, skSwap, skFive, skLove, skPeek, skSquabble, skToss, skDoze, skDance, skCheer]
+    function playSkit() {
+        if (skTrade.running) return
+        for (const k of skits) if (k.running) return
+        let i = Math.floor(Math.random() * skits.length)
+        if (i === lastSkit) i = (i + 1) % skits.length
+        lastSkit = i
+        duoLook = true; duoLookOff.restart()
+        skits[i].restart()
+    }
+    onDuoChanged: if (!duo) { skTrade.stop(); for (const k of skits) k.stop(); mainDx = 0; buddyDx = 0; buddyPop = 1; tossA = 0 }
+    // The two trading places while they sit together (Miku's visit ends and the other
+    // takes the lead, or the other way round). Neither vanishes and reappears: each is
+    // drawn where she was a moment ago, in the other's seat, and they jump over to their
+    // own. (That is why the two change character at once while they are a pair: `instant`.)
+    onStageChanged: if (duo && !Theme.reduced) skTrade.restart()
+    SequentialAnimation {
+        id: skTrade
+        ScriptAction { script: {
+            for (const k of root.skits) k.stop()
+            root.buddyPop = 1; root.tossA = 0
+            root.mainDx = 25; root.buddyDx = -27
+            root.duoLook = true; duoLookOff.restart()
+            mascot.jump(1, true); buddy.jump(0.8, true)
+        } }
+        ParallelAnimation {
+            NumberAnimation { target: root; property: "mainDx"; to: 0; duration: 480; easing.type: Easing.InOutCubic }
+            NumberAnimation { target: root; property: "buddyDx"; to: 0; duration: 480; easing.type: Easing.InOutCubic }
         }
+        ScriptAction { script: { mascot.st.sqv += 5; buddy.st.sqv += 5 } }
     }
     Timer {
         id: duoTimer
-        interval: 2200
+        interval: 1400
         repeat: true
         running: root.duo && !Theme.reduced && !root.tucked
-        onTriggered: {
-            interval = 1800 + Math.random() * 2600
-            root.duoLook = true; duoLookOff.restart()
-            const r = Math.floor(Math.random() * 6)
-            if (r === 0) { buddy.jump(0.35, false); duoEcho.what = 0; duoEcho.restart() }             // a wave: one hops, the other follows
-            else if (r === 1) { buddy.st.sqv += 5; duoEcho.what = 1; duoEcho.restart() }             // nodding in turn
-            else if (r === 2) { buddy.play("surprised", 900); duoEcho.what = 2; duoEcho.restart() }  // one startles, the other laughs
-            else if (r === 3) { buddy.play("hum", 1500); mascot.play("hum", 1500) }                  // humming together
-            else if (r === 4) buddy.play(buddy.who.quirk, 1400)                                      // the partner's own habit
-            else { mascot.play("hype", 900); buddy.play("laugh", 1000) }                             // one is on a roll, the other is glad
-        }
+        onTriggered: { interval = 1300 + Math.random() * 1900; root.playSkit() }
     }
-    readonly property int castW: 50
-    // Zundamon with Spotify playing: the bar names the track and she hums along
-    readonly property bool tune: ownAct && Media.active && Media.playing
-    // ...and whenever the bar has nothing more pressing to say it is her mini player:
-    // the track's name and the three buttons, without opening the card
-    // (only while a tune is actually playing; and a finished task keeps the bar for its
-    // "Done" for five seconds first: `doneHold`)
-    readonly property bool miniPlayer: ownAct && Media.active && Media.playing && Hub.pendingCount === 0 && !(doneHold && Hub.chip === "done")
-    property bool doneHold: false
-    Timer { id: doneHoldTimer; interval: 5000; onTriggered: root.doneHold = false }
+    // one hops, the other follows
+    SequentialAnimation {
+        id: skWave
+        ScriptAction { script: { buddy.jump(0.4, false) } }
+        PauseAnimation { duration: 170 }
+        ScriptAction { script: { mascot.jump(0.4, false) } }
+        PauseAnimation { duration: 260 }
+        ScriptAction { script: { buddy.jump(0.3, false) } }
+    }
+    // nodding in turn, like two at one keyboard
+    SequentialAnimation {
+        id: skNod
+        ScriptAction { script: { buddy.st.sqv += 5 } }
+        PauseAnimation { duration: 170 }
+        ScriptAction { script: { mascot.st.sqv += 5 } }
+        PauseAnimation { duration: 170 }
+        ScriptAction { script: { buddy.st.sqv += 5 } }
+        PauseAnimation { duration: 170 }
+        ScriptAction { script: { mascot.st.sqv += 5 } }
+    }
+    // one startles, the other laughs
+    SequentialAnimation {
+        id: skStartle
+        ScriptAction { script: { buddy.play("surprised", 900); buddy.jump(0.3, false) } }
+        PauseAnimation { duration: 260 }
+        ScriptAction { script: { mascot.play("laugh", 1000) } }
+    }
+    // humming together, swaying
+    SequentialAnimation {
+        id: skHum
+        ScriptAction { script: { buddy.play("hum", 1700); mascot.play("hum", 1700); buddy.st.swing = 1; mascot.st.swing = 1 } }
+    }
+    // the partner's own habit, and a glance at it
+    SequentialAnimation {
+        id: skQuirk
+        ScriptAction { script: { buddy.play(buddy.who.quirk, 1500) } }
+        PauseAnimation { duration: 500 }
+        ScriptAction { script: { mascot.play("fond", 900) } }
+    }
+    // on a roll: one, then the other
+    SequentialAnimation {
+        id: skRoll
+        ScriptAction { script: { mascot.play("hype", 900); mascot.roll(1, 700) } }
+        PauseAnimation { duration: 260 }
+        ScriptAction { script: { buddy.play("laugh", 1000); buddy.roll(1, 700) } }
+    }
+    // the partner bumps into her
+    SequentialAnimation {
+        id: skBump
+        NumberAnimation { target: root; property: "buddyDx"; to: -7; duration: 120; easing.type: Easing.InQuad }
+        ScriptAction { script: { mascot.st.sqv += 7; mascot.st.shake = 0.6; mascot.play("surprised", 700) } }
+        NumberAnimation { target: root; property: "buddyDx"; to: 0; duration: 280; easing.type: Easing.OutBack }
+        PauseAnimation { duration: 300 }
+        ScriptAction { script: { buddy.play("laugh", 900) } }
+    }
+    // they jump and change seats, and after a moment jump back
+    SequentialAnimation {
+        id: skSwap
+        ScriptAction { script: { mascot.jump(0.9, true); buddy.jump(0.9, true) } }
+        ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: 25; duration: 420; easing.type: Easing.InOutCubic } NumberAnimation { target: root; property: "buddyDx"; to: -27; duration: 420; easing.type: Easing.InOutCubic } }
+        ScriptAction { script: { mascot.play("laugh", 900); buddy.play("hype", 900) } }
+        PauseAnimation { duration: 1500 }
+        ScriptAction { script: { mascot.jump(0.9, true); buddy.jump(0.9, true) } }
+        ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: 0; duration: 420; easing.type: Easing.InOutCubic } NumberAnimation { target: root; property: "buddyDx"; to: 0; duration: 420; easing.type: Easing.InOutCubic } }
+    }
+    // a high five, with a star where the hands meet
+    SequentialAnimation {
+        id: skFive
+        ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: 4; duration: 140; easing.type: Easing.OutQuad } NumberAnimation { target: root; property: "buddyDx"; to: -4; duration: 140; easing.type: Easing.OutQuad } }
+        ScriptAction { script: { root.tossU = 0.5; root.tossA = 1; mascot.st.sqv += 6; buddy.st.sqv += 6; mascot.play("laugh", 800); buddy.play("laugh", 800) } }
+        ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: 0; duration: 240; easing.type: Easing.OutBack } NumberAnimation { target: root; property: "buddyDx"; to: 0; duration: 240; easing.type: Easing.OutBack } NumberAnimation { target: root; property: "tossA"; to: 0; duration: 420; easing.type: Easing.OutCubic } }
+    }
+    // one adores, the other cannot take it
+    SequentialAnimation {
+        id: skLove
+        ScriptAction { script: { buddy.play("love", 1600) } }
+        PauseAnimation { duration: 450 }
+        ScriptAction { script: { mascot.play("flustered", 1300) } }
+    }
+    // the partner ducks out of sight and pops back up
+    SequentialAnimation {
+        id: skPeek
+        NumberAnimation { target: root; property: "buddyPop"; to: 0; duration: 160; easing.type: Easing.InQuad }
+        PauseAnimation { duration: 350 }
+        ScriptAction { script: { mascot.play("surprised", 800) } }
+        PauseAnimation { duration: 350 }
+        NumberAnimation { target: root; property: "buddyPop"; to: 1; duration: 320; easing.type: Easing.OutBack; easing.overshoot: 3 }
+        ScriptAction { script: { buddy.play("laugh", 900); mascot.jump(0.35, false) } }
+    }
+    // a squabble over nothing, then they laugh
+    SequentialAnimation {
+        id: skSquabble
+        ScriptAction { script: { mascot.st.shake = 1; buddy.st.shake = 1; mascot.play("annoyed", 900); buddy.play("angry", 900) } }
+        ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: 2; duration: 90; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "buddyDx"; to: -2; duration: 90; easing.type: Easing.InOutSine } }
+        ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: 0; duration: 90; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "buddyDx"; to: 0; duration: 90; easing.type: Easing.InOutSine } }
+        PauseAnimation { duration: 850 }
+        ScriptAction { script: { mascot.play("laugh", 900); buddy.play("laugh", 900) } }
+    }
+    // a star tossed over and tossed back
+    SequentialAnimation {
+        id: skToss
+        ScriptAction { script: { root.tossU = 0; root.tossA = 1; mascot.st.sqv += 4 } }
+        NumberAnimation { target: root; property: "tossU"; to: 1; duration: 420; easing.type: Easing.InOutSine }
+        ScriptAction { script: { buddy.jump(0.45, false); buddy.play("hype", 700) } }
+        PauseAnimation { duration: 350 }
+        ScriptAction { script: { buddy.st.sqv += 4 } }
+        NumberAnimation { target: root; property: "tossU"; to: 0; duration: 420; easing.type: Easing.InOutSine }
+        ScriptAction { script: { mascot.jump(0.45, false); mascot.play("laugh", 700) } }
+        NumberAnimation { target: root; property: "tossA"; to: 0; duration: 160; easing.type: Easing.OutCubic }
+    }
+    // the partner nods off and gets a nudge
+    SequentialAnimation {
+        id: skDoze
+        ScriptAction { script: { buddy.play("cool", 1900) } }
+        PauseAnimation { duration: 1000 }
+        NumberAnimation { target: root; property: "mainDx"; to: 6; duration: 120; easing.type: Easing.InQuad }
+        ScriptAction { script: { buddy.play("surprised", 900); buddy.jump(0.45, true); buddy.st.shake = 0.5 } }
+        NumberAnimation { target: root; property: "mainDx"; to: 0; duration: 280; easing.type: Easing.OutBack }
+        PauseAnimation { duration: 250 }
+        ScriptAction { script: { mascot.play("smug", 1000) } }
+    }
+    // a little dance: hop, hop, hop
+    SequentialAnimation {
+        id: skDance
+        ScriptAction { script: { mascot.st.swing = 1; buddy.st.swing = 1; mascot.play("hum", 1500); buddy.play("hum", 1500) } }
+        ScriptAction { script: { mascot.jump(0.3, false) } }
+        PauseAnimation { duration: 200 }
+        ScriptAction { script: { buddy.jump(0.3, false) } }
+        PauseAnimation { duration: 200 }
+        ScriptAction { script: { mascot.jump(0.3, false) } }
+        PauseAnimation { duration: 200 }
+        ScriptAction { script: { buddy.jump(0.3, false) } }
+        PauseAnimation { duration: 200 }
+        ScriptAction { script: { mascot.jump(0.5, false); buddy.jump(0.5, false) } }
+    }
+    // the partner cheers her on
+    SequentialAnimation {
+        id: skCheer
+        ScriptAction { script: { buddy.play("hype", 1100); buddy.jump(0.5, false) } }
+        PauseAnimation { duration: 260 }
+        ScriptAction { script: { buddy.jump(0.4, false) } }
+        PauseAnimation { duration: 200 }
+        ScriptAction { script: { mascot.play("proud", 1200) } }
+    }
     readonly property real pillContentW: labelX + pillRow.implicitWidth + 16
     readonly property real pillW: Math.max(pillMin, Math.min(pillMax, pillContentW))
     readonly property real closedW: floating ? 120 : (vertical ? pillT : pillW)
@@ -939,6 +1093,8 @@ Item {
                         id: seat
                         required property string modelData
                         width: 19; height: 15 // (they are wider than tall: two rows fit the bar)
+                        // whoever has just sat down here pops in
+                        NumberAnimation on scale { from: 0.2; to: 1; duration: 340; easing.type: Easing.OutBack; running: !Theme.reduced }
                         Mascot {
                             anchors.centerIn: parent
                             size: 18
@@ -1019,6 +1175,7 @@ Item {
                             id: chair
                             required property string modelData
                             width: 26; height: 26
+                            NumberAnimation on scale { from: 0.2; to: 1; duration: 340; easing.type: Easing.OutBack; running: !Theme.reduced }
                             Mascot {
                                 anchors.centerIn: parent
                                 size: 24
@@ -1173,7 +1330,7 @@ Item {
             property real slotB: root.expanded ? 12 : root.miniPad
             readonly property bool gliding: !root.mfree && !Theme.reduced
             size: root.mfree ? root.freeSize : slot
-            x: root.mfree ? root.freeCX - root.freeSize / 2 - root.isoX : card.x + slotX
+            x: root.mfree ? root.freeCX - root.freeSize / 2 - root.isoX : card.x + slotX + root.mainDx
             y: root.mfree ? root.freeCY - root.freeSize / 2 - root.isoY
                : root.atBottom ? card.y + card.height - height - slotB : card.y + slotY
             // "Reduce motion": the mascot does not glide, it fades between slots
@@ -1192,6 +1349,7 @@ Item {
             walkDir: root.walkDir
             doneBadge: Hub.chip === "done"
             character: root.stage
+            instant: root.duo
             music: root.tune
             mood: root.dropActive ? "wow" : root.dropHappy ? "happy" : root.walking ? "walk" : Hub.mood
             gazeOn: root.duo && root.duoLook
@@ -1210,16 +1368,31 @@ Item {
             id: buddy
             z: 2
             size: 20
-            x: card.x + root.miniLead + root.mini + 3
+            x: card.x + root.miniLead + root.mini + 3 + root.buddyDx
             y: (root.atBottom ? card.y + card.height - root.pillT : card.y) + (root.pillT - height) / 2
             character: root.buddyWho
+            instant: true
             mood: "work"
-            scale: root.duo ? 1 : 0
-            visible: scale > 0.01
-            Behavior on scale { NumberAnimation { duration: 320; easing.type: Theme.reduced ? Easing.OutCubic : Easing.OutBack } }
+            property real pop: root.duo ? 1 : 0
+            Behavior on pop { NumberAnimation { duration: 320; easing.type: Theme.reduced ? Easing.OutCubic : Easing.OutBack } }
+            scale: pop * root.buddyPop
+            visible: pop > 0.01
             paused: !visible || root.tucked
             gazeOn: true
             gaze: root.duoLook ? Qt.point(-0.9, 0) : Qt.point(0, 0.25)
+        }
+
+        // the star that passes between the two
+        Spark {
+            z: 3
+            size: 9
+            tint: "#FFE08A"
+            opacity: root.duo ? root.tossA : 0
+            visible: opacity > 0.01
+            x: card.x + root.miniLead + root.mini / 2 + root.tossU * 26 - size / 2
+            y: (root.atBottom ? card.y + card.height - root.pillT : card.y) + root.pillT / 2 - 3 - Math.sin(Math.PI * root.tossU) * 9 - size / 2
+            rotation: root.tossU * 180
+            scale: 0.8 + root.tossA * 0.5
         }
 
         // the hold ring around the mascot, and the ripples (output coordinates, island offset)

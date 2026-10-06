@@ -49,6 +49,7 @@ Item {
     property bool paused: false           // out of sight: nothing is simulated or painted
     property bool music: false            // a tune is playing: idle, she hums along
     property bool bench: false            // waiting her turn in a seat: small, cheap, but alive (see the bench timer)
+    property bool instant: false          // a change of character is not played out here: whoever holds her does that
     property bool still: false            // a portrait: painted once, never animated (the bar's small ones)
 
     // ---- dragging (motion.md, "Dragging, edges and monitors") ----------------------
@@ -146,12 +147,12 @@ Item {
     }
     onDraggingChanged: if (dragging) play("surprised", 900)
     onEyesShutChanged: if (!eyesShut) blinkNow()
-    // Changing places. The one on stage spins away and shrinks to nothing (200 ms); the
+    // Changing places. The one on stage spins away and shrinks to nothing (280 ms); the
     // new one springs up in her place with a ring of sparks in her own colour, and waves
     // if the card is open. Portraits, and "reduce motion", simply change.
     property real swap: 1 // 1 = there, 0 = gone
     onCharacterChanged: {
-        if (still || Theme.reduced) { shown = character; arrive(); return }
+        if (still || Theme.reduced || instant) { shown = character; arrive(); return }
         swapAnim.restart()
     }
     function arrive() {
@@ -169,9 +170,9 @@ Item {
     }
     SequentialAnimation {
         id: swapAnim
-        NumberAnimation { target: root; property: "swap"; to: 0; duration: 200; easing.type: Easing.InBack; easing.overshoot: 1.6 }
+        NumberAnimation { target: root; property: "swap"; to: 0; duration: 280; easing.type: Easing.InBack; easing.overshoot: 1.6 }
         ScriptAction { script: { root.shown = root.character; root.arrive() } }
-        NumberAnimation { target: root; property: "swap"; to: 1; duration: 420; easing.type: Easing.OutBack; easing.overshoot: 2.2 }
+        NumberAnimation { target: root; property: "swap"; to: 1; duration: 520; easing.type: Easing.OutBack; easing.overshoot: 2.2 }
     }
     Component.onCompleted: { swapAnim.stop(); swap = 1; shown = character; st.tails = null; if (still) settle() }
     function settle() { for (let i = 0; i < 40; i++) step(0.016); canvas.requestPaint() }
