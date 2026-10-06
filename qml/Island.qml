@@ -1,4 +1,4 @@
-// The island: a dark pill docked to one edge of the screen that grows into a card,
+﻿// The island: a dark pill docked to one edge of the screen that grows into a card,
 // or (floating) a mascot that lives free on the desktop and opens its card in
 // place. Sizes, timings and behaviour follow motion.md.
 //
@@ -130,9 +130,6 @@ Item {
     readonly property real shapeY: dockSide === "top" ? -radius : 0
     readonly property real shapeW: animW + (dockSide === "left" || dockSide === "right" ? radius : 0)
     readonly property real shapeH: animH + (dockSide === "top" || dockSide === "bottom" ? radius : 0)
-    // which way the soft shadow falls (away from the wall)
-    readonly property point shadowDir: dockSide === "bottom" ? Qt.point(0, -1) : dockSide === "left" ? Qt.point(1, 0)
-                                     : dockSide === "right" ? Qt.point(-1, 0) : Qt.point(0, 1)
 
     // ---- behaviour -------------------------------------------------------------
     readonly property bool typing: chatView.inputFocus || settingsView.inputFocus
@@ -600,25 +597,6 @@ Item {
         width: root.width
         height: root.height
         y: 0
-
-        // Soft shadow without a blur: ten rounded rectangles, each a little larger and as
-        // faint as the last, so their sum falls off smoothly over 16 px. It sits 3 px
-        // toward the screen's inside.
-        Repeater {
-            model: 10
-            Rectangle {
-                required property int index
-                readonly property real spread: 1 + index * 1.65
-                x: card.x + root.shapeX + root.shadowDir.x * 3 - spread
-                y: card.y + root.shapeY + root.shadowDir.y * 3 - spread
-                width: root.shapeW + 2 * spread
-                height: root.shapeH + 2 * spread
-                radius: root.radius + spread
-                color: "black"
-                opacity: (root.floating && !root.expanded) || root.ghost || (root.assembling && assembly.t < assembly.tBorn) ? 0 : 0.032
-                Behavior on opacity { NumberAnimation { duration: Theme.tFast } }
-            }
-        }
 
         // an amber tab hangs under the card (above it when docked at the bottom) while a request waits
         AttentionTab {
