@@ -18,13 +18,17 @@ ctest --test-dir build --output-on-failure
 ./build/kisel
 ```
 
-First launch plays the cover-assembly intro and opens the island for a few seconds. Drag the mascot out of the island to let it roam the desktop; drag it back to the top edge to dock it. Settings has a monitor picker, a GitHub token field (Home → GitHub) and the hook installer. Open **Settings → Connect Claude Code** to see the exact diff of what will change in `~/.claude/settings.json`; nothing is written until you click, and a dated backup is taken first.
+First launch plays the cover-assembly intro and opens the island for a few seconds. Hold the mascot for a moment (a ring fills) to pick it up: pull it out of the pill to let it roam the desktop, or carry it to any edge of any monitor and let go there to dock it. Settings has a monitor picker, a GitHub token field (Home → GitHub) and the hook installer. Open **Settings → Connect Claude Code** to see the exact diff of what will change in `~/.claude/settings.json`; nothing is written until you click, and a dated backup is taken first.
 
 ## Develop without Claude Code
 
 ```bash
 ./build/kisel --demo                      # replays a fake session and a permission request
 ./build/kisel --demo --open permission    # open a view directly
+./build/kisel --intro                     # play the first-launch animation
+./build/kisel --dock-edge left:0.3        # start docked on an edge (top, bottom, left, right) at 30 % along it
+./build/kisel --drag-test bottom          # synthetic pointer: hold, carry to the edge, let go (prints the state)
+./build/kisel --grab-test                 # check the full-output drag surface works on your compositor
 KISEL_DEBUG=1 ./build/kisel               # print every hook event it receives
 KISEL_DEMO_ASK=1 ./build/kisel --demo     # demo with a question card instead of a command
 KISEL_LAYER_SHELL=0 ./build/kisel         # plain window instead of layer-shell

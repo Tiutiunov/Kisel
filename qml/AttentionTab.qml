@@ -11,18 +11,25 @@ import QtQuick
 Item {
     id: root
     property real anchorX: 0       // centre x under the mascot
-    property real cardBottom: 0    // y of the card's bottom edge
+    property real cardBottom: 0    // y of the card's inner edge (its bottom edge when docked on top)
+    property int dir: 1            // +1 hangs below the card, -1 rises above it (docked at the bottom)
     property int waiting: 0
+    // When the card opens the tab slides 12 px up into its edge and merges over 200 ms;
+    // it is never visible together with the open card.
+    property bool merged: false
+    property real merge: merged ? 1 : 0
+    Behavior on merge { NumberAnimation { duration: Theme.reduced ? 140 : 200; easing.type: Easing.OutCubic } }
 
     readonly property bool shown: waiting > 0
     property real out: 0           // 0 = hidden under the card, 16 = out
     property real bob: 0
 
     x: anchorX - 28
-    y: cardBottom - 28 + out + bob
+    y: dir > 0 ? cardBottom - 28 + out + bob - 12 * merge : cardBottom - out - bob + 12 * merge
+    opacity: 1 - merge
     width: 56
     height: 28
-    visible: out > 0.01 || shown
+    visible: (out > 0.01 || shown) && merge < 0.99
 
     onShownChanged: {
         if (shown) {
@@ -47,7 +54,8 @@ Item {
     }
     NumberAnimation { id: hide; target: root; property: "out"; to: 0; duration: Theme.reduced ? 140 : 160; easing.type: Easing.InQuad }
 
-    BrandShape { kind: "halfRound"; scale: 56 / 200; transformOrigin: Item.TopLeft }
+    BrandShape { kind: "halfRound"; scale: 56 / 200; transformOrigin: Item.TopLeft
+        transform: Scale { yScale: root.dir; origin.y: 50 } }
 
     // one dot per extra request
     Row {

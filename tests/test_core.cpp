@@ -177,8 +177,12 @@ private slots:
         QCOMPARE(hub.pendingCount(), 0);
         QCOMPARE(hub.mood(), QString("sad")); // denied: droops for a moment
 
+        QCOMPARE(hub.chip(), QString()); // nothing waiting, nothing done yet
         hub.handle({{"hook_event_name", "Stop"}, {"session_id", "s"}});
         QCOMPARE(hub.mood(), QString("happy"));
+        QCOMPARE(hub.chip(), QString("done")); // the pill's chip stays after the mood has passed
+        hub.handle({{"hook_event_name", "UserPromptSubmit"}, {"session_id", "s"}});
+        QCOMPARE(hub.chip(), QString()); // new work clears it
     }
 
     void invalidAgentNameFallsBackToClaudeCode()

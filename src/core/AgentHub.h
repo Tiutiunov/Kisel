@@ -19,6 +19,8 @@ class AgentHub : public QObject
     Q_OBJECT
     Q_PROPERTY(QString mood READ mood NOTIFY moodChanged)
     Q_PROPERTY(QString statusLine READ statusLine NOTIFY moodChanged)
+    // The pill's chip: "" | needs | done | failed. Done and failed stay 25 s.
+    Q_PROPERTY(QString chip READ chip NOTIFY moodChanged)
     Q_PROPERTY(int pendingCount READ pendingCount NOTIFY permissionChanged)
     Q_PROPERTY(QVariantMap permission READ permission NOTIFY permissionChanged)
     Q_PROPERTY(QVariantMap session READ session NOTIFY sessionChanged)
@@ -33,6 +35,7 @@ public:
 
     QString mood() const { return m_mood; }
     QString statusLine() const { return m_statusLine; }
+    QString chip() const { return m_chip; }
     int pendingCount() const { return int(m_queue.size()); }
     QVariantMap permission() const { return m_queue.isEmpty() ? QVariantMap() : m_queue.first().view; }
     QVariantMap session() const;
@@ -92,6 +95,9 @@ private:
     QList<Pending> m_queue;
     QString m_mood = QStringLiteral("idle");
     QString m_statusLine = QStringLiteral("Kisel");
+    QString m_chip;      // what recompute() last published
+    QString m_chipBase;  // done | failed, until the timer or new work clears it
+    QTimer m_chipTimer;
     QString m_override;
     int m_overrideGen = 0;
     bool m_asleep = false;

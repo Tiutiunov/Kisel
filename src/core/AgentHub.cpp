@@ -55,6 +55,13 @@ AgentHub::AgentHub(Preferences *prefs, QObject *parent)
         recompute();
     });
     m_sleepTimer.start();
+
+    m_chipTimer.setSingleShot(true);
+    m_chipTimer.setInterval(25'000);
+    connect(&m_chipTimer, &QTimer::timeout, this, [this] {
+        m_chipBase.clear();
+        recompute();
+    });
 }
 
 bool AgentHub::start(const QString &socketPath)
@@ -217,6 +224,11 @@ void AgentHub::handle(const QJsonObject &p, HookConnection *conn)
 
     Session &s = m_sessions.ensure(sid, agent, p.value("cwd").toString());
 
+    if (ev == QLatin1String("UserPromptSubmit") || ev == QLatin1String("PreToolUse")) {
+        m_chipBase.clear(); // new work: the old Done / Failed chip goes away
+        m_chipTimer.stop();
+    }
+
     if (ev == QLatin1String("UserPromptSubmit")) {
         s.state = QStringLiteral("think");
         s.line = QStringLiteral("Thinking") + QChar(0x2026);
@@ -241,12 +253,16 @@ void AgentHub::handle(const QJsonObject &p, HookConnection *conn)
     } else if (ev == QLatin1String("PostToolUseFailure")) {
         closeRunningSteps(s, "failed");
         s.state = QStringLiteral("failed");
+        m_chipBase = QStringLiteral("failed");
+        m_chipTimer.start();
         emit toolFailed();
         setOverride("sad", kSadMs);
     } else if (ev == QLatin1String("Stop")) {
         closeRunningSteps(s, "done");
         s.state = QStringLiteral("done");
         s.line = QStringLiteral("Done");
+        m_chipBase = QStringLiteral("done");
+        m_chipTimer.start();
         emit taskFinished();
         setOverride("happy", kHappyMs);
     } else if (ev == QLatin1String("PermissionRequest")) {
@@ -393,10 +409,12 @@ void AgentHub::recompute()
             line = QStringLiteral("Kisel");
         }
     }
-    if (mood == m_mood && line == m_statusLine)
+    const QString chip = !m_queue.isEmpty() ? QStringLiteral("needs") : m_chipBase;
+    if (mood == m_mood && line == m_statusLine && chip == m_chip)
         return;
     m_mood = mood;
     m_statusLine = line;
+    m_chip = chip;
     emit moodChanged();
 }
 

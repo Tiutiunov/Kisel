@@ -48,10 +48,11 @@ Kisel is a desktop companion for KDE Plasma that watches Claude Code, asks permi
 ## App shell (`src/app`)
 
 * `IslandWindow` – the only platform-specific code. One fixed 708×500 transparent surface; the island animates **inside** it and `setMask()` (= Wayland input region) follows the island, so clicks elsewhere reach other windows and the compositor never resizes a surface mid-animation. Keyboard interactivity is `OnDemand` only while a permission card, the chat or settings is open, so Kisel never steals focus from the terminal.
+* **Dragging.** Margins are applied by the compositor a frame late while pointer events keep coming relative to the old position, so moving the surface by the pointer overshoots. While the pointer is down the surface is made as big as the output (`beginGrab`: all four anchors, size 0) and stays still; the island moves inside it by exact pointer coordinates (`setOrigin`), the input region follows the mascot, and on release the surface shrinks back to 708 x 500 at the final margins (`endGrab`). Without layer-shell it falls back to `moveBy` (clamped to the screen).
 * **Floating.** The same surface serves both modes. Docked it is anchored to the top edge; floating it is anchored top+left and moved with layer-shell margins (`beginFloat`, `moveBy`, `fitOpen`, `dock`). The input region (`setHitRect`) is the 120 px mascot when closed and the card when open, so the rest of the 708×500 surface stays click-through.
 * `Displays` – which output the island lives on (remembered by name, hot-plug aware); `IslandWindow::moveToScreen` re-creates the layer surface on the target output.
 * `Sounds` – plays the WAVs through `paplay`/`pw-play` as a plain "Kisel" stream. (Not `media.role=event`: Plasma can mute that whole role.)
-* `Launcher` – Terminal (Konsole in the session's folder), Files (Dolphin), https links only.
+* `Launcher` – opens https links only (a pull request).
 * `Tray` – StatusNotifierItem (Open, Settings, Quit).
 * `main.cpp` – wiring, single-instance probe on the socket, `--demo` (replays a fake session), `--open <view>`, `--grab <png>` (renders one frame and quits; used for development and CI screenshots).
 
@@ -61,6 +62,8 @@ Kisel is a desktop companion for KDE Plasma that watches Claude Code, asks permi
 * `Mascot.qml` – all ten moods, blink, breathing, spring-following eyes, jump/click squash, dizzy egg, skins. Drawn from the logo's SVG paths.
 * `Island.qml` – state machine: collapsed pill ⇄ card, hover open, 600 ms close timer, `holdOpen` rules (permission waiting, drag over, typing, peek), view cross-fade (140 ms), one mascot gliding between slots.
 * `HomeView`, `SessionView`, `PermissionView`, `GitHubView`, `ChatView`, `SettingsView` – one file each; `CodePanel` renders diffs and commands.
+* Collapsed v2: `PillChip`, `PillBars`, `PillDots`; the mascot's level of detail and mood bridges live in `Mascot.qml`.
+* Transitions: `ViewHost` (how each view enters and leaves), `Motion` (stagger helpers), `RollText`, `Assembly` (first launch).
 * Components: `KButton` (variants, success move), `StatusPill`, `LaunchTile`, `KToggle`, `KField`, `Toast`.
 * Brand-shape motion: `BrandShape` (the seven cover shapes), `FirstLaunch`, `DoneBurst`, `AttentionTab`, `JellyTrio`, `DotWave`, `HomeBackdrop` (drift + night sky), `DrawnCheck`.
 * C++ objects are QML singletons in the `Kisel.Core` module: `Hub`, `Prefs`, `Hooks`, `Chat`, `Vault`, `Shell`, `Displays`, `Sounds`, `Launcher`, `GitHub`.

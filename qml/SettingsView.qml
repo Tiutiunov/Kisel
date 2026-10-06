@@ -7,14 +7,11 @@ import Kisel.Core
 Item {
     id: root
     property bool active: false
+    property real age: 800 // ms since shown; blocks rise from it (Motion.rise)
     signal toast(string text)
     readonly property bool inputFocus: keyField.inputFocus || ghField.inputFocus
 
     width: 494
-    opacity: active ? 1 : 0
-    visible: opacity > 0
-    enabled: active
-    Behavior on opacity { NumberAnimation { duration: Theme.tFast } }
 
     property var plan: null          // hooks preview being confirmed
     property bool planInstall: true
@@ -208,8 +205,8 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     color: Theme.inkMuted
                     font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.DemiBold
-                    text: Displays.wanted === "" ? "Kisel follows your primary monitor (" + Displays.current + ")"
-                        : "Kisel stays on " + Displays.wanted + " and comes back to it if you unplug it"
+                    text: Displays.wanted === "" ? "Kisel follows your primary monitor (" + Displays.current + "), also after a restart"
+                        : "Kisel stays on " + Displays.wanted + " until you restart it"
                 }
             }
 

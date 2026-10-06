@@ -7,14 +7,11 @@ import Kisel.Core
 Item {
     id: root
     property bool active: false
+    property real age: 800 // ms since shown; blocks rise from it (Motion.rise)
     property bool dropActive: false
     readonly property bool inputFocus: input.activeFocus
 
     width: 494
-    opacity: active ? 1 : 0
-    visible: opacity > 0
-    enabled: active
-    Behavior on opacity { NumberAnimation { duration: Theme.tFast } }
     // focus the input once the fade ends
     onActiveChanged: if (active) focusTimer.restart()
     Timer { id: focusTimer; interval: Theme.tFast; onTriggered: input.forceActiveFocus() }
@@ -86,9 +83,11 @@ Item {
                 bottomRightRadius: msg.mine ? 4 : Theme.radiusMd
                 bottomLeftRadius: msg.mine ? Theme.radiusMd : 4
                 color: msg.mine ? Theme.kisel : Theme.surface2
-                opacity: 0
-                Component.onCompleted: opacity = 1
-                Behavior on opacity { NumberAnimation { duration: Theme.tFast; easing.type: Easing.OutCubic } }
+                // a new bubble rises 8 px while fading in over 140 ms (OutCubic)
+                property real appear: Theme.reduced ? 1 : 0
+                opacity: appear
+                transform: Translate { y: (1 - bubble.appear) * 8 }
+                NumberAnimation on appear { to: 1; duration: Theme.tFast; easing.type: Easing.OutCubic; running: !Theme.reduced }
 
                 Column {
                     x: 12; y: 10

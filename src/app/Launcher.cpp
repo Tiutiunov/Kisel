@@ -1,40 +1,9 @@
 #include "Launcher.h"
 
 #include <QDesktopServices>
-#include <QDir>
-#include <QFileInfo>
-#include <QProcess>
-#include <QStandardPaths>
 #include <QUrl>
 
 namespace kisel {
-
-QString Launcher::existingDir(const QString &dir)
-{
-    return !dir.isEmpty() && QFileInfo(dir).isDir() ? dir : QDir::homePath();
-}
-
-bool Launcher::openTerminal(const QString &dir)
-{
-    const QString wd = existingDir(dir);
-    struct Candidate { const char *exe; QStringList args; };
-    const Candidate candidates[] = {
-        {"konsole", {QStringLiteral("--workdir"), wd}},
-        {"xdg-terminal-exec", {}},
-        {"x-terminal-emulator", {}},
-    };
-    for (const Candidate &c : candidates) {
-        const QString exe = QStandardPaths::findExecutable(QString::fromLatin1(c.exe));
-        if (!exe.isEmpty())
-            return QProcess::startDetached(exe, c.args, wd);
-    }
-    return false;
-}
-
-bool Launcher::openFiles(const QString &dir)
-{
-    return QDesktopServices::openUrl(QUrl::fromLocalFile(existingDir(dir)));
-}
 
 bool Launcher::openUrl(const QString &url)
 {

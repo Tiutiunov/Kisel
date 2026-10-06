@@ -42,7 +42,8 @@ target_compile_options(kisel-hook PRIVATE -Wall -Wextra)
 
 # ---- the app ----------------------------------------------------------------
 qt_add_executable(kisel src/app/main.cpp src/app/IslandWindow.cpp src/app/Tray.cpp src/app/Displays.cpp src/app/Sounds.cpp src/app/Launcher.cpp)
-target_link_libraries(kisel PRIVATE kisel_core Qt6::Quick Qt6::QuickControls2 Qt6::Widgets)
+# Qt6::Test only feeds the development flag `kisel --drag-test` (synthetic pointer events).
+target_link_libraries(kisel PRIVATE kisel_core Qt6::Quick Qt6::QuickControls2 Qt6::Widgets Qt6::Test)
 target_compile_options(kisel PRIVATE -Wall -Wextra)
 if(LayerShellQt_FOUND)
     target_link_libraries(kisel PRIVATE LayerShellQt::Interface)
@@ -59,7 +60,7 @@ target_compile_definitions(kisel PRIVATE KISEL_RELAY_NEXT_TO_EXE)
 
 qt_policy(SET QTP0001 NEW) # resource prefix /qt/qml
 qt_policy(SET QTP0004 NEW)
-set_source_files_properties(qml/Theme.qml qml/Sfx.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+set_source_files_properties(qml/Theme.qml qml/Sfx.qml qml/Motion.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 # All QML lives in one flat module directory (type names = file names).
 file(GLOB KISEL_QML_SOURCES CONFIGURE_DEPENDS qml/*.qml)
 foreach(f ${KISEL_QML_SOURCES})
@@ -73,9 +74,18 @@ qt_add_qml_module(kisel
         qml/Main.qml
         qml/Theme.qml
         qml/Sfx.qml
+        qml/Motion.qml
         qml/Icon.qml
         qml/DrawnCheck.qml
         qml/StatusPill.qml
+        qml/PillChip.qml
+        qml/PillDisc.qml
+        qml/DockZone.qml
+        qml/Ripple.qml
+        qml/HoldRing.qml
+        qml/Neck.qml
+        qml/PillBars.qml
+        qml/PillDots.qml
         qml/GitHubMark.qml
         qml/LaunchTile.qml
         qml/DotWave.qml
@@ -87,12 +97,14 @@ qt_add_qml_module(kisel
         qml/KButton.qml
         qml/CodePanel.qml
         qml/BrandShape.qml
-        qml/FirstLaunch.qml
+        qml/Assembly.qml
         qml/DoneBurst.qml
         qml/AttentionTab.qml
         qml/JellyTrio.qml
         qml/HomeBackdrop.qml
         qml/Toast.qml
+        qml/ViewHost.qml
+        qml/RollText.qml
         qml/GitHubView.qml
         qml/Island.qml
         qml/HomeView.qml
@@ -108,6 +120,7 @@ qt_add_qml_module(kisel
         resources/fonts/nunito-latin-800-normal.ttf
         resources/fonts/jetbrains-mono-latin-400-normal.ttf
         resources/logo/kisel-mark.svg
+        resources/logo/kisel-mini.svg
         resources/sounds/open.wav
         resources/sounds/close.wav
         resources/sounds/click.wav

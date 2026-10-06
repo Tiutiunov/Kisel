@@ -1,8 +1,8 @@
 #pragma once
 
 #include <QObject>
+#include <QPointF>
 #include <QQuickView>
-#include <QRectF>
 
 class QScreen;
 
@@ -11,17 +11,34 @@ namespace kisel {
 // Platform glue for the island window. Everything that differs between KDE
 // Wayland, plain X11 and (later) Windows lives here and in Tray, never in QML.
 //
-// The window is one fixed-size, transparent surface big enough for the largest
-// view plus its shadow margin. The island animates inside it, and the input
-// region (setMask) is kept equal to the island's shape, so every click outside
-// goes to the windows underneath and the compositor never resizes a surface
-// mid-animation (motion.md: "never animate the window size from inside a loop").
+// The window is one fixed-size, transparent surface (708 x 500) big enough for
+// the largest view plus its shadow margin. The island animates inside it, and
+// the input region (setMask) is kept equal to the island's shape, so every click
+// outside goes to the windows underneath and the compositor never resizes a
+// surface mid-animation (motion.md: "never animate the window size from inside
+// a loop"). Where the surface sits is one of:
+//
+//   docked    flush with one edge of the output (top, bottom, left, right), the
+//             pill at `along` px along that edge
+//   floating  anywhere, the mascot alone (floatX, floatY = the surface origin)
+//   grabbing  while the pointer is down the surface is as big as the output and
+//             stays still; the island and the mascot move inside it
 class IslandWindow : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(bool floating READ floating NOTIFY floatingChanged)
-    Q_PROPERTY(qreal floatX READ floatX WRITE setFloatX NOTIFY floatMoved)
-    Q_PROPERTY(qreal floatY READ floatY WRITE setFloatY NOTIFY floatMoved)
+    Q_PROPERTY(QString edge READ edge NOTIFY dockChanged)           // top | bottom | left | right
+    Q_PROPERTY(qreal along READ along NOTIFY dockChanged)           // the pill's centre along the edge, output px
+    Q_PROPERTY(qreal pillAlong READ pillAlong NOTIFY placementChanged) // ...and inside the surface
+    Q_PROPERTY(qreal originX READ originX NOTIFY placementChanged)  // where the surface sits on the output
+    Q_PROPERTY(qreal originY READ originY NOTIFY placementChanged)
+    Q_PROPERTY(bool grabbing READ grabbing NOTIFY grabbingChanged)
+    // The surface is currently as big as the output (during a drag).
+    Q_PROPERTY(bool viewWide READ viewWide NOTIFY viewWideChanged)
+    Q_PROPERTY(qreal grabX READ grabX NOTIFY placementChanged)      // the island's origin while the surface is wide
+    Q_PROPERTY(qreal grabY READ grabY NOTIFY placementChanged)
+    Q_PROPERTY(qreal floatX READ floatX WRITE setFloatX NOTIFY placementChanged)
+    Q_PROPERTY(qreal floatY READ floatY WRITE setFloatY NOTIFY placementChanged)
 
 public:
     static constexpr int kWidth = 708;  // 660 card + 2 x space-6
@@ -30,6 +47,8 @@ public:
     static constexpr int kMascotLeft = 294, kMascotTop = 8, kMascotSize = 120;
     // ...and its card opens from the same spot: 24..684 x 8..448 in the surface.
     static constexpr int kCardLeft = 24, kCardTop = 8, kCardRight = 684, kCardBottom = 448;
+    // A docked pill keeps this far from the corners of the output.
+    static constexpr int kCornerKeepOut = 120;
 
     explicit IslandWindow(QQuickView *view, QObject *parent = nullptr);
 
@@ -46,22 +65,45 @@ public:
     Q_INVOKABLE void setKeyboard(bool wanted); // permission card or chat input focused
     Q_INVOKABLE void quit();
 
-    // ---- floating mascot --------------------------------------------------
-    // Docked, the surface is anchored to the top edge and centred. Floating, it
-    // is anchored top+left and moved with layer-shell margins; (floatX, floatY)
-    // is the surface origin relative to the screen's top-left corner.
     bool floating() const { return m_floating; }
+    QString edge() const { return m_edge; }
+    qreal along() const { return m_along; }
+    bool grabbing() const { return m_grabbing; }
+    bool viewWide() const;
+    qreal grabX() const { return m_grabX; }
+    qreal grabY() const { return m_grabY; }
     qreal floatX() const { return m_floatX; }
     qreal floatY() const { return m_floatY; }
-    void setFloatX(qreal x) { setFloatPos(x, m_floatY, false); }
-    void setFloatY(qreal y) { setFloatPos(m_floatX, y, false); }
-    // The pointer (in surface coordinates) pulled the mascot out of the island:
-    // float it so the mascot is centred under the pointer.
-    Q_INVOKABLE void beginFloat(qreal pointerX, qreal pointerY);
+    void setFloatX(qreal x) { setFloatPos(x, m_floatY); }
+    void setFloatY(qreal y) { setFloatPos(m_floatX, y); }
+    qreal originX() const;
+    qreal originY() const;
+    qreal pillAlong() const;
+
+    // ---- docking ------------------------------------------------------------
+    // Dock to `edge` with the pill centred at `along` px (kept out of the corners).
+    // Returns the along actually used.
+    Q_INVOKABLE qreal setDock(const QString &edge, qreal along);
+    Q_INVOKABLE qreal clampAlong(const QString &edge, qreal along) const;
+    Q_INVOKABLE qreal edgeLength(const QString &edge) const;
+
+    // ---- dragging -----------------------------------------------------------
+    // Moving a layer surface by changing its margins is applied by the compositor
+    // a frame later, while pointer events keep arriving relative to the *old*
+    // position: every event then moves the surface again and it overshoots,
+    // teleports, leaves the screen. So while the pointer is down the surface is
+    // made as big as the output and stays still; the island and the mascot move
+    // inside it by exact pointer coordinates. Plain X11 windows do the same.
+    Q_INVOKABLE bool beginGrab();
+    // Ends the grab and puts the surface where the state says (docked or floating).
+    Q_INVOKABLE void endGrab();
+    // Float with the surface origin at (x, y), kept so the mascot box is on screen.
     Q_INVOKABLE void restoreFloat(qreal x, qreal y);
-    Q_INVOKABLE void dock();
-    Q_INVOKABLE void moveBy(qreal dx, qreal dy) { setFloatPos(m_floatX + dx, m_floatY + dy, false); }
-    // Where the surface must sit for the open card to fit on screen.
+    // The surface origin that puts a mascot box at (boxX, boxY) on the output.
+    Q_INVOKABLE QPointF originForBox(qreal boxX, qreal boxY) const;
+    // Floating on another output at the given surface origin (a drag across a seam).
+    void crossTo(QScreen *screen, qreal originX, qreal originY);
+    // Where the surface must sit for an open floating card to fit on screen.
     Q_INVOKABLE QPointF fitOpen() const;
     // The spot that keeps the mascot box fully on screen.
     Q_INVOKABLE QPointF clampMascot(qreal x, qreal y) const;
@@ -71,15 +113,24 @@ public:
 signals:
     void quitRequested();
     void floatingChanged();
-    void floatMoved();
+    void dockChanged();
+    void placementChanged();
+    void grabbingChanged();
+    void viewWideChanged();
 
 private:
     void placeOnX11();
-    void setFloatPos(qreal x, qreal y, bool force);
+    void setFloatPos(qreal x, qreal y);
     void applyPlacement();
+    void applySurfaceSize(bool wide);
     QQuickView *m_view;
     bool m_floating = false;
+    bool m_grabbing = false;
+    bool m_wasWide = false;
+    QString m_edge = QStringLiteral("top");
+    qreal m_along = 960;
     qreal m_floatX = 0, m_floatY = 0;
+    qreal m_grabX = 0, m_grabY = 0;
 };
 
 } // namespace kisel

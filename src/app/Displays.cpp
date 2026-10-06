@@ -13,6 +13,11 @@ Displays::Displays(IslandWindow *window, Preferences *prefs, QObject *parent)
     , m_window(window)
     , m_prefs(prefs)
 {
+    // Every start follows the primary monitor (the one KDE ranks first). A monitor
+    // picked in Settings holds for this session only, so a stale choice can never
+    // leave Kisel on a screen the user no longer expects.
+    m_prefs->setScreenName(QString());
+
     // Hot-plug: a monitor appears or goes away, or the primary changes.
     connect(qApp, &QGuiApplication::screenAdded, this, [this] { reconcile(); });
     connect(qApp, &QGuiApplication::screenRemoved, this, [this] { reconcile(); });
@@ -59,10 +64,42 @@ void Displays::select(const QString &name)
     reconcile();
 }
 
+void Displays::applyDock()
+{
+    const QString name = current();
+    const QString edge = m_prefs->dockEdge(name);
+    const qreal frac = m_prefs->dockFraction(name);
+    m_window->setDock(edge, frac * m_window->edgeLength(edge));
+}
+
 void Displays::applyInitial()
 {
     m_window->moveToScreen(target());
+    if (m_prefs->floating())
+        m_window->restoreFloat(m_prefs->floatX(), m_prefs->floatY());
+    else
+        applyDock();
     emit changed();
+}
+
+QString Displays::screenAt(qreal x, qreal y) const
+{
+    for (QScreen *s : QGuiApplication::screens())
+        if (s->geometry().contains(QPointF(x, y).toPoint()))
+            return s->name();
+    return {};
+}
+
+void Displays::crossTo(const QString &name, qreal boxX, qreal boxY)
+{
+    for (QScreen *s : QGuiApplication::screens()) {
+        if (s->name() != name)
+            continue;
+        const QPointF o = m_window->originForBox(boxX, boxY);
+        m_window->crossTo(s, o.x(), o.y());
+        emit changed();
+        return;
+    }
 }
 
 void Displays::reconcile()
@@ -71,6 +108,8 @@ void Displays::reconcile()
     const bool moved = t && t != m_window->screen();
     if (moved) {
         m_window->moveToScreen(t);
+        if (!m_window->floating())
+            applyDock(); // docked where it was last time on this monitor
         // the island re-appears on the new output a moment later
         QMetaObject::invokeMethod(this, &Displays::moved, Qt::QueuedConnection);
     }

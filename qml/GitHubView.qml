@@ -7,32 +7,14 @@ import Kisel.Core
 Item {
     id: root
     property bool active: false
+    property real age: 800 // ms since shown; blocks rise from it (Motion.rise)
 
     width: 494
-    opacity: active ? 1 : 0
-    visible: opacity > 0
-    enabled: active
-    Behavior on opacity { NumberAnimation { duration: Theme.tFast } }
     onActiveChanged: {
+        if (!active) { contentReady = GitHub.loaded; trio.reset() }
         GitHub.polling = active
         if (active && GitHub.hasToken && (!GitHub.loaded || true))
             GitHub.refresh()
-    }
-
-    // the first successful load: the pill becomes a disc, a check draws itself
-    Connections {
-        target: GitHub
-        function onFirstLoaded() { okPill.visible = true; okPill.success("Connected"); okHide.restart() }
-    }
-    Timer { id: okHide; interval: 2600; onTriggered: okPill.visible = false }
-    KButton {
-        id: okPill
-        visible: false
-        z: 3
-        anchors.right: parent.right
-        anchors.rightMargin: 40
-        variant: "primary"
-        text: "Connected"
     }
 
     // ---- no token yet ----
@@ -56,22 +38,36 @@ Item {
         }
     }
 
-    // ---- loading with nothing to show ----
+    // ---- loading with nothing to show: the jelly trio, which merges into a check
+    // (or a shaking danger pill) when the first load ends ----
+    property bool contentReady: false
     JellyTrio {
+        id: trio
         anchors.centerIn: parent
         running: GitHub.hasToken && GitHub.loading && !GitHub.loaded && root.active
+        onResolved: { root.contentReady = true; trio.reset() }
+    }
+    Connections {
+        target: GitHub
+        function onFirstLoaded() { if (root.active && !Theme.reduced) trio.resolve(true); else root.contentReady = true }
+        function onChanged() {
+            // the first attempt failed: the wait ends in an error
+            if (!GitHub.loading && !GitHub.loaded && GitHub.error !== "" && trio.running) trio.resolve(false)
+        }
     }
 
     // ---- content ----
     Item {
         anchors.fill: parent
-        visible: GitHub.hasToken && (GitHub.loaded || GitHub.error !== "")
+        visible: GitHub.hasToken && ((GitHub.loaded && (root.contentReady || !trio.resolving)) || GitHub.error !== "") && !(trio.resolving && trio.outcome === "ok")
         opacity: GitHub.loaded ? 1 : 0.5
         Behavior on opacity { NumberAnimation { duration: Theme.tFast } }
 
         // the figures: one big number per widget
         Row {
             id: figures
+            opacity: Motion.rise(root.age, 0)
+            transform: Translate { y: Motion.lift(root.age, 0) }
             spacing: Theme.space6
             Column {
                 Text { text: GitHub.openCount; color: Theme.ink; font.family: Theme.sans; font.pixelSize: 26; font.weight: Font.ExtraBold }

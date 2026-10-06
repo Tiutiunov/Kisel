@@ -48,6 +48,16 @@ public:
     void setHookSeen(bool v) { set("hookSeen", v); }
     void setFirstRunDone(bool v) { set("firstRunDone", v); }
 
+    // Where Kisel docks on each monitor (remembered per output name): the edge and the
+    // position along it as a fraction 0..1, so it survives a change of resolution.
+    Q_INVOKABLE QString dockEdge(const QString &screen) const { return m_s.value(QStringLiteral("dock/%1/edge").arg(screen), "top").toString(); }
+    Q_INVOKABLE qreal dockFraction(const QString &screen) const { return m_s.value(QStringLiteral("dock/%1/frac").arg(screen), 0.5).toReal(); }
+    Q_INVOKABLE void setDock(const QString &screen, const QString &edge, qreal fraction)
+    {
+        m_s.setValue(QStringLiteral("dock/%1/edge").arg(screen), edge);
+        m_s.setValue(QStringLiteral("dock/%1/frac").arg(screen), fraction);
+    }
+
     // "Always" answers the user gave to permission cards. Each is an explicit
     // click on a specific pattern (see AgentHub::ruleKey).
     QStringList alwaysRules() const { return m_s.value("alwaysRules").toStringList(); }

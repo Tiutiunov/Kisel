@@ -17,7 +17,7 @@ Tray::Tray(QObject *parent)
     auto *item = new KStatusNotifierItem(QStringLiteral("kisel"), this);
     item->setCategory(KStatusNotifierItem::ApplicationStatus);
     item->setTitle(QStringLiteral("Kisel"));
-    item->setIconByPixmap(QIcon(QStringLiteral(":/qt/qml/Kisel/resources/logo/kisel-mark.svg")));
+    item->setIconByPixmap(QIcon(QStringLiteral(":/qt/qml/Kisel/resources/logo/kisel-mini.svg")));
     item->setStatus(KStatusNotifierItem::Active);
 
     auto *menu = new QMenu;

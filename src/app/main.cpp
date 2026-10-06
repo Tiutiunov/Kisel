@@ -19,6 +19,8 @@
 #include <QQmlContext>
 #include <QQuickItem>
 #include <QQuickStyle>
+#include <QMouseEvent>
+#include <QtTest/QTest>
 #include <QQuickView>
 #include <QTimer>
 #include <qqml.h>
@@ -85,6 +87,11 @@ int main(int argc, char *argv[])
     cli.addVersionOption();
     cli.addOption({"demo", "Replay a fake Claude Code session."});
     cli.addOption({"open", "Open the island on a view (home, session, permission, chat, settings).", "view"});
+    cli.addOption({"grab-test", "Development: enter the full-output drag surface and print its size."});
+    cli.addOption({"toast-test", "Development: show a toast shortly after start."});
+    cli.addOption({"dock-edge", "Development: dock on <edge>[:fraction] right after start (top, bottom, left, right).", "edge"});
+    cli.addOption({"drag-test", "Development: pick up the mascot, carry it to <edge> and let go; prints the state.", "edge"});
+    cli.addOption({"intro", "Play the first-launch animation now."});
     cli.addOption({"grab", "Save a screenshot of the island to <file> and quit (development).", "file"});
     cli.process(app);
 
@@ -144,6 +151,79 @@ int main(int argc, char *argv[])
 
     if (cli.isSet("demo") || cli.isSet("grab"))
         runDemo(hub);
+    if (cli.isSet("grab-test")) {
+        QTimer::singleShot(700, root, [root] { QMetaObject::invokeMethod(root, "devGrab"); });
+        QTimer::singleShot(1700, &app, [&view, &shell] {
+            qInfo("grab-test: view %dx%d, wide=%d, grabbing=%d", view.width(), view.height(), shell.viewWide(), shell.grabbing());
+            shell.endGrab();
+        });
+        QTimer::singleShot(2700, &app, [&view, &shell] {
+            qInfo("grab-test: after release view %dx%d, wide=%d", view.width(), view.height(), shell.viewWide());
+            qApp->quit();
+        });
+    }
+    if (cli.isSet("toast-test"))
+        QTimer::singleShot(900, root, [root] { QMetaObject::invokeMethod(root, "devToast", Q_ARG(QVariant, QStringLiteral("Kisel moved to HDMI-A-1"))); });
+    if (cli.isSet("dock-edge")) {
+        const QStringList parts = cli.value("dock-edge").split(':');
+        QTimer::singleShot(150, root, [&shell, parts] {
+            const QString edge = parts.value(0);
+            shell.setDock(edge, parts.value(1, "0.5").toDouble() * shell.edgeLength(edge));
+        });
+    }
+    if (cli.isSet("drag-test")) {
+        // Press the mascot, hold 500 ms, carry it toward an edge, let go. Synthetic mouse
+        // events through the window, so the same code runs as with a real pointer.
+        const QString edge = cli.value("drag-test");
+        // QTest goes through the window system interface, like a real pointer does
+        auto send = [&view](QEvent::Type type, QPointF pos) {
+            const QPoint p = pos.toPoint();
+            if (type == QEvent::MouseButtonPress) QTest::mousePress(&view, Qt::LeftButton, {}, p, -1);
+            else if (type == QEvent::MouseMove) QTest::mouseMove(&view, p, -1);
+            else QTest::mouseRelease(&view, Qt::LeftButton, {}, p, -1);
+        };
+        auto report = [root](const char *when) {
+            QVariant v;
+            QMetaObject::invokeMethod(root, "devState", Q_RETURN_ARG(QVariant, v));
+            qInfo("drag-test %-9s %s", when, qPrintable(v.toString()));
+        };
+        auto center = [root]() {
+            QVariant v;
+            QMetaObject::invokeMethod(root, "devCenter", Q_RETURN_ARG(QVariant, v));
+            return v.toPointF();
+        };
+        QTimer::singleShot(1200, root, [=, &view, &shell] {
+            report("start");
+            const QPointF c = center();
+            send(QEvent::MouseButtonPress, c);
+            // 500 ms later the 350 ms hold is complete and the surface is output-sized
+            QTimer::singleShot(550, &view, [=, &view, &shell] {
+                report("held");
+                const qreal W = shell.screenWidth(), H = shell.screenHeight();
+                // the target in output coordinates, 12 px from the chosen edge
+                QPointF to(W / 2, 12);
+                if (edge == "bottom") to = {W / 2, H - 12};
+                if (edge == "left") to = {12, H / 2};
+                if (edge == "right") to = {W - 12, H / 2};
+                if (edge == "float") to = {W / 2 + 90, H / 2};
+                const QPointF from = c;
+                const int steps = 30;
+                for (int i = 1; i <= steps; ++i) {
+                    QTimer::singleShot(i * 25, &view, [=, &view] {
+                        const QPointF p = from + (to - from) * (qreal(i) / steps);
+                        send(QEvent::MouseMove, p);
+                    });
+                }
+                QTimer::singleShot(steps * 25 + 150, &view, [=, &view] {
+                    report("carried");
+                    send(QEvent::MouseButtonRelease, to);
+                });
+                QTimer::singleShot(steps * 25 + 1300, &view, [=] { report("dropped"); });
+            });
+        });
+    }
+    if (cli.isSet("intro"))
+        QTimer::singleShot(300, root, [root] { QMetaObject::invokeMethod(root, "runIntro"); });
     if (cli.isSet("open"))
         QTimer::singleShot(400, root, [root, v = cli.value("open")] { QMetaObject::invokeMethod(root, "openIsland", Q_ARG(QVariant, v)); });
     if (cli.isSet("grab")) {

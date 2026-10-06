@@ -6,18 +6,20 @@ import Kisel.Core
 Item {
     id: root
     property bool active: false
+    property real age: 800 // ms since shown; blocks rise from it (Motion.rise)
     readonly property var s: Hub.session
 
     width: 494
-    opacity: active ? 1 : 0
-    visible: opacity > 0
-    enabled: active
-    Behavior on opacity { NumberAnimation { duration: Theme.tFast } }
 
     // steps
     Column {
         id: steps
         width: 190
+        opacity: Motion.rise(root.age, 0)
+        transform: Translate { y: Motion.lift(root.age, 0) }
+        // rows that appear fade in; the rest slide to their new place in 220 ms
+        add: Transition { NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 140 } }
+        move: Transition { NumberAnimation { properties: "x,y"; duration: 220; easing.type: Easing.OutCubic } }
         spacing: Theme.space1
         Text {
             width: parent.width
@@ -59,6 +61,8 @@ Item {
 
     // code panel
     CodePanel {
+        opacity: Motion.rise(root.age, 1)
+        transform: Translate { y: Motion.lift(root.age, 1) }
         x: 202
         width: parent.width - 202
         height: terminal.visible ? parent.height - 48 : parent.height
@@ -78,11 +82,13 @@ Item {
     // terminal: the command, separated by a hairline
     Item {
         id: terminal
+        opacity: Motion.rise(root.age, 2)
         visible: !!root.s.command
         x: 202
         y: parent.height - 40
         width: parent.width - 202
         height: 40
+        clip: true
         Rectangle { width: parent.width; height: 1; color: Theme.line }
         Row {
             y: 10
@@ -90,7 +96,11 @@ Item {
             Icon { name: "terminal"; size: 16; color: Theme.inkMuted; anchors.verticalCenter: parent.verticalCenter }
             Text {
                 width: terminal.width - 28
-                text: root.s.command || ""
+                // one line only: a multi-line command (a heredoc, a script) shows its first line
+                text: (root.s.command || "").split("\n")[0]
+                textFormat: Text.PlainText
+                wrapMode: Text.NoWrap
+                maximumLineCount: 1
                 elide: Text.ElideRight
                 color: Theme.ink
                 font.family: Theme.mono; font.pixelSize: 12
