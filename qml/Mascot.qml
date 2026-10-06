@@ -186,22 +186,22 @@ Item {
         running: root.hovered && root.detail > 0.5 && !root.dragging && !root.still
         onTriggered: if (root.emote === "" && (root.m === "idle" || root.m === "walk")) { root.play(root.who.rest, 2400); Sfx.play("hover") }
     }
-    // On the bench nobody sits still: every few seconds one of them hops, bobs, smiles,
-    // sways or falls into her habit. Each has a clock of her own, so they never move as one.
+    // On the bench nobody watches the pointer; they pass the time. Every few seconds one of
+    // them shows a feeling for a moment (and now and then hops with it). Each has a clock
+    // of her own, so they never move as one.
+    readonly property var benchEmotes: ["laugh", "hello", "love", "surprised", "hum", "smug", "cool", "hype", "unimpressed", "annoyed"]
     Timer {
         interval: 1500 + Math.random() * 5000
         running: root.bench && !root.still && !root.paused && root.visible && !Theme.reduced
         repeat: true
         onTriggered: {
-            interval = 2500 + Math.random() * 6000 / root.who.energy
+            interval = 3000 + Math.random() * 6000 / root.who.energy
             if (root.emote !== "") return
             const r = Math.random()
-            if (r < 0.25) root.jump(0.35, false)
-            else if (r < 0.45) root.st.sqv += 5
-            else if (r < 0.6) root.st.swing = 1
-            else if (r < 0.75) { root.st.blink = 1; root.st.blinks = 1 }
-            else if (r < 0.9) root.play("laugh", 1100)
-            else root.play(root.who.quirk, 1600)
+            if (r < 0.15) { root.st.blink = 1; root.st.blinks = 1 }
+            else if (r < 0.3) root.play(root.who.quirk, 1800)
+            else root.play(root.benchEmotes[Math.floor(Math.random() * root.benchEmotes.length)], 1300 + Math.random() * 900)
+            if (Math.random() < 0.3) root.jump(0.3, false)
         }
     }
     // left alone and idle, each falls into a habit of her own now and then

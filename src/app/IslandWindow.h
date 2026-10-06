@@ -59,7 +59,7 @@ public:
     // ...and its card opens from the same spot: 24..684 x 8..448 in the surface.
     static constexpr int kCardLeft = 24, kCardTop = 8, kCardRight = 684, kCardBottom = 448;
     // A docked pill keeps this far from the corners of the output (half the 288 px bar, and 6).
-    static constexpr int kCornerKeepOut = 170;
+    static constexpr int kCornerKeepOut = 150;
 
     explicit IslandWindow(QQuickView *view, QObject *parent = nullptr);
 
