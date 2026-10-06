@@ -287,7 +287,9 @@ Item {
         hype:        { eyes: "big",   mouth: "grin",  hands: "cheer" },
         cool:        { eyes: "closed", mouth: "soft", hands: "hips" },
         stretch:     { eyes: "happy", mouth: "open",  hands: "cheer", stretch: true },
-        smug:        { eyes: "smug",  mouth: "smug",  hands: "hips", spin: true }
+        smug:        { eyes: "smug",  mouth: "smug",  hands: "hips", spin: true },
+        // the memory is being cleaned: she takes a broom to it
+        sweep:       { eyes: "happy", mouth: "open",  hands: "sweep", fx: "dust", sway: true }
     })
     function look() {
         const a = looks[m] || looks.idle, e = emotes[emote] || (music && m === "idle" ? emotes.hum : null)
@@ -296,6 +298,13 @@ Item {
         if (!L.color) L.color = hair
         if (!L.mouth) L.mouth = who.mouth
         return L
+    }
+
+    // The broom, in body radii: from the top of its stick to where the bristles begin. It
+    // swings from side to side, the bristles further than the handle.
+    function broomLine(t) {
+        const sx = Math.sin(t * 7) * 0.45
+        return { ax: 0.55 + sx * 0.6, ay: -0.5, bx: -0.45 + sx * 1.3, by: 0.78 }
     }
 
     // the hands' poses, in body radii from the body's centre: [left, right]
@@ -312,6 +321,7 @@ Item {
         wide:   t => [{ x: -1.45, y: -0.15 }, { x: 1.45, y: -0.15 }],
         hips:   t => [{ x: -1.02, y: 0.6 }, { x: 1.02, y: 0.6 }],
         hello:  t => [{ x: -1.38, y: 0.52 }, { x: 1.5 + Math.sin(t * 12) * 0.16, y: -0.6 + Math.cos(t * 12) * 0.05 }],
+        sweep:  t => { const b = broomLine(t); return [{ x: b.ax + (b.bx - b.ax) * 0.72, y: b.ay + (b.by - b.ay) * 0.72 }, { x: b.ax + (b.bx - b.ax) * 0.42, y: b.ay + (b.by - b.ay) * 0.42 }] }, // both on the stick
         cling:  t => [{ x: -0.6, y: -1.02 }, { x: 0.6, y: -1.02 }]
     })
 
@@ -467,7 +477,7 @@ Item {
         const s = st
         let fx = L.fx || ""
         if (celebrating) fx = "spark"
-        if (fx === "" || detail < 0.5 || Theme.reduced || still) return // (arrive() adds its sparks itself, at any size)
+        if (fx === "" || (detail < 0.5 && fx !== "dust") || Theme.reduced || still) return // (arrive() adds its sparks itself, at any size)
         s.fxClock -= dt; if (s.fxClock > 0) return
         const R = cR, P = pose(), r = () => Math.random() - 0.5
         const add = o => s.parts.push(Object.assign({ life: 0, rot: 0, x: P.x, y: P.y }, o))
@@ -481,6 +491,7 @@ Item {
             else add({ type: "spark", x: P.x + r() * R * 3, y: P.y + r() * R * 2.4, vx: 0, vy: -R * 0.3, max: 0.7, size: R * (0.1 + Math.random() * 0.14), hue: Math.random() < 0.5 ? "#34D399" : "#FFFFFF" })
         }
         if (fx === "sweat")  { s.fxClock = 0.5; const d = Math.random() < 0.5 ? -1 : 1; add({ type: "drop", x: P.x + d * R * 0.95, y: P.y - R * 0.55, vx: d * R * 0.5, vy: -R * 0.6, g: R * 4, max: 0.8, size: R * 0.11 }) }
+        if (fx === "dust")   { s.fxClock = 0.1; const b = broomLine(s.t), q = toWorld(P, b.bx, b.by + 0.22); add({ type: "dust", x: q.x, y: q.y, vx: r() * R * 2.4, vy: -R * (0.3 + Math.random() * 0.6), max: 0.7, size: R * (0.07 + Math.random() * 0.1) }) }
         if (fx === "zzz")    { s.fxClock = 0.8; add({ type: "z", x: P.x + R * 0.8, y: P.y - R * 0.8, vx: R * 0.3, vy: -R * 0.6, max: 1.9, size: R * 0.24 }) }
     }
 
@@ -538,6 +549,7 @@ Item {
             g.fillStyle = mk.tieBand; g.fillRect(-R * 0.2, -R * 0.03, R * 0.4, R * 0.06); g.restore()
         }
 
+        if (L.hands === "sweep" && !dragging) paintBroom(g, P) // (at any size: in the bar the broom is what shows she is sweeping)
         if (detail > 0.25) { g.globalAlpha = clampv((detail - 0.25) / 0.4, 0, 1); paintHands(g, P, L); g.globalAlpha = 1 }
         paintParts(g)
         const badge = L.badge || (doneBadge ? "done" : "")
@@ -746,6 +758,23 @@ Item {
         }
     }
 
+    // the broom: a wooden stick, a red band, straw bristles that flare toward the floor
+    function paintBroom(g, P) {
+        const R = cR, b = broomLine(st.t), A = toWorld(P, b.ax, b.ay), B = toWorld(P, b.bx, b.by)
+        const len = Math.hypot(B.x - A.x, B.y - A.y) || 1, dx = (B.x - A.x) / len, dy = (B.y - A.y) / len, nx = -dy, ny = dx
+        g.lineCap = "round"; g.lineJoin = "round"
+        g.strokeStyle = "#B07A3C"; g.lineWidth = R * 0.1
+        g.beginPath(); g.moveTo(A.x, A.y); g.lineTo(B.x, B.y); g.stroke()
+        g.fillStyle = "#F2C94C"; g.strokeStyle = "#D9A93A"; g.lineWidth = R * 0.03
+        g.beginPath()
+        g.moveTo(B.x - nx * R * 0.13, B.y - ny * R * 0.13); g.lineTo(B.x + nx * R * 0.13, B.y + ny * R * 0.13)
+        g.lineTo(B.x + dx * R * 0.34 + nx * R * 0.3, B.y + dy * R * 0.34 + ny * R * 0.3)
+        g.lineTo(B.x + dx * R * 0.34 - nx * R * 0.3, B.y + dy * R * 0.34 - ny * R * 0.3)
+        g.closePath(); g.fill(); g.stroke()
+        g.strokeStyle = "#E0405A"; g.lineWidth = R * 0.08
+        g.beginPath(); g.moveTo(B.x - nx * R * 0.14, B.y - ny * R * 0.14); g.lineTo(B.x + nx * R * 0.14, B.y + ny * R * 0.14); g.stroke()
+    }
+
     // the favourite thing of each, about `s` across, drawn around the origin
     function paintFav(g, s) {
         const f = who.fav, TAU = 2 * Math.PI
@@ -783,6 +812,7 @@ Item {
             if (p.type === "fav")   paintFav(g, p.size)
             if (p.type === "spark") { g.fillStyle = p.hue; g.beginPath(); for (let i = 0; i < 8; i++) { const r = i % 2 ? sz * 0.25 : sz, q = i / 8 * TAU; if (i) g.lineTo(Math.cos(q) * r, Math.sin(q) * r); else g.moveTo(Math.cos(q) * r, Math.sin(q) * r) } g.closePath(); g.fill() }
             if (p.type === "drop")  { g.fillStyle = "#8FD8FF"; g.beginPath(); g.moveTo(0, -sz); g.quadraticCurveTo(sz, sz * 0.5, 0, sz); g.quadraticCurveTo(-sz, sz * 0.5, 0, -sz); g.fill() }
+            if (p.type === "dust")  { g.fillStyle = "#D8D2DC"; g.beginPath(); g.arc(0, 0, sz, 0, TAU, false); g.fill() }
             if (p.type === "z")     { g.fillStyle = "#C9D4E0"; g.font = "bold " + Math.round(sz) + "px sans-serif"; g.fillText("z", 0, 0) }
             if (p.type === "note")  {
                 g.fillStyle = p.hue; g.strokeStyle = p.hue; g.lineWidth = sz * 0.12

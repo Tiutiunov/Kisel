@@ -82,7 +82,7 @@ Item {
     readonly property string chosen: Prefs.character
     onChosenChanged: mikuPinned = chosen === "miku" && expanded
     //   Teto is the computer's: she has something to show when it is in trouble (the
-    //   processor flat out, the memory full, the battery nearly flat), and that comes
+    //   processor flat out or the memory full), and that comes
     //   before music.
     readonly property bool tetoLive: Prefs.tetoSystem && Sys.available && Sys.strain
     readonly property string rest: Prefs.character !== "miku" || mikuPinned ? Prefs.character
@@ -135,7 +135,7 @@ Item {
     property int lastSkit: -1
     readonly property var skits: [skWave, skNod, skStartle, skHum, skQuirk, skRoll, skBump, skSwap, skFive, skLove, skPeek, skSquabble, skToss, skDoze, skDance, skCheer]
     function playSkit() {
-        if (skTrade.running) return
+        if (skTrade.running || sweeping) return // (nothing interrupts the sweeping)
         for (const k of skits) if (k.running) return
         let i = Math.floor(Math.random() * skits.length)
         if (i === lastSkit) i = (i + 1) % skits.length
@@ -322,6 +322,14 @@ Item {
     // the track's name and the three buttons, without opening the card
     // (only while a tune is actually playing; and a finished task keeps the bar for its
     // "Done" for two and a half seconds first, counted from when the card has closed: `doneHold`)
+    // While the memory is being cleaned Teto takes a broom to it, and is pleased with
+    // herself when it is done.
+    readonly property bool sweeping: Sys.cleaning
+    onSweepingChanged: {
+        if (stage !== "teto") return
+        if (sweeping) mascot.play("sweep", 4300)
+        else { mascot.play("smug", 1600); mascot.jump(0.6, true) }
+    }
     // Teto on stage: the bar is her gauges, and she looks the way the computer feels
     readonly property bool tetoAct: guest === "" && rest === "teto" && Prefs.tetoSystem && Sys.available
     readonly property bool miniGauges: tetoAct && Hub.pendingCount === 0 && !(doneHold && Hub.chip === "done")

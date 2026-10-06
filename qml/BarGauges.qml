@@ -1,6 +1,7 @@
-// Teto's gauges in the collapsed bar: the processor and the memory as two short candy
-// ribbons with their figures (and the battery's figure if there is one). They slide in
-// from the right like Zundamon's player, and turn red where something is too full.
+// Teto's gauges in the collapsed bar: the processor, the graphics card and the memory as
+// short candy ribbons with their figures. They slide in
+// from the right like Zundamon's player, and turn red where something is too full. Where
+// Mem Reduct is installed a small red key at the end has it clean the memory.
 import QtQuick
 import Kisel.Core
 
@@ -12,40 +13,63 @@ Row {
     function heat(v) { return v > 0.9 ? "#E0405A" : v > 0.7 ? "#FFE08A" : "#B9DC6B" }
 
     height: 24
-    spacing: 8
+    spacing: 6
+    readonly property int meters: Sys.hasGpu ? 3 : 2
     opacity: on ? 1 : 0
     visible: opacity > 0.01
     Behavior on opacity { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
     transform: Translate { x: root.on ? 0 : 18; Behavior on x { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } } }
 
     Meter { name: "CPU"; value: Sys.cpu }
+    Meter { visible: Sys.hasGpu; name: "GPU"; value: Sys.gpu }
     Meter { name: "RAM"; value: Sys.mem }
-    Text {
-        visible: Sys.hasBattery
+
+    Item { // the Clean key
+        visible: Sys.canClean
         anchors.verticalCenter: parent.verticalCenter
-        text: Math.round(Sys.battery * 100) + "%"
-        color: !Sys.charging && Sys.battery < 0.15 ? "#E0405A" : Theme.inkMuted
-        font.family: Theme.sans; font.pixelSize: 10; font.weight: Font.ExtraBold
+        width: 18; height: 18
+        Rectangle {
+            anchors.fill: parent
+            radius: 9
+            color: Sys.cleaning ? Theme.surface3 : "#E0405A"
+            border.width: 1.5; border.color: "#FFFFFF"
+        }
+        Spark {
+            anchors.centerIn: parent
+            size: 9; tint: "#FFFFFF"
+            RotationAnimation on rotation { running: Sys.cleaning; from: 0; to: 360; duration: 700; loops: Animation.Infinite }
+        }
+        scale: cleanArea.pressed ? 0.85 : cleanArea.containsMouse ? 1.15 : 1
+        Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutBack } }
+        MouseArea {
+            id: cleanArea
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            // (a MouseArea, so the click stays here and does not open the card)
+            onClicked: { Hub.poke(); Sys.clean() }
+        }
     }
 
     component Meter: Item {
         id: meter
         property string name: ""
         property real value: 0
-        width: Math.floor((root.room - (Sys.hasBattery ? 40 : 8)) / 2)
+        width: Math.floor((root.room - (Sys.canClean ? 18 + root.spacing : 0) - root.spacing * (root.meters - 1)) / root.meters)
         height: 24
         Text {
             id: label
+            y: 2
             text: meter.name
             color: Theme.inkMuted
-            font.family: Theme.sans; font.pixelSize: 9; font.weight: Font.ExtraBold
+            font.family: Theme.sans; font.pixelSize: 8; font.weight: Font.ExtraBold
         }
         Text {
             anchors.right: parent.right
             y: -1
             text: Math.round(meter.value * 100) + "%"
             color: Theme.ink
-            font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.ExtraBold
+            font.family: Theme.sans; font.pixelSize: 10; font.weight: Font.ExtraBold
         }
         Rectangle {
             y: 15

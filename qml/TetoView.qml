@@ -1,9 +1,10 @@
 // Teto's Home: how the computer is doing. It takes the whole of Home's place
 // (494 x 138), in the sticker style of Zundamon's player and in Teto's red.
 //
-// Round gauges with a white edge for the processor, the memory and (if there is one)
-// the battery; a row of candy bars with the processor's last minute; and a line from
-// Teto herself, who has an opinion about all of it.
+// Round gauges with a white edge for the processor, the graphics card and the memory; a row of candy bars with the processor's last minute; and a line from
+// Teto herself, who has an opinion about all of it. Where Mem Reduct is installed there
+// is a Clean key beside her line: it has Mem Reduct clean the memory, and she reports
+// what that freed.
 import QtQuick
 import Kisel.Core
 
@@ -21,9 +22,11 @@ Item {
     function heat(v) { return v > 0.9 ? root.red : v > 0.7 ? root.lemon : "#B9DC6B" }
 
     readonly property string line: !Sys.available ? "I cannot see this machine from here."
-        : Sys.worry === "battery" ? "The battery is nearly flat. Plug it in. Now."
+        : Sys.cleaning ? "Sweeping the memory. Stand back."
+        : Sys.justCleaned ? (Sys.freedGb >= 0.05 ? "Freed " + Sys.freedGb.toFixed(1) + " GB. You are welcome." : "Nothing much to free. It was tidy already.")
         : Sys.worry === "mem" ? "The memory is full. Close something, will you?"
         : Sys.worry === "cpu" ? "The processor is flat out. What are you running?"
+        : Sys.gpu > 0.85 ? "The graphics card is flat out. Playing, are we?"
         : Sys.cpu > 0.6 ? "Busy, but nothing I cannot handle."
         : Sys.mem > 0.8 ? "A lot is open. Not that I am counting."
         : "All quiet. Thanks to me, obviously."
@@ -35,8 +38,8 @@ Item {
         opacity: Motion.rise(root.age, 0)
         transform: Translate { y: Motion.lift(root.age, 0) }
         Gauge { value: Sys.cpu; name: "CPU" }
+        Gauge { visible: Sys.hasGpu; value: Sys.gpu; name: "GPU" }
         Gauge { value: Sys.mem; name: "Memory"; note: Sys.memUsedGb.toFixed(1) + " / " + Math.round(Sys.memTotalGb) + " GB" }
-        Gauge { visible: Sys.hasBattery; value: Sys.battery; name: Sys.charging ? "Charging" : "Battery"; calm: true }
     }
 
     Item {
@@ -84,8 +87,9 @@ Item {
 
         // what Teto makes of it
         Rectangle {
+            id: say
             y: 70
-            width: side.width
+            width: side.width - (cleanKey.visible ? cleanKey.width + 6 : 0)
             height: 42
             radius: 12
             color: Qt.rgba(root.red.r, root.red.g, root.red.b, Sys.strain ? 0.3 : 0.14)
@@ -108,13 +112,50 @@ Item {
         }
     }
 
+    // the Clean key: Mem Reduct does the cleaning
+    Rectangle {
+        id: cleanKey
+        visible: Sys.canClean
+        x: side.x + side.width - width
+        y: side.y + 70
+        width: 62; height: 42
+        radius: 12
+        color: Sys.cleaning ? Theme.surface3 : root.red
+        border.width: 2; border.color: "#FFFFFF"
+        opacity: Motion.rise(root.age, 3)
+        scale: cleanTap.pressed ? 0.92 : cleanHover.hovered && !Sys.cleaning ? 1.06 : 1
+        Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutBack } }
+        Behavior on color { ColorAnimation { duration: 200 } }
+        activeFocusOnTab: true
+        Accessible.role: Accessible.Button
+        Accessible.name: "Clean memory"
+        Column {
+            anchors.centerIn: parent
+            spacing: 1
+            Spark {
+                anchors.horizontalCenter: parent.horizontalCenter
+                size: 12; tint: "#FFFFFF"
+                RotationAnimation on rotation { running: Sys.cleaning; from: 0; to: 360; duration: 700; loops: Animation.Infinite }
+            }
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "Clean"
+                color: "#FFFFFF"
+                font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.ExtraBold
+            }
+        }
+        HoverHandler { id: cleanHover; cursorShape: Qt.PointingHandCursor }
+        TapHandler { id: cleanTap; onTapped: Sys.clean() }
+        Keys.onReturnPressed: Sys.clean()
+        Keys.onSpacePressed: Sys.clean()
+    }
+
     // a round gauge: a white-edged disc, a ring that fills, the figure in the middle
     component Gauge: Item {
         id: gauge
         property real value: 0
         property string name: ""
         property string note: ""
-        property bool calm: false // a full battery is good news: it is not coloured by how full it is
         width: 78; height: 114
         Canvas {
             id: ring
@@ -122,7 +163,7 @@ Item {
             property real shown: gauge.value
             Behavior on shown { NumberAnimation { duration: 600; easing.type: Easing.OutCubic } }
             onShownChanged: requestPaint()
-            property color tint: gauge.calm ? (gauge.value < 0.15 ? root.red : gauge.value < 0.3 ? root.lemon : "#B9DC6B") : root.heat(gauge.value)
+            property color tint: root.heat(gauge.value)
             onTintChanged: requestPaint()
             onPaint: {
                 const g = getContext("2d"), c = 39

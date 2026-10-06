@@ -53,7 +53,7 @@ Kisel is a desktop companion for KDE Plasma that watches Claude Code, asks permi
 * `Displays` – which output the island lives on (remembered by name, hot-plug aware); `IslandWindow::moveToScreen` re-creates the layer surface on the target output.
 * `Sounds` – plays the WAVs through `paplay`/`pw-play` as a plain "Kisel" stream. (Not `media.role=event`: Plasma can mute that whole role.)
 * `Launcher` – opens https links only (a pull request).
-* `SysMon` (`Sys` in QML) – how the computer is doing, for Teto: processor, memory, battery, read every 1.5 s from the system's own counters.
+* `SysMon` (`Sys` in QML) – how the computer is doing, for Teto: processor, graphics card, memory, read every 1.5 s from the system's own counters.
 * `Media` – what Spotify is playing and its three buttons, for Zundamon's player. Windows: the system media session (`GlobalSystemMediaTransportControlsSessionManager`, C++/WinRT), read twice a second on a thread of its own; the cover reaches QML as a data: URL. Elsewhere `available` is false.
 * `Tray` – StatusNotifierItem (Open, Settings, Quit).
 * `main.cpp` – wiring, single-instance probe on the socket, `--demo` (replays a fake session), `--open <view>`, `--grab <png>` (renders one frame and quits; used for development and CI screenshots).
