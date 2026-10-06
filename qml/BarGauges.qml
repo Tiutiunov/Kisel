@@ -1,10 +1,9 @@
 // Teto's gauges in the collapsed bar: the processor, the graphics card and the memory as
 // short candy canes with their figures. Nothing here moves by itself: the canes only
 // grow and shrink with what they measure. They slide in
-// from the right like Zundamon's player, and turn red where something is too full. Where
-// Mem Reduct is installed a small red key at the end has it clean the memory, and for a
-// few seconds after a clean (hers or one Mem Reduct did by itself) the gauges give way
-// to what was freed.
+// from the right like Zundamon's player, and turn red where something is too full. A small
+// red key at the end cleans the memory, and for a few seconds after a clean the gauges
+// give way to what was freed.
 import QtQuick
 import Kisel.Core
 

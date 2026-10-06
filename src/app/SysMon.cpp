@@ -8,7 +8,8 @@
 #include <qt_windows.h>
 #include <pdh.h>
 #include <pdhmsg.h>
-#include <shellapi.h>
+#include <psapi.h>
+#include <thread>
 #include <vector>
 #else
 #include <QFile>
@@ -55,6 +56,9 @@ SysMon::SysMon(QObject *parent)
     }
     // KISEL_DEMO_SWEEP=<ms>: act out a clean at that time, to look at Teto sweeping
     if (const int at = qEnvironmentVariableIntValue("KISEL_DEMO_SWEEP"); at > 0)
+        QTimer::singleShot(at, this, &SysMon::clean);
+    // KISEL_DEMO_CLEAN=<ms>: a real clean at that time
+    if (const int at = qEnvironmentVariableIntValue("KISEL_DEMO_CLEAN"); at > 0)
         QTimer::singleShot(at, this, &SysMon::clean);
 }
 
@@ -170,17 +174,67 @@ void SysMon::announce(qreal freed)
     QTimer::singleShot(8000, this, [this] { m_justCleaned = false; emit changed(); });
 }
 
+bool SysMon::canClean() const
+{
+#ifdef Q_OS_WIN
+    return true;
+#else
+    return false;
+#endif
+}
+
+#ifdef Q_OS_WIN
+namespace {
+// Trim the working set of every program this user may touch. (Other users' and the
+// system's are refused by OpenProcess, and that is fine.)
+void trimWorkingSets()
+{
+    std::vector<DWORD> ids(8192);
+    DWORD bytes = 0;
+    if (!K32EnumProcesses(ids.data(), DWORD(ids.size() * sizeof(DWORD)), &bytes))
+        return;
+    const DWORD self = GetCurrentProcessId();
+    for (DWORD i = 0; i < bytes / sizeof(DWORD); ++i) {
+        if (ids[i] == 0 || ids[i] == self)
+            continue;
+        if (HANDLE h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_SET_QUOTA, FALSE, ids[i])) {
+            K32EmptyWorkingSet(h);
+            CloseHandle(h);
+        }
+    }
+}
+
+// Press a hotkey in the form the Windows hotkey control stores it: the low byte is the
+// key, the high byte the modifiers (1 shift, 2 control, 4 alt).
+void pressHotkey(int stored)
+{
+    const WORD key = WORD(stored & 0xFF);
+    const int mods = (stored >> 8) & 0xFF;
+    std::vector<WORD> keys;
+    if (mods & 2) keys.push_back(VK_CONTROL);
+    if (mods & 4) keys.push_back(VK_MENU);
+    if (mods & 1) keys.push_back(VK_SHIFT);
+    keys.push_back(key);
+    std::vector<INPUT> in;
+    for (const WORD k : keys) { INPUT e = {}; e.type = INPUT_KEYBOARD; e.ki.wVk = k; in.push_back(e); }
+    for (auto k = keys.rbegin(); k != keys.rend(); ++k) { INPUT e = {}; e.type = INPUT_KEYBOARD; e.ki.wVk = *k; e.ki.dwFlags = KEYEVENTF_KEYUP; in.push_back(e); }
+    SendInput(UINT(in.size()), in.data(), sizeof(INPUT));
+}
+} // namespace
+#endif
+
 void SysMon::clean()
 {
     const bool rehearsal = qEnvironmentVariableIsSet("KISEL_DEMO_SWEEP"); // (development: the show without the cleaning)
-    if ((m_cleaner.isEmpty() && !rehearsal) || m_cleaning)
+    if (m_cleaning || (!canClean() && !rehearsal))
         return;
 #ifdef Q_OS_WIN
     if (!rehearsal) {
-    // "open" lets Windows ask for the rights Mem Reduct needs; declined, nothing happens
-    const auto r = reinterpret_cast<quintptr>(ShellExecuteW(nullptr, L"open", reinterpret_cast<LPCWSTR>(m_cleaner.utf16()), L"-clean", nullptr, SW_HIDE));
-    if (r <= 32)
-        return;
+        const int hotkey = cleanerSetting("HotkeyCleanEnable") == "true" ? cleanerSetting("HotkeyClean").toInt() : 0;
+        if (!m_cleanerIni.isEmpty() && (hotkey & 0xFF) != 0)
+            pressHotkey(hotkey);                      // Mem Reduct's own clean, by its hotkey
+        else
+            std::thread(trimWorkingSets).detach();    // ours: off the interface's thread, it takes a moment
     }
 #endif
     const qreal before = m_memUsed;

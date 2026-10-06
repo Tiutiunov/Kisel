@@ -60,7 +60,7 @@ target_compile_options(kisel PRIVATE ${KISEL_WARNINGS})
 if(WIN32)
     # No console window; started from a terminal it still prints (IslandWindow::preInit).
     set_target_properties(kisel PROPERTIES WIN32_EXECUTABLE TRUE)
-    target_link_libraries(kisel PRIVATE winmm WindowsApp shell32 pdh) # PlaySound; the media session (Media.cpp)
+    target_link_libraries(kisel PRIVATE winmm WindowsApp pdh) # PlaySound; the media session (Media.cpp)
 endif()
 if(LayerShellQt_FOUND)
     target_link_libraries(kisel PRIVATE LayerShellQt::Interface)

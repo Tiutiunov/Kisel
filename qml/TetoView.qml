@@ -2,9 +2,8 @@
 // (494 x 138), in the sticker style of Zundamon's player and in Teto's red.
 //
 // Round gauges with a white edge for the processor, the graphics card and the memory; a row of candy bars with the processor's last minute; and a line from
-// Teto herself, who has an opinion about all of it. Where Mem Reduct is installed there
-// is a Clean key beside her line: it has Mem Reduct clean the memory, and she reports
-// what that freed.
+// Teto herself, who has an opinion about all of it. Beside her line is a Clean key: it
+// cleans the memory (see SysMon), and she reports what that freed.
 import QtQuick
 import Kisel.Core
 
@@ -112,7 +111,7 @@ Item {
         }
     }
 
-    // the Clean key: Mem Reduct does the cleaning
+    // the Clean key
     Rectangle {
         id: cleanKey
         visible: Sys.canClean

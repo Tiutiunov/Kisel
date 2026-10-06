@@ -12,16 +12,20 @@ namespace kisel {
 // GlobalMemoryStatusEx; Linux: /proc/stat and /proc/meminfo, no graphics card).
 // Nothing leaves the machine.
 //
-// Cleaning the memory is not ours to do: it needs rights this program does not ask for.
-// Where Mem Reduct is installed (Windows), `clean()` asks it to, by starting it with its
-// own `-clean` switch; Windows may ask the user to allow that. What it freed is read off
-// the memory figure a few seconds later.
+// Cleaning the memory (Windows), without a window and without asking for rights:
+//   - If Mem Reduct is installed and has a hotkey for cleaning, that hotkey is pressed
+//     for the user, and the Mem Reduct that is already running does its full clean.
+//   - Otherwise the working sets of the user's own programs are trimmed here: memory
+//     they hold but are not using goes back to the system. This is the part of a clean
+//     that needs no administrator.
+// Mem Reduct is never started with its `-clean` switch: run that way it reports the
+// result in a dialog of its own that has to be clicked away.
+// What a clean freed is read off the memory figure a few seconds later.
 //
-// Mem Reduct also cleans by itself (on a timer, above a threshold, by hotkey). Those
-// cleans are noticed too: it keeps the time of its last clean in its settings file, and
-// when that moves, what was freed is announced here the same way. Its own setting
-// "Show memory cleaning results" is honoured: with that off, the cleans it does by
-// itself pass in silence here too, and only a clean asked for from here is reported.
+// Mem Reduct also cleans by itself (on a timer, above a threshold). Those cleans are
+// noticed through the time of the last clean in its settings file and announced the
+// same way, unless its own "Show memory cleaning results" is off: then they pass in
+// silence here too.
 class SysMon : public QObject
 {
     Q_OBJECT
@@ -37,7 +41,7 @@ class SysMon : public QObject
     // the memory nearly full (a graphics card flat out is a game running, not a worry)
     Q_PROPERTY(bool strain READ strain NOTIFY changed)
     Q_PROPERTY(QString worry READ worry NOTIFY changed)       // "" | cpu | mem
-    Q_PROPERTY(bool canClean READ canClean CONSTANT)          // Mem Reduct is installed
+    Q_PROPERTY(bool canClean READ canClean CONSTANT)          // cleaning is possible here (Windows)
     Q_PROPERTY(bool cleaning READ cleaning NOTIFY changed)    // asked, and waiting to see what it freed
     Q_PROPERTY(bool justCleaned READ justCleaned NOTIFY changed) // for eight seconds after
     Q_PROPERTY(qreal freedGb READ freedGb NOTIFY changed)     // what the last clean freed
@@ -56,7 +60,7 @@ public:
     QVariantList history() const { return m_history; }
     bool strain() const { return !m_worry.isEmpty(); }
     QString worry() const { return m_worry; }
-    bool canClean() const { return !m_cleaner.isEmpty(); }
+    bool canClean() const;
     bool cleaning() const { return m_cleaning; }
     bool justCleaned() const { return m_justCleaned; }
     qreal freedGb() const { return m_freed; }
