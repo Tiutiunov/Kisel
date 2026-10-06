@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Мику — редактор</title>
+<style>
+  :root { --bg:#0e0c0d; --card:#1a1718; --card2:#242021; --ink:#f4efe9; --mut:#9a918c; --line:#322d2e; --acc:#39C5BB; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:13px/1.4 system-ui, "Segoe UI", sans-serif; }
+  .wrap { display:grid; grid-template-columns: minmax(380px, 1fr) 420px; gap:16px; padding:16px; height:100vh; }
+  .stage { display:flex; flex-direction:column; gap:12px; min-width:0; overflow:auto; }
+  .view { background:radial-gradient(circle at 50% 45%, #1d1a1c, #0b090a); border:1px solid var(--line); border-radius:18px; display:flex; align-items:center; justify-content:center; flex:1; min-height:320px; position:relative; overflow:hidden; }
+  .view.light { background:#e9e6e2; }
+  #big { height:min(100%, 576px); max-width:100%; aspect-ratio:1; cursor:pointer; }
+  .minis { display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+  .pill { height:32px; width:288px; border-radius:14px; background:#0e0c0d; border:1px solid #2a2526; display:flex; align-items:center; padding-left:10px; gap:8px; font-weight:700; }
+  .pill.x3 { zoom:3; width:60px; }
+  .pill canvas { width:32px; height:32px; margin:-4px; }
+  .row { display:flex; flex-wrap:wrap; gap:6px; }
+  button { background:var(--card2); color:var(--ink); border:1px solid var(--line); border-radius:10px; padding:5px 10px; font:inherit; cursor:pointer; }
+  button:hover { border-color:#5a5253; }
+  button.on, button.strong { background:var(--acc); color:#06281a; border-color:var(--acc); font-weight:700; }
+  .panel { overflow:auto; padding-right:6px; }
+  fieldset { border:1px solid var(--line); border-radius:14px; margin:0 0 12px; padding:8px 12px 10px; background:var(--card); }
+  legend { padding:0 6px; color:var(--mut); font-weight:700; text-transform:uppercase; font-size:11px; letter-spacing:.06em; }
+  label.p { display:grid; grid-template-columns:160px 1fr 44px; align-items:center; gap:8px; padding:2px 0; }
+  label.p span.v { color:var(--mut); text-align:right; font-variant-numeric:tabular-nums; }
+  input[type=range] { width:100%; accent-color:var(--acc); }
+  input[type=color] { width:44px; height:24px; padding:0; border:1px solid var(--line); background:none; border-radius:6px; }
+  textarea { width:100%; height:120px; background:#0b090a; color:#bfe9e4; border:1px solid var(--line); border-radius:10px; font:11px/1.35 Consolas, monospace; padding:8px; }
+  h4 { margin:8px 0 6px; color:var(--mut); font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+  .hint { color:var(--mut); font-size:12px; margin:8px 0 0; }
+  @media (max-width: 860px) { .wrap { grid-template-columns:1fr; height:auto; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="stage">
+    <div class="view" id="view"><canvas id="big" width="864" height="864"></canvas></div>
+    <div class="minis">
+      <div class="pill"><canvas id="mini1" width="64" height="64"></canvas><span>Miku</span></div>
+      <div class="pill x3"><canvas id="mini2" width="192" height="192"></canvas></div>
+    </div>
+    <div>
+      <h4>Состояние</h4><div class="row" id="moods"></div>
+      <h4>Эмоция (разово)</h4><div class="row" id="emotes"></div>
+      <h4>Вид</h4>
+      <div class="row">
+        <button id="bLight">Светлый фон</button>
+        <button id="bPause">Пауза</button>
+        <button id="bJump">Прыжок</button>
+        <button id="bRoll">Кувырок</button>
+      </div>
+      <p class="hint">Глаза следят за мышью. Клик по ней — шлепок, три подряд — головокружение. Двойной клик по ползунку возвращает его значение.</p>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div id="controls"></div>
+    <fieldset>
+      <legend>Значения</legend>
+      <div class="row" style="margin-bottom:8px">
+        <button class="strong" id="bCopy">Скопировать</button>
+        <button id="bApply">Применить из поля</button>
+        <button id="bReset">Сбросить всё</button>
+      </div>
+      <textarea id="json" spellcheck="false"></textarea>
+      <p class="hint">Всё сохраняется в этом браузере само. Чтобы перенести в приложение — «Скопировать» и вставить в чат.</p>
+    </fieldset>
+  </div>
+</div>
+
+<script>
+// ---------------------------------------------------------------- what can be tuned
+// The same names as `mk` in qml/Mascot.qml: the values copied from here go there as they are.
+const DEF = {
+  rx: 1.14, ry: 0.88, exp: 2.7, bodyTop: "#FFFAF5", bodyBot: "#DDCCBF", shade: 0.2, hl: 0.55, tint: 0.62,
+  ex: 0.32, ey: 0.14, ew: 0.12, eh: 0.19, ink: "#1A1412", gazeX: 0.24, gazeY: 0.15,
+  cx: 0.66, cy: 0.42, cw: 0.16, ch: 0.095, cheek: "#FF7896", cheekA: 0.5,
+  mouthY: 0.5, mouthRest: 0,
+  hairOn: 1, hair: "#39C5BB", hairD: "#22968E", hairTop: "#55DACF", fringeY: -0.14, bangTip: -0.06, bangNotch: -0.4,
+  backW: 1.07, backH: 1.04, backUp: 0.08, lock: 0.4, shine: 0.4,
+  tx: 0.9, ty: -0.6, seg: 0.36, out: 5, tw: 1, tieOn: 1, tie: "#1B1F25", tieBand: "#E12885",
+  setOn: 1, set: "#1B1F25", tip: "#E12885",
+  hand: 0.17
+};
+const SCHEMA = [
+  ["Тело", [["rx", "ширина", 0.8, 1.4], ["ry", "высота", 0.6, 1.2], ["exp", "квадратность", 2, 6, 0.1], ["bodyTop", "цвет сверху"], ["bodyBot", "цвет снизу"],
+            ["shade", "тень по краю", 0, 0.5], ["hl", "блик", 0, 1], ["tint", "подкраска настроением", 0, 1]]],
+  ["Глаза", [["ex", "расстояние", 0.15, 0.7], ["ey", "высота посадки", -0.4, 0.5], ["ew", "ширина", 0.04, 0.3], ["eh", "высота", 0.04, 0.4], ["ink", "цвет"],
+             ["gazeX", "ход взгляда вбок", 0, 0.5], ["gazeY", "ход взгляда вверх", 0, 0.4]]],
+  ["Щёки", [["cx", "расстояние", 0.3, 1], ["cy", "высота посадки", 0, 0.8], ["cw", "ширина", 0.05, 0.3], ["ch", "высота", 0.03, 0.25], ["cheek", "цвет"], ["cheekA", "яркость", 0, 1]]],
+  ["Рот", [["mouthY", "высота посадки", 0.2, 0.8], ["mouthRest", "улыбка в покое", "bool"]]],
+  ["Причёска", [["hairOn", "показывать", "bool"], ["hair", "цвет"], ["hairD", "цвет тёмный"], ["hairTop", "цвет макушки"],
+                ["fringeY", "край чёлки у висков", -0.7, 0.3], ["bangTip", "кончики прядей", -0.7, 0.4], ["bangNotch", "вырезы между прядями", -0.9, 0.3],
+                ["backW", "затылок: ширина", 1, 1.3], ["backH", "затылок: высота", 1, 1.3], ["backUp", "затылок: подъём", 0, 0.3],
+                ["lock", "боковые пряди", -0.4, 0.9], ["shine", "блик на волосах", 0, 1]]],
+  ["Хвосты", [["tx", "корень: вбок", 0.5, 1.3], ["ty", "корень: вверх", -1.1, 0.2], ["seg", "длина", 0.15, 0.6], ["out", "разлёт", 0, 25, 0.5], ["tw", "толщина", 0.4, 2],
+              ["tieOn", "резинки", "bool"], ["tie", "резинка"], ["tieBand", "полоска"]]],
+  ["Гарнитура", [["setOn", "показывать", "bool"], ["set", "цвет"], ["tip", "микрофон"]]],
+  ["Руки", [["hand", "размер", 0.08, 0.3]]]
+];
+let T = Object.assign({}, DEF);
+try { Object.assign(T, JSON.parse(localStorage.getItem("miku-mochi") || "{}")); } catch (e) {}
+function save() { try { localStorage.setItem("miku-mochi", JSON.stringify(T)); } catch (e) {} document.getElementById("json").value = JSON.stringify(T, null, 1); }
+
+// ---------------------------------------------------------------- the looks (as in Mascot.qml)
+const looks = {
+  idle:  { eyes: "normal", hands: "rest" },
+  think: { color: "#8B5CF6", eyes: "normal", mouth: "flat", hands: "chin", badge: "dots", look: [0.6, -0.7] },
+  work:  { color: "#3B9EFF", eyes: "normal", hands: "typing", badge: "dots" },
+  alert: { color: "#F5A524", eyes: "big", mouth: "open", hands: "wave2", badge: "!", hop: true },
+  wow:   { color: "#22D3EE", eyes: "big", mouth: "o", hands: "wide" },
+  happy: { color: "#34D399", eyes: "happy", mouth: "open", hands: "cheer", fx: "spark" },
+  sad:   { color: "#F4505E", eyes: "tired", mouth: "wavy", hands: "droop", fx: "sweat" },
+  sleep: { color: "#94A3B8", eyes: "closed", mouth: "flat", hands: "tucked", fx: "zzz", slow: true },
+  dizzy: { color: "#F472B6", eyes: "spiral", mouth: "wavy", hands: "flail", wobble: true }
+};
+const emotes = {
+  hello:     { eyes: "happy", mouth: "open", hands: "hello" },
+  surprised: { eyes: "dots", mouth: "o", hands: "wide" },
+  love:      { eyes: "heart", mouth: "smile", hands: "heart", fx: "heart", blush: 1 },
+  annoyed:   { eyes: "slit", mouth: "flat", hands: "hips", color: "#A855F7" },
+  hum:       { eyes: "happy", mouth: "sing", hands: "rest", fx: "note", sway: true },
+  tired:     { eyes: "tired", mouth: "flat", hands: "droop" },
+  smug:      { eyes: "smug", mouth: "smug", hands: "hips" }
+};
+const poses = {
+  rest:   t => [{ x: -1.38, y: 0.52 + Math.sin(t * 2) * 0.03 }, { x: 1.38, y: 0.52 + Math.sin(t * 2 + 1) * 0.03 }],
+  typing: t => [{ x: -0.5, y: 0.92 + Math.max(0, Math.sin(t * 17)) * -0.16 }, { x: 0.5, y: 0.92 + Math.max(0, Math.sin(t * 17 + 2.2)) * -0.16 }],
+  chin:   t => [{ x: -1.38, y: 0.52 }, { x: 0.42, y: 0.72 + Math.sin(t * 1.6) * 0.02 }],
+  wave2:  t => [{ x: -1.3, y: -0.55 + Math.sin(t * 11) * 0.14 }, { x: 1.3, y: -0.55 + Math.sin(t * 11 + 1.6) * 0.14 }],
+  cheer:  t => [{ x: -1.25, y: -0.98 + Math.sin(t * 9) * 0.07 }, { x: 1.25, y: -0.98 + Math.sin(t * 9 + 1) * 0.07 }],
+  droop:  t => [{ x: -1.12, y: 0.8 }, { x: 1.12, y: 0.8 }],
+  tucked: t => [{ x: -0.45, y: 0.86 }, { x: 0.45, y: 0.86 }],
+  flail:  t => [{ x: -1.25 + Math.cos(t * 9) * 0.2, y: -0.2 + Math.sin(t * 9) * 0.4 }, { x: 1.25 + Math.cos(t * 9 + 2) * 0.2, y: -0.2 + Math.sin(t * 9 + 2) * 0.4 }],
+  heart:  t => [{ x: -0.2, y: 0.82 }, { x: 0.2, y: 0.82 }],
+  wide:   t => [{ x: -1.45, y: -0.15 }, { x: 1.45, y: -0.15 }],
+  hips:   t => [{ x: -1.02, y: 0.6 }, { x: 1.02, y: 0.6 }],
+  hello:  t => [{ x: -1.38, y: 0.52 }, { x: 1.5 + Math.sin(t * 12) * 0.16, y: -0.6 + Math.cos(t * 12) * 0.05 }]
+};
+const TAILW = [0.2, 0.33, 0.36, 0.32, 0.22, 0.05], TAILN = 6;
+const R = 46, CX = 144, CY = 148, TAU = 2 * Math.PI;
+const clampv = (v, a, b) => Math.max(a, Math.min(b, v));
+const easeOut = u => 1 - Math.pow(1 - clampv(u, 0, 1), 3);
+function rgba(hex, a) { return "rgba(" + parseInt(hex.substr(1, 2), 16) + "," + parseInt(hex.substr(3, 2), 16) + "," + parseInt(hex.substr(5, 2), 16) + "," + a + ")"; }
+function ell(g, x, y, rx, ry, a0, a1) { g.save(); g.translate(x, y); g.scale(1, ry / rx); g.arc(0, 0, rx, a0 === undefined ? 0 : a0, a1 === undefined ? TAU : a1, false); g.restore(); }
+function rr(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+function heartShape(g, x, y, s, c) { g.fillStyle = c; g.beginPath(); g.moveTo(x, y + s * 0.9); g.bezierCurveTo(x - s * 1.5, y - s * 0.2, x - s * 0.7, y - s * 1.2, x, y - s * 0.4); g.bezierCurveTo(x + s * 0.7, y - s * 1.2, x + s * 1.5, y - s * 0.2, x, y + s * 0.9); g.fill(); }
+
+const world = { mood: "idle", emote: "", gx: 0, gy: 0, looking: false, hovered: false, paused: false };
+
+class Bot {
+  constructor(detail) {
+    this.detail = detail;
+    this.st = { t: Math.random() * 10, gx: 0, gy: 0, blink: 0, nextBlink: 2, blinks: 0, sq: 0, sqv: 0, jump: 0, jumpV: 0, rollT: 1, rollTurns: 1, rollMs: 950,
+                shake: 0, lean: 0, blush: 0.4, fxClock: 0, parts: [], tails: null, hand: [{ x: -1.38, y: 0.52 }, { x: 1.38, y: 0.52 }] };
+  }
+  look() {
+    const a = looks[world.mood] || looks.idle, e = emotes[world.emote];
+    const L = e ? Object.assign({}, a, e) : Object.assign({}, a);
+    L.tinted = !!L.color; if (!L.color) L.color = T.hair; if (!L.mouth) L.mouth = "smile";
+    return L;
+  }
+  pose() {
+    const s = this.st, L = this.look(), t = s.t;
+    let y = CY + s.jump * R * 0.1, x = CX + Math.sin(t * 40) * s.shake * R * 0.12;
+    if (L.hop) { const u = (t * 1.25) % 1; if (u < 0.5) y -= Math.sin(u * TAU) * R * 0.3; }
+    const breathe = Math.sin(t * (L.slow ? 1.6 : 2.4)) * (L.slow ? 0.035 : 0.018);
+    const sx = 1 + s.sq * 0.06 - breathe * 0.6, sy = 1 - s.sq * 0.06 + breathe;
+    const turning = s.rollT < 1 ? easeOut(s.rollT) * TAU * s.rollTurns : 0;
+    return { x, y, sx, sy, angle: s.lean + turning };
+  }
+  toWorld(P, lx, ly) { const x = lx * R * P.sx, y = ly * R * P.sy, c = Math.cos(P.angle), s = Math.sin(P.angle); return { x: P.x + x * c - y * s, y: P.y + x * s + y * c }; }
+  step(dt) {
+    const s = this.st, L = this.look(), m = world.mood;
+    s.t += dt * (L.slow ? 0.6 : 1);
+    let tx = 0, ty = 0;
+    if (m === "sleep") { ty = 0.2; } else if (world.looking) { tx = world.gx; ty = world.gy; } else if (L.look) { tx = L.look[0]; ty = L.look[1]; }
+    const kk = 1 - Math.exp(-dt * 9); s.gx += (tx - s.gx) * kk; s.gy += (ty - s.gy) * kk;
+    s.nextBlink -= dt;
+    if (s.nextBlink <= 0) { s.blink = 1; s.blinks = Math.random() < 0.22 ? 1 : 0; s.nextBlink = 2.2 + Math.random() * 3.2; }
+    if (s.blink > 0) { s.blink -= dt / 0.13; if (s.blink <= 0 && s.blinks) { s.blinks = 0; s.blink = 1; } }
+    s.sqv += (-s.sq * 190 - s.sqv * 13) * dt; s.sq += s.sqv * dt;
+    if (s.jump < 0 || s.jumpV < 0) { s.jumpV += 38 * dt; s.jump += s.jumpV * dt; if (s.jump >= 0) { s.jump = 0; s.jumpV = 0; s.sqv += 5; } }
+    if (s.rollT < 1) s.rollT = Math.min(1, s.rollT + dt * 1000 / s.rollMs);
+    s.shake = Math.max(0, s.shake - dt * 2.2);
+    const want = (L.wobble ? Math.sin(s.t * 3.1) * 0.12 : 0) + (L.sway ? Math.sin(s.t * 4) * 0.07 : 0) + (m === "think" ? 0.1 : 0);
+    s.lean += (want - s.lean) * (1 - Math.exp(-dt * 8));
+    s.blush += (((L.blush || 0.4) + (world.hovered ? 0.15 : 0)) - s.blush) * (1 - Math.exp(-dt * 6));
+    const p = (poses[L.hands || "rest"] || poses.rest)(s.t), hk = 1 - Math.exp(-dt * 14);
+    for (let i = 0; i < 2; i++) { s.hand[i].x += (p[i].x - s.hand[i].x) * hk; s.hand[i].y += (p[i].y - s.hand[i].y) * hk; }
+    this.simTails(dt);
+    this.spawn(dt, L);
+    for (const q of s.parts) { q.life += dt; q.x += q.vx * dt; q.y += q.vy * dt; q.vy += (q.g || 0) * dt; q.rot += (q.vr || 0) * dt; }
+    s.parts = s.parts.filter(q => q.life < q.max);
+  }
+  simTails(dt) {
+    const s = this.st, P = this.pose();
+    if (!s.tails) s.tails = [{ side: -1, p: [] }, { side: 1, p: [] }];
+    const seg = R * T.seg * (0.42 + 0.58 * this.detail), n = TAILN;
+    for (const Tl of s.tails) {
+      const a = this.toWorld(P, Tl.side * T.tx, T.ty), p = Tl.p;
+      if (p.length === 0) for (let i = 0; i < n; i++) p.push({ x: a.x + Tl.side * i * seg * 0.35, y: a.y + i * seg * 0.93, px: a.x + Tl.side * i * seg * 0.35, py: a.y + i * seg * 0.93 });
+      p[0].x = a.x; p[0].y = a.y;
+      for (let i = 1; i < n; i++) {
+        const q = p[i], vx = (q.x - q.px) * 0.94, vy = (q.y - q.py) * 0.94; q.px = q.x; q.py = q.y;
+        q.x += vx + (Tl.side * R * T.out * (1 - i / n)) * dt * dt; q.y += vy + (R * 42) * dt * dt;
+      }
+      for (let it = 0; it < 6; it++) {
+        for (let i = 1; i < n; i++) {
+          const A = p[i - 1], B = p[i], dx = B.x - A.x, dy = B.y - A.y, d = Math.hypot(dx, dy) || 1, f = (d - seg) / d;
+          if (i === 1) { B.x -= dx * f; B.y -= dy * f; } else { A.x += dx * f * 0.5; A.y += dy * f * 0.5; B.x -= dx * f * 0.5; B.y -= dy * f * 0.5; }
+        }
+        p[0].x = a.x; p[0].y = a.y;
+      }
+    }
+  }
+  spawn(dt, L) {
+    const s = this.st, fx = L.fx || "";
+    if (fx === "" || this.detail < 0.5) return;
+    s.fxClock -= dt; if (s.fxClock > 0) return;
+    const P = this.pose(), r = () => Math.random() - 0.5, add = o => s.parts.push(Object.assign({ life: 0, rot: 0, x: P.x, y: P.y }, o));
+    if (fx === "heart") { s.fxClock = 0.22; add({ type: "heart", x: P.x + r() * R * 1.6, y: P.y - R * 0.5, vx: r() * R * 0.4, vy: -R * 1.5, max: 1.3, size: R * (0.16 + Math.random() * 0.12) }); }
+    if (fx === "note")  { s.fxClock = 0.3; add({ type: "note", x: P.x - R * 1.1 + r() * R * 0.5, y: P.y - R * 0.7, vx: -R * 0.5 + r() * R, vy: -R * 1.4, max: 1.5, size: R * 0.26, hue: Math.random() < 0.5 ? T.hair : T.tip, vr: r() }); }
+    if (fx === "spark") { s.fxClock = 0.09; add({ type: "spark", x: P.x + r() * R * 3, y: P.y + r() * R * 2.4, vx: 0, vy: -R * 0.3, max: 0.7, size: R * (0.1 + Math.random() * 0.14), hue: Math.random() < 0.5 ? "#34D399" : "#FFFFFF" }); }
+    if (fx === "sweat") { s.fxClock = 0.5; const d = Math.random() < 0.5 ? -1 : 1; add({ type: "drop", x: P.x + d * R * 0.95, y: P.y - R * 0.55, vx: d * R * 0.5, vy: -R * 0.6, g: R * 4, max: 0.8, size: R * 0.11 }); }
+    if (fx === "zzz")   { s.fxClock = 0.8; add({ type: "z", x: P.x + R * 0.8, y: P.y - R * 0.8, vx: R * 0.3, vy: -R * 0.6, max: 1.9, size: R * 0.24 }); }
+  }
+
+  // ---- painting (the mochi branch of Mascot.qml) ----
+  bodyPath(g) {
+    const rx = T.rx * R, ry = T.ry * R, e = 2 / T.exp, dy = R * 0.06;
+    g.beginPath();
+    for (let i = 0; i <= 64; i++) {
+      const a = i / 64 * TAU, c = Math.cos(a), s = Math.sin(a);
+      const x = Math.sign(c) * Math.pow(Math.abs(c), e) * rx, y = Math.sign(s) * Math.pow(Math.abs(s), e) * ry + dy;
+      if (i) g.lineTo(x, y); else g.moveTo(x, y);
+    }
+    g.closePath();
+  }
+  paint(g) {
+    const s = this.st, L = this.look(), P = this.pose(), col = L.color, detail = this.detail;
+    if (!s.tails) return;
+    if (detail > 0.05) {
+      const gl = g.createRadialGradient(P.x, P.y, R * 0.4, P.x, P.y, R * 2.5);
+      gl.addColorStop(0, rgba(col, 0.3 * detail)); gl.addColorStop(1, rgba(col, 0));
+      g.fillStyle = gl; g.fillRect(0, 0, 288, 288);
+      g.fillStyle = "rgba(0,0,0," + 0.25 * detail + ")"; g.beginPath(); ell(g, CX, CY + R * 1.02, R * 0.95, R * 0.12); g.fill();
+    }
+    for (const Tl of s.tails) this.paintTail(g, Tl);
+    g.save(); g.translate(P.x, P.y); g.rotate(P.angle); g.scale(P.sx, P.sy); this.paintBody(g, L); g.restore();
+    if (T.tieOn) for (const Tl of s.tails) {
+      const a = Tl.p[0]; g.save(); g.translate(a.x, a.y); g.rotate(P.angle + Tl.side * 0.5);
+      g.fillStyle = T.tie; rr(g, -R * 0.2, -R * 0.14, R * 0.4, R * 0.28, R * 0.06); g.fill();
+      g.fillStyle = T.tieBand; g.fillRect(-R * 0.2, -R * 0.03, R * 0.4, R * 0.06); g.restore();
+    }
+    if (detail > 0.25) { g.globalAlpha = clampv((detail - 0.25) / 0.4, 0, 1); this.paintHands(g, P, L); g.globalAlpha = 1; }
+    this.paintParts(g);
+    if (L.badge) this.paintBadge(g, P, L.badge, col);
+  }
+  paintTail(g, Tl) {
+    const p = Tl.p, n = p.length, Lp = [], Rp = [];
+    for (let i = 0; i < n; i++) {
+      const a = p[Math.max(0, i - 1)], b = p[Math.min(n - 1, i + 1)], d = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+      const dx = (b.x - a.x) / d, dy = (b.y - a.y) / d, w = TAILW[i] * T.tw * R;
+      Lp.push({ x: p[i].x - dy * w, y: p[i].y + dx * w }); Rp.push({ x: p[i].x + dy * w, y: p[i].y - dx * w });
+    }
+    const tip = p[n - 1];
+    g.beginPath(); g.moveTo(Lp[0].x, Lp[0].y);
+    for (let i = 1; i < n; i++) g.quadraticCurveTo(Lp[i - 1].x, Lp[i - 1].y, (Lp[i - 1].x + Lp[i].x) / 2, (Lp[i - 1].y + Lp[i].y) / 2);
+    g.quadraticCurveTo(Lp[n - 1].x, Lp[n - 1].y, tip.x, tip.y + R * 0.1);
+    for (let i = n - 1; i > 0; i--) g.quadraticCurveTo(Rp[i].x, Rp[i].y, (Rp[i - 1].x + Rp[i].x) / 2, (Rp[i - 1].y + Rp[i].y) / 2);
+    g.lineTo(Rp[0].x, Rp[0].y); g.closePath();
+    const gr = g.createLinearGradient(p[0].x, p[0].y, tip.x, tip.y); gr.addColorStop(0, T.hair); gr.addColorStop(1, T.hairD);
+    g.fillStyle = gr; g.fill();
+    g.strokeStyle = "rgba(255,255,255,0.28)"; g.lineWidth = R * 0.07; g.lineCap = "round"; g.beginPath();
+    g.moveTo(p[1].x + (Lp[1].x - p[1].x) * 0.4, p[1].y + (Lp[1].y - p[1].y) * 0.4);
+    for (let i = 2; i < n - 1; i++) g.lineTo(p[i].x + (Lp[i].x - p[i].x) * 0.4, p[i].y + (Lp[i].y - p[i].y) * 0.4);
+    g.stroke();
+  }
+  paintBody(g, L) {
+    const s = this.st, ry = R * T.ry, detail = this.detail;
+    if (T.hairOn) { // the back of the hair: the body's own shape, a little larger and higher
+      g.save(); g.translate(0, -R * T.backUp); g.scale(T.backW, T.backH); this.bodyPath(g); g.fillStyle = T.hairD; g.fill(); g.restore();
+    }
+    this.bodyPath(g);
+    const sk = g.createLinearGradient(R, -R, -R, R); sk.addColorStop(0, T.bodyTop); sk.addColorStop(1, T.bodyBot);
+    g.fillStyle = sk; g.fill();
+    g.save(); this.bodyPath(g); g.clip();
+    if (L.tinted) {
+      const tg = g.createLinearGradient(0, ry + R * 0.06, 0, -ry * 0.25); tg.addColorStop(0, rgba(L.color, T.tint)); tg.addColorStop(1, rgba(L.color, 0));
+      g.fillStyle = tg; g.fillRect(-R * 1.5, -R * 1.3, R * 3, R * 2.7);
+    }
+    if (T.hairOn) {
+      for (const d of [-1, 1]) { // side locks in front of the ears
+        g.fillStyle = T.hair; g.beginPath(); g.moveTo(d * R * 1.5, -R * 0.4); g.quadraticCurveTo(d * R * (T.rx - 0.26), 0, d * R * (T.rx - 0.12), R * T.lock);
+        g.quadraticCurveTo(d * R * T.rx, R * 0.2, d * R * 1.5, R * (T.lock + 0.02)); g.fill();
+      }
+      const hg = g.createLinearGradient(0, -R, 0, 0); hg.addColorStop(0, T.hairTop); hg.addColorStop(1, T.hair);
+      g.fillStyle = hg; g.beginPath(); g.moveTo(-R * 1.5, -R * 1.3); g.lineTo(R * 1.5, -R * 1.3); g.lineTo(R * 1.5, R * T.fringeY);
+      const a = T.bangTip, b = T.bangNotch;
+      const B = [[1.0, a - 0.02], [0.74, b + 0.04], [0.5, a + 0.02], [0.24, b], [0.02, a], [-0.26, b], [-0.5, a + 0.02], [-0.74, b + 0.04], [-1.0, a - 0.02]];
+      for (let i = 0; i < B.length; i++) { const p = B[i], q = B[i + 1] || [-1.5, T.fringeY]; g.quadraticCurveTo(p[0] * R, p[1] * R, (p[0] + q[0]) / 2 * R, (p[1] + q[1]) / 2 * R); }
+      g.lineTo(-R * 1.5, R * T.fringeY); g.closePath(); g.fill();
+      g.strokeStyle = "rgba(255,255,255," + T.shine + ")"; g.lineWidth = R * 0.07; g.lineCap = "round";
+      g.beginPath(); g.arc(0, R * 0.25, R * 0.98, -Math.PI * 0.78, -Math.PI * 0.55, false); g.stroke();
+      g.beginPath(); g.arc(0, R * 0.25, R * 0.98, -Math.PI * 0.42, -Math.PI * 0.34, false); g.stroke();
+    }
+    const sh = g.createRadialGradient(R * 0.2, -R * 0.2, R * 0.5, 0, 0, R * 1.35); sh.addColorStop(0, "rgba(0,0,0,0)"); sh.addColorStop(1, "rgba(0,0,0," + T.shade + ")");
+    g.fillStyle = sh; g.fillRect(-R * 1.5, -R * 1.3, R * 3, R * 2.7);
+    const hl = g.createRadialGradient(R * 0.5, -R * 0.5, 0, R * 0.5, -R * 0.5, R * 0.6); hl.addColorStop(0, "rgba(255,255,255," + T.hl + ")"); hl.addColorStop(1, "rgba(255,255,255,0)");
+    g.fillStyle = hl; g.fillRect(-R * 1.5, -R * 1.3, R * 3, R * 2.7);
+    g.restore();
+
+    const reach = 1 + (1 - detail) * 0.6, fx = s.gx * R * T.gazeX * reach, fy = s.gy * R * T.gazeY * reach;
+    g.fillStyle = rgba(T.cheek, T.cheekA * Math.max(0.35, s.blush));
+    for (const d of [-1, 1]) { g.beginPath(); ell(g, d * R * T.cx + fx, R * T.cy + fy, R * T.cw, R * T.ch); g.fill(); }
+    this.paintEyes(g, L, fx, fy);
+    this.paintMouth(g, L, fx * 0.9, fy);
+
+    if (T.setOn) {
+      const ex = -R * (T.rx - 0.02);
+      g.fillStyle = T.set; g.beginPath(); ell(g, ex, R * 0.04, R * 0.12, R * 0.21); g.fill();
+      g.strokeStyle = L.color; g.lineWidth = R * 0.045; g.beginPath(); ell(g, ex, R * 0.04, R * 0.055, R * 0.125); g.stroke();
+      g.strokeStyle = T.set; g.lineCap = "round"; g.beginPath(); g.moveTo(ex + R * 0.02, R * 0.22); g.quadraticCurveTo(ex + R * 0.12, R * 0.6, -R * 0.58 + fx * 0.4, R * 0.62); g.stroke();
+      g.fillStyle = T.tip; g.beginPath(); g.arc(-R * 0.58 + fx * 0.4, R * 0.62, R * 0.055, 0, TAU, false); g.fill();
+    }
+  }
+  paintEyes(g, L, fx, fy) {
+    const s = this.st, t = s.t, INK = T.ink, type = L.eyes;
+    const soft = type === "normal" || type === "big" || type === "tired" || type === "smug";
+    const open = soft ? clampv(1 - Math.max(0, s.blink), 0.08, 1) : 1;
+    const kk = (type === "big" ? 1.2 : 1) * (world.hovered ? 1.08 : 1) * (1 + (1 - this.detail) * 0.35);
+    const lid = type === "tired" ? 0.62 : type === "smug" ? 0.66 : 1;
+    for (const d of [-1, 1]) {
+      const x = d * R * T.ex + fx, y = R * T.ey + fy, w = R * T.ew * kk, h = R * T.eh * kk;
+      g.lineCap = "round"; g.lineJoin = "round";
+      if (soft) {
+        const hh = Math.max(h * open, R * 0.03); g.fillStyle = INK;
+        if (lid < 1) {
+          const slant = type === "smug" ? d * h * 0.3 : 0, top = y - hh + hh * 2 * (1 - lid);
+          g.save(); g.beginPath(); g.moveTo(x - w * 1.2, top + slant); g.lineTo(x + w * 1.2, top - slant); g.lineTo(x + w * 1.2, y + h * 1.2); g.lineTo(x - w * 1.2, y + h * 1.2); g.closePath(); g.clip();
+          rr(g, x - w, y - hh, w * 2, hh * 2, Math.min(w, hh)); g.fill(); g.restore();
+        } else { rr(g, x - w, y - hh, w * 2, hh * 2, Math.min(w, hh)); g.fill(); }
+        continue;
+      }
+      g.strokeStyle = INK; g.fillStyle = INK; g.lineWidth = R * 0.07;
+      if (type === "happy")  { g.beginPath(); g.arc(x, y + h * 0.35, w * 1.05, Math.PI * 1.12, Math.PI * 1.88, false); g.stroke(); }
+      if (type === "closed") { g.beginPath(); g.arc(x, y - h * 0.3, w * 1.05, Math.PI * 0.14, Math.PI * 0.86, false); g.stroke(); }
+      if (type === "dots")   { g.beginPath(); g.arc(x, y, w * 0.42, 0, TAU, false); g.fill(); }
+      if (type === "slit")   { g.beginPath(); g.moveTo(x - d * w * 1.1, y + h * 0.3); g.lineTo(x + d * w * 1.1, y - h * 0.25); g.stroke();
+                               g.lineWidth = R * 0.05; g.beginPath(); g.moveTo(x - d * w * 1.2, y - h * 0.3); g.lineTo(x + d * w * 0.9, y - h * 0.95); g.stroke(); }
+      if (type === "spiral") { g.lineWidth = R * 0.045; g.beginPath();
+                               for (let i = 0; i < 40; i++) { const a = i / 40 * TAU * 2.2 + t * 7 * d, r = i / 40 * w * 1.25, px = x + Math.cos(a) * r, py = y + Math.sin(a) * r; if (i) g.lineTo(px, py); else g.moveTo(px, py); }
+                               g.stroke(); }
+      if (type === "heart") heartShape(g, x, y, w * (1.25 + Math.sin(t * 9) * 0.12), "#FF4D6D");
+    }
+  }
+  paintMouth(g, L, fx, fy) {
+    const t = this.st.t, x = fx, y = R * T.mouthY + fy, mo = L.mouth;
+    if (!T.mouthRest && (mo === "smile" || mo === "soft" || mo === "flat")) return;
+    g.strokeStyle = T.ink; g.fillStyle = "#7A2137"; g.lineWidth = R * 0.05; g.lineCap = "round"; g.lineJoin = "round";
+    if (mo === "smile") { g.beginPath(); g.arc(x, y - R * 0.06, R * 0.13, Math.PI * 0.18, Math.PI * 0.82, false); g.stroke(); }
+    if (mo === "flat")  { g.beginPath(); g.moveTo(x - R * 0.08, y); g.lineTo(x + R * 0.08, y); g.stroke(); }
+    if (mo === "o")     { g.beginPath(); ell(g, x, y, R * 0.06, R * 0.075); g.fill(); }
+    if (mo === "wavy")  { g.beginPath(); for (let i = 0; i <= 12; i++) { const px = x + (i / 12 - 0.5) * R * 0.34, py = y + Math.sin(i * 1.4 + t * 6) * R * 0.03; if (i) g.lineTo(px, py); else g.moveTo(px, py); } g.stroke(); }
+    if (mo === "smug")  { g.beginPath(); g.arc(x - R * 0.07, y - R * 0.04, R * 0.07, Math.PI * 0.05, Math.PI * 0.95, false); g.stroke(); g.beginPath(); g.arc(x + R * 0.07, y - R * 0.04, R * 0.07, Math.PI * 0.05, Math.PI * 0.95, false); g.stroke(); }
+    if (mo === "open")  { g.beginPath(); g.arc(x, y - R * 0.05, R * 0.14, 0, Math.PI, false); g.closePath(); g.fill(); g.fillStyle = "#FF8FA8"; g.beginPath(); ell(g, x, y + R * 0.06, R * 0.07, R * 0.035); g.fill(); }
+    if (mo === "sing")  { const o = 0.06 + Math.abs(Math.sin(t * 8)) * 0.09; g.beginPath(); ell(g, x, y, R * 0.1, R * o); g.fill(); g.fillStyle = "#FF8FA8"; g.beginPath(); ell(g, x, y + R * o * 0.5, R * 0.06, R * o * 0.4); g.fill(); }
+  }
+  paintHands(g, P, L) {
+    const s = this.st;
+    for (let i = 0; i < 2; i++) {
+      const h = this.toWorld(P, s.hand[i].x, s.hand[i].y);
+      g.save(); g.translate(h.x, h.y);
+      const mg = g.createRadialGradient(R * 0.05, -R * 0.06, R * 0.02, 0, 0, R * (T.hand + 0.03)); mg.addColorStop(0, T.bodyTop); mg.addColorStop(1, T.bodyBot);
+      g.fillStyle = mg; g.beginPath(); g.arc(0, 0, R * T.hand, 0, TAU, false); g.fill(); g.restore();
+    }
+    if (L.hands === "heart") { const c = this.toWorld(P, 0, 0.8); heartShape(g, c.x, c.y - R * 0.08, R * (0.2 + Math.sin(s.t * 8) * 0.02), "#FF4D6D"); }
+  }
+  paintParts(g) {
+    for (const p of this.st.parts) {
+      const u = p.life / p.max, a = u < 0.15 ? u / 0.15 : 1 - (u - 0.15) / 0.85, sz = p.size * (0.7 + u * 0.5);
+      g.save(); g.globalAlpha = clampv(a, 0, 1); g.translate(p.x, p.y); g.rotate(p.rot);
+      if (p.type === "heart") heartShape(g, 0, 0, sz, "#FF4D6D");
+      if (p.type === "spark") { g.fillStyle = p.hue; g.beginPath(); for (let i = 0; i < 8; i++) { const r = i % 2 ? sz * 0.25 : sz, q = i / 8 * TAU; if (i) g.lineTo(Math.cos(q) * r, Math.sin(q) * r); else g.moveTo(Math.cos(q) * r, Math.sin(q) * r); } g.closePath(); g.fill(); }
+      if (p.type === "drop")  { g.fillStyle = "#8FD8FF"; g.beginPath(); g.moveTo(0, -sz); g.quadraticCurveTo(sz, sz * 0.5, 0, sz); g.quadraticCurveTo(-sz, sz * 0.5, 0, -sz); g.fill(); }
+      if (p.type === "z")     { g.fillStyle = "#C9D4E0"; g.font = "bold " + Math.round(sz) + "px sans-serif"; g.fillText("z", 0, 0); }
+      if (p.type === "note")  { g.fillStyle = p.hue; g.strokeStyle = p.hue; g.lineWidth = sz * 0.12; g.beginPath(); ell(g, 0, 0, sz * 0.3, sz * 0.22); g.fill(); g.beginPath(); g.moveTo(sz * 0.26, 0); g.lineTo(sz * 0.26, -sz * 0.9); g.lineTo(sz * 0.7, -sz * 0.7); g.stroke(); }
+      g.restore();
+    }
+  }
+  paintBadge(g, P, b, col) {
+    const x = P.x + R * 1.0, y = P.y - R * 1.12, w = b === "dots" ? R * 0.62 : R * 0.4;
+    g.fillStyle = "#ffffff"; rr(g, x - w / 2, y - R * 0.2, w, R * 0.4, R * 0.2); g.fill(); g.fillStyle = col;
+    if (b === "dots") { for (let i = 0; i < 3; i++) { const u = Math.max(0, Math.sin(this.st.t * 6 - i * 0.9)); g.beginPath(); g.arc(x + (i - 1) * R * 0.16, y - u * R * 0.07, R * 0.05, 0, TAU, false); g.fill(); } }
+    else { g.font = "bold " + Math.round(R * 0.34) + "px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(b, x, y + R * 0.02); }
+  }
+}
+
+// ---------------------------------------------------------------- the three views
+const big = new Bot(1), mini = new Bot(0);
+const cBig = document.getElementById("big"), cM1 = document.getElementById("mini1"), cM2 = document.getElementById("mini2");
+function drawBig() { const g = cBig.getContext("2d"); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, 864, 864); g.setTransform(3, 0, 0, 3, 0, 0); big.paint(g); }
+// the bar's mini: a 24 px box in a 32 px window, as the island clips it
+function drawMini(c) {
+  const g = c.getContext("2d"), px = c.width / 32, k = 24 / 120;
+  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, c.width, c.height);
+  g.setTransform(px * k, 0, 0, px * k, c.width / 2 - 144 * px * k, c.height / 2 - 144 * px * k); mini.paint(g);
+}
+let last = 0;
+function frame(now) {
+  const dt = Math.min(0.05, last ? (now - last) / 1000 : 0.016); last = now;
+  if (!world.paused) { big.step(dt); mini.step(dt); }
+  drawBig(); drawMini(cM1); drawMini(cM2);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+addEventListener("mousemove", e => {
+  const r = cBig.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+  world.gx = Math.tanh((e.clientX - x) / 260); world.gy = Math.tanh((e.clientY - y) / 200); world.looking = true;
+  world.hovered = Math.abs(e.clientX - x) < r.width * 0.2 && Math.abs(e.clientY - y) < r.height * 0.2;
+});
+let emoteTimer = 0, clicks = [];
+function play(name, ms) { world.emote = name; clearTimeout(emoteTimer); emoteTimer = setTimeout(() => world.emote = "", ms); big.st.sqv -= 2.5; }
+function setMood(m) {
+  world.mood = m; world.emote = "";
+  for (const b of [big, mini]) { if (m === "happy") { b.st.rollT = 0; b.st.rollTurns = 1; b.st.rollMs = 950; } if (m === "dizzy") { b.st.rollT = 0; b.st.rollTurns = 2; b.st.rollMs = 1300; } if (m === "sad") b.st.shake = 1; if (m === "alert" || m === "wow") b.st.jumpV = -7; b.st.sqv -= 3; }
+  document.querySelectorAll("#moods button").forEach(x => x.classList.toggle("on", x.dataset.m === m));
+}
+cBig.addEventListener("click", () => {
+  const now = Date.now(); clicks = clicks.filter(t => now - t < 1700).concat([now]);
+  if (clicks.length >= 3) { clicks = []; const was = world.mood; setMood("dizzy"); setTimeout(() => setMood(was === "dizzy" ? "idle" : was), 3300); }
+  else { big.st.sqv += 9; play("annoyed", 900); }
+});
+const moodNames = { idle: "покой", think: "думает", work: "работает", alert: "ждёт ответа", wow: "удивлена", happy: "готово", sad: "ошибка", sleep: "спит", dizzy: "кружится" };
+for (const m in moodNames) { const b = document.createElement("button"); b.textContent = moodNames[m]; b.dataset.m = m; b.onclick = () => setMood(m); document.getElementById("moods").appendChild(b); }
+const emoteNames = { hello: "привет", surprised: "ой", love: "сердечки", annoyed: "дуется", hum: "напевает", tired: "устала", smug: "довольна" };
+for (const e in emoteNames) { const b = document.createElement("button"); b.textContent = emoteNames[e]; b.onclick = () => play(e, 2400); document.getElementById("emotes").appendChild(b); }
+setMood("idle");
+document.getElementById("bLight").onclick = e => { document.getElementById("view").classList.toggle("light"); e.target.classList.toggle("on"); };
+document.getElementById("bPause").onclick = e => { world.paused = !world.paused; e.target.classList.toggle("on", world.paused); };
+document.getElementById("bJump").onclick = () => { big.st.jumpV = -9; };
+document.getElementById("bRoll").onclick = () => { big.st.rollT = 0; big.st.rollTurns = 1; big.st.rollMs = 950; };
+
+// ---------------------------------------------------------------- the controls
+function build() {
+  const host = document.getElementById("controls"); host.innerHTML = "";
+  for (const [title, items] of SCHEMA) {
+    const fs = document.createElement("fieldset"); fs.innerHTML = "<legend>" + title + "</legend>";
+    for (const it of items) {
+      const [key, name, a, b, stp] = it, lab = document.createElement("label"); lab.className = "p";
+      const nm = document.createElement("span"); nm.textContent = name; lab.appendChild(nm);
+      const inp = document.createElement("input"), val = document.createElement("span"); val.className = "v";
+      if (a === undefined) { inp.type = "color"; inp.value = T[key]; inp.oninput = () => { T[key] = inp.value.toUpperCase(); save(); }; }
+      else if (a === "bool") { inp.type = "checkbox"; inp.checked = !!T[key]; inp.style.justifySelf = "start"; inp.oninput = () => { T[key] = inp.checked ? 1 : 0; save(); }; }
+      else { inp.type = "range"; inp.min = a; inp.max = b; inp.step = stp || 0.01; inp.value = T[key]; val.textContent = T[key];
+             inp.oninput = () => { T[key] = +inp.value; val.textContent = T[key]; save(); };
+             inp.ondblclick = () => { T[key] = DEF[key]; inp.value = T[key]; val.textContent = T[key]; save(); }; }
+      lab.appendChild(inp); lab.appendChild(val); fs.appendChild(lab);
+    }
+    host.appendChild(fs);
+  }
+}
+build(); save();
+document.getElementById("bReset").onclick = () => { T = Object.assign({}, DEF); build(); save(); };
+document.getElementById("bApply").onclick = () => { try { T = Object.assign({}, DEF, JSON.parse(document.getElementById("json").value)); build(); save(); } catch (e) { alert("Не разобрать: " + e.message); } };
+document.getElementById("bCopy").onclick = e => { const ta = document.getElementById("json"); ta.select(); try { navigator.clipboard.writeText(ta.value); } catch (x) { document.execCommand("copy"); } e.target.textContent = "Скопировано"; setTimeout(() => e.target.textContent = "Скопировать", 1200); };
+</script>
+</body>
+</html>
