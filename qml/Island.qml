@@ -81,6 +81,8 @@ Item {
     readonly property bool ownAct: guest === "" && Prefs.character === "gumi" && Prefs.gumiSpotify && Media.available
     readonly property var bench: cast.filter(c => c !== stage)
     readonly property int castW: 44
+    // where the ones on the bench look: the way she on the stage looks
+    readonly property point benchGaze: Qt.point(Math.tanh((mascot.lookAt.x - mascot.width / 2) / 260), Math.tanh((mascot.lookAt.y - mascot.height / 2) / 200))
     // GUMI with Spotify playing: the bar names the track and she hums along
     readonly property bool tune: ownAct && Media.active && Media.playing
     // ...and whenever the bar has nothing more pressing to say it is her mini player:
@@ -791,7 +793,10 @@ Item {
                         Mascot {
                             anchors.centerIn: parent
                             size: 14
-                            still: true
+                            bench: true
+                            paused: root.tucked
+                            gazeOn: Shell.pointerKnown
+                            gaze: root.benchGaze
                             character: seat.modelData
                             scale: seatArea.containsMouse ? 1.3 : 1
                             Behavior on scale { NumberAnimation { duration: Theme.tHover; easing.type: Easing.OutCubic } }
@@ -870,7 +875,9 @@ Item {
                             Mascot {
                                 anchors.centerIn: parent
                                 size: 24
-                                still: true
+                                bench: true
+                                gazeOn: Shell.pointerKnown
+                                gaze: root.benchGaze
                                 character: chair.modelData
                                 scale: chairArea.containsMouse ? 1.2 : 1
                                 Behavior on scale { NumberAnimation { duration: Theme.tHover; easing.type: Easing.OutCubic } }

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Мику — редактор</title>
+<title>Персонажи — редактор</title>
 <style>
   :root { --bg:#0e0c0d; --card:#1a1718; --card2:#242021; --ink:#f4efe9; --mut:#9a918c; --line:#322d2e; --acc:#39C5BB; }
   * { box-sizing: border-box; }
@@ -39,7 +39,7 @@
   <div class="stage">
     <div class="view" id="view"><canvas id="big" width="864" height="864"></canvas></div>
     <div class="minis">
-      <div class="pill"><canvas id="mini1" width="64" height="64"></canvas><span>Miku</span></div>
+      <div class="pill"><canvas id="mini1" width="64" height="64"></canvas><span id="pname">Miku</span></div>
       <div class="pill x3"><canvas id="mini2" width="192" height="192"></canvas></div>
     </div>
     <div>
@@ -57,13 +57,18 @@
   </div>
 
   <div class="panel">
+    <fieldset>
+      <legend>Персонаж</legend>
+      <div class="row" id="cast"></div>
+      <div class="row" style="margin-top:8px"><button id="bShare">Тело, лицо и руки этой — всем</button></div>
+    </fieldset>
     <div id="controls"></div>
     <fieldset>
       <legend>Значения</legend>
       <div class="row" style="margin-bottom:8px">
         <button class="strong" id="bCopy">Скопировать</button>
         <button id="bApply">Применить из поля</button>
-        <button id="bReset">Сбросить всё</button>
+        <button id="bReset">Сбросить эту</button>
       </div>
       <textarea id="json" spellcheck="false"></textarea>
       <p class="hint">Всё сохраняется в этом браузере само. Чтобы перенести в приложение — «Скопировать» и вставить в чат.</p>
@@ -75,14 +80,14 @@
 // ---------------------------------------------------------------- what can be tuned
 // The same names as `mk` in qml/Mascot.qml: the values copied from here go there as they are.
 const DEF = {
-  rx: 1.14, ry: 0.88, exp: 2.7, bodyTop: "#FFFAF5", bodyBot: "#DDCCBF", shade: 0.2, hl: 0.55, tint: 0.62,
+  rx: 1.14, ry: 0.88, exp: 3.4, bodyTop: "#FFFAF5", bodyBot: "#DDCCBF", shade: 0.2, hl: 0.55, tint: 0.62,
   ex: 0.32, ey: 0.14, ew: 0.12, eh: 0.19, ink: "#1A1412", gazeX: 0.24, gazeY: 0.15,
   cx: 0.66, cy: 0.42, cw: 0.16, ch: 0.095, cheek: "#FF7896", cheekA: 0.5,
   mouthY: 0.5, mouthRest: 0,
   hairOn: 1, hair: "#39C5BB", hairD: "#22968E", hairTop: "#55DACF", fringeY: -0.14, bangTip: -0.06, bangNotch: -0.4,
   backW: 1.07, backH: 1.04, backUp: 0.08, lock: 0.4, shine: 0.4,
   tx: 0.9, ty: -0.6, seg: 0.36, out: 5, tw: 1, tieOn: 1, tie: "#1B1F25", tieBand: "#E12885",
-  setOn: 1, set: "#1B1F25", tip: "#E12885",
+  setOn: 1, set: "#1B1F25", tip: "#E12885", accY: 0,
   hand: 0.17
 };
 const SCHEMA = [
@@ -96,14 +101,27 @@ const SCHEMA = [
                 ["fringeY", "край чёлки у висков", -0.7, 0.3], ["bangTip", "кончики прядей", -0.7, 0.4], ["bangNotch", "вырезы между прядями", -0.9, 0.3],
                 ["backW", "затылок: ширина", 1, 1.3], ["backH", "затылок: высота", 1, 1.3], ["backUp", "затылок: подъём", 0, 0.3],
                 ["lock", "боковые пряди", -0.4, 0.9], ["shine", "блик на волосах", 0, 1]]],
-  ["Хвосты", [["tx", "корень: вбок", 0.5, 1.3], ["ty", "корень: вверх", -1.1, 0.2], ["seg", "длина", 0.15, 0.6], ["out", "разлёт", 0, 25, 0.5], ["tw", "толщина", 0.4, 2],
+  ["Хвосты и длинные волосы", [["tx", "корень: вбок", 0.5, 1.3], ["ty", "корень: вверх", -1.1, 0.2], ["seg", "длина", 0.15, 0.6], ["out", "разлёт", 0, 25, 0.5], ["tw", "толщина", 0.4, 2],
               ["tieOn", "резинки", "bool"], ["tie", "резинка"], ["tieBand", "полоска"]]],
   ["Гарнитура", [["setOn", "показывать", "bool"], ["set", "цвет"], ["tip", "микрофон"]]],
+  ["На голове (бант, очки, обруч)", [["accY", "сдвиг по высоте", -0.5, 0.5]]],
   ["Руки", [["hand", "размер", 0.08, 0.3]]]
 ];
-let T = Object.assign({}, DEF);
-try { Object.assign(T, JSON.parse(localStorage.getItem("miku-mochi") || "{}")); } catch (e) {}
-function save() { try { localStorage.setItem("miku-mochi", JSON.stringify(T)); } catch (e) {} document.getElementById("json").value = JSON.stringify(T, null, 1); }
+// Who is who: the hair style, and what differs from Miku (`mks` in Mascot.qml).
+const CAST = {
+  miku: { name: "Miku", style: "twintails", over: {} },
+  rin:  { name: "Rin", style: "bow", over: { hair: "#FFD24A", hairD: "#E0A92E", hairTop: "#FFE585", lock: 0.26, set: "#F4F6F8", tip: "#F2B705" } },
+  luka: { name: "Luka", style: "long", calm: true, over: { hair: "#F5A3C0", hairD: "#D9779D", hairTop: "#FFC6DA", tx: 0.92, ty: -0.2, seg: 0.38, out: 2, set: "#E3B341", tip: "#3FA7D6" } },
+  gumi: { name: "GUMI", style: "goggles", over: { hair: "#7ED957", hairD: "#4FAE35", hairTop: "#A9EE88", lock: 0.62, set: "#F4F6F8", tip: "#F5622B" } },
+  teto: { name: "Teto", style: "drills", over: { hair: "#E0405A", hairD: "#B02A44", hairTop: "#F26A82", tx: 1.06, ty: -0.45, seg: 0.25, out: 22, tip: "#E0405A" } }
+};
+const SHARED = ["rx", "ry", "exp", "bodyTop", "bodyBot", "shade", "hl", "tint", "ex", "ey", "ew", "eh", "ink", "gazeX", "gazeY", "cx", "cy", "cw", "ch", "cheek", "cheekA", "mouthY", "mouthRest", "hand"];
+const ALL = {};
+for (const c in CAST) ALL[c] = Object.assign({}, DEF, CAST[c].over);
+try { const old = JSON.parse(localStorage.getItem("miku-mochi") || "null"); if (old) Object.assign(ALL.miku, old); } catch (e) {}
+try { const sv = JSON.parse(localStorage.getItem("kisel-cast") || "{}"); for (const c in CAST) if (sv[c]) Object.assign(ALL[c], sv[c]); } catch (e) {}
+let cur = "miku", T = ALL[cur];
+function save() { try { localStorage.setItem("kisel-cast", JSON.stringify(ALL)); } catch (e) {} document.getElementById("json").value = JSON.stringify(ALL, null, 1); }
 
 // ---------------------------------------------------------------- the looks (as in Mascot.qml)
 const looks = {
@@ -140,7 +158,7 @@ const poses = {
   hips:   t => [{ x: -1.02, y: 0.6 }, { x: 1.02, y: 0.6 }],
   hello:  t => [{ x: -1.38, y: 0.52 }, { x: 1.5 + Math.sin(t * 12) * 0.16, y: -0.6 + Math.cos(t * 12) * 0.05 }]
 };
-const TAILW = [0.2, 0.33, 0.36, 0.32, 0.22, 0.05], TAILN = 6;
+const HAIRS = { twintails: { n: 6, w: [0.2, 0.33, 0.36, 0.32, 0.22, 0.05] }, long: { n: 6, w: [0.3, 0.36, 0.38, 0.36, 0.3, 0.14] }, drills: { n: 5, w: [0.26, 0.3, 0.26, 0.2, 0.1], coil: true } };
 const R = 46, CX = 144, CY = 148, TAU = 2 * Math.PI;
 const clampv = (v, a, b) => Math.max(a, Math.min(b, v));
 const easeOut = u => 1 - Math.pow(1 - clampv(u, 0, 1), 3);
@@ -198,8 +216,10 @@ class Bot {
   }
   simTails(dt) {
     const s = this.st, P = this.pose();
-    if (!s.tails) s.tails = [{ side: -1, p: [] }, { side: 1, p: [] }];
-    const seg = R * T.seg * (0.42 + 0.58 * this.detail), n = TAILN;
+    const H = HAIRS[CAST[cur].style];
+    if (!s.tails || s.who !== cur) { s.tails = H ? [{ side: -1, p: [] }, { side: 1, p: [] }] : []; s.who = cur; }
+    if (!H) return;
+    const seg = R * T.seg * (0.42 + 0.58 * this.detail), n = H.n;
     for (const Tl of s.tails) {
       const a = this.toWorld(P, Tl.side * T.tx, T.ty), p = Tl.p;
       if (p.length === 0) for (let i = 0; i < n; i++) p.push({ x: a.x + Tl.side * i * seg * 0.35, y: a.y + i * seg * 0.93, px: a.x + Tl.side * i * seg * 0.35, py: a.y + i * seg * 0.93 });
@@ -249,9 +269,11 @@ class Bot {
       g.fillStyle = gl; g.fillRect(0, 0, 288, 288);
       g.fillStyle = "rgba(0,0,0," + 0.25 * detail + ")"; g.beginPath(); ell(g, CX, CY + R * 1.02, R * 0.95, R * 0.12); g.fill();
     }
-    for (const Tl of s.tails) this.paintTail(g, Tl);
+    const H = HAIRS[CAST[cur].style];
+    for (const Tl of s.tails) { if (!H || Tl.p.length !== H.n) continue; if (H.coil) this.paintDrill(g, Tl, H); else this.paintTail(g, Tl, H); }
     g.save(); g.translate(P.x, P.y); g.rotate(P.angle); g.scale(P.sx, P.sy); this.paintBody(g, L); g.restore();
-    if (T.tieOn) for (const Tl of s.tails) {
+    if (T.tieOn && CAST[cur].style === "twintails") for (const Tl of s.tails) {
+      if (!Tl.p.length) continue;
       const a = Tl.p[0]; g.save(); g.translate(a.x, a.y); g.rotate(P.angle + Tl.side * 0.5);
       g.fillStyle = T.tie; rr(g, -R * 0.2, -R * 0.14, R * 0.4, R * 0.28, R * 0.06); g.fill();
       g.fillStyle = T.tieBand; g.fillRect(-R * 0.2, -R * 0.03, R * 0.4, R * 0.06); g.restore();
@@ -260,11 +282,22 @@ class Bot {
     this.paintParts(g);
     if (L.badge) this.paintBadge(g, P, L.badge, col);
   }
-  paintTail(g, Tl) {
+  paintDrill(g, Tl, H) {
+    const p = Tl.p, n = p.length, turn = this.st.t * (world.emote === "smug" ? 9 : 1.2) * Tl.side;
+    for (let i = 0; i < n; i++) for (let j = 0; j < 2; j++) {
+      if (i === n - 1 && j) break;
+      const a = p[i], b = p[Math.min(n - 1, i + 1)], u = j / 2, x = a.x + (b.x - a.x) * u, y = a.y + (b.y - a.y) * u;
+      const w = (H.w[i] + (H.w[Math.min(n - 1, i + 1)] - H.w[i]) * u) * T.tw * R, ph = (i * 2 + j) * 0.9 + turn;
+      g.fillStyle = T.hair; g.beginPath(); ell(g, x, y, w, w * 0.62); g.fill();
+      g.strokeStyle = T.hairD; g.lineWidth = R * 0.05; g.lineCap = "round";
+      g.beginPath(); ell(g, x, y, w * 0.92, w * 0.5, 0.15 * Math.PI + Math.sin(ph) * 0.5, 0.85 * Math.PI + Math.sin(ph) * 0.5); g.stroke();
+    }
+  }
+  paintTail(g, Tl, H) {
     const p = Tl.p, n = p.length, Lp = [], Rp = [];
     for (let i = 0; i < n; i++) {
       const a = p[Math.max(0, i - 1)], b = p[Math.min(n - 1, i + 1)], d = Math.hypot(b.x - a.x, b.y - a.y) || 1;
-      const dx = (b.x - a.x) / d, dy = (b.y - a.y) / d, w = TAILW[i] * T.tw * R;
+      const dx = (b.x - a.x) / d, dy = (b.y - a.y) / d, w = H.w[i] * T.tw * R;
       Lp.push({ x: p[i].x - dy * w, y: p[i].y + dx * w }); Rp.push({ x: p[i].x + dy * w, y: p[i].y - dx * w });
     }
     const tip = p[n - 1];
@@ -308,11 +341,40 @@ class Bot {
       g.beginPath(); g.arc(0, R * 0.25, R * 0.98, -Math.PI * 0.78, -Math.PI * 0.55, false); g.stroke();
       g.beginPath(); g.arc(0, R * 0.25, R * 0.98, -Math.PI * 0.42, -Math.PI * 0.34, false); g.stroke();
     }
+        if (CAST[cur].style === "goggles") { // GUMI's goggles, pushed up into her hair
+            const y = R * (-0.58 + T.accY)
+            g.strokeStyle = "#F5622B"; g.lineWidth = R * 0.09; g.beginPath(); g.moveTo(-R * 1.3, y + R * 0.02); g.lineTo(R * 1.3, y + R * 0.02); g.stroke()
+            for (const d of [-1, 1]) {
+                g.fillStyle = "#F4F6F8"; g.beginPath(); g.arc(d * R * 0.34, y, R * 0.23, 0, TAU, false); g.fill()
+                g.fillStyle = "#F5622B"; g.beginPath(); g.arc(d * R * 0.34, y, R * 0.16, 0, TAU, false); g.fill()
+                g.fillStyle = "rgba(255,255,255,0.6)"; g.beginPath(); g.arc(d * R * 0.34 - R * 0.06, y - R * 0.06, R * 0.05, 0, TAU, false); g.fill()
+            }
+        }
+        if (CAST[cur].style === "bow") { // Rin's two white hair clips
+            const y = R * T.accY
+            g.strokeStyle = "#F4F6F8"; g.lineWidth = R * 0.06; g.lineCap = "round"
+            g.beginPath(); g.moveTo(R * 0.5, y - R * 0.46); g.lineTo(R * 0.74, y - R * 0.34); g.stroke()
+            g.beginPath(); g.moveTo(R * 0.46, y - R * 0.34); g.lineTo(R * 0.7, y - R * 0.22); g.stroke()
+        }
+        if (CAST[cur].style === "long") { // Luka's gold band
+            g.strokeStyle = "#E3B341"; g.lineWidth = R * 0.07; g.beginPath(); g.arc(0, R * (0.3 + T.accY), R * 1.08, -Math.PI * 0.9, -Math.PI * 0.1, false); g.stroke()
+        }
     const sh = g.createRadialGradient(R * 0.2, -R * 0.2, R * 0.5, 0, 0, R * 1.35); sh.addColorStop(0, "rgba(0,0,0,0)"); sh.addColorStop(1, "rgba(0,0,0," + T.shade + ")");
     g.fillStyle = sh; g.fillRect(-R * 1.5, -R * 1.3, R * 3, R * 2.7);
     const hl = g.createRadialGradient(R * 0.5, -R * 0.5, 0, R * 0.5, -R * 0.5, R * 0.6); hl.addColorStop(0, "rgba(255,255,255," + T.hl + ")"); hl.addColorStop(1, "rgba(255,255,255,0)");
     g.fillStyle = hl; g.fillRect(-R * 1.5, -R * 1.3, R * 3, R * 2.7);
     g.restore();
+        if (CAST[cur].style === "bow") { // Rin's bow stands on her head and flops with every bounce
+            const flop = 1 - s.sq * 0.12, tilt = Math.sin(s.t * 2.4) * 0.05
+            g.save(); g.translate(0, R * (-0.8 + T.accY)); g.rotate(tilt); g.scale(1, flop)
+            g.fillStyle = "#FFFFFF"; g.strokeStyle = "#D8DEE4"; g.lineWidth = R * 0.03; g.lineJoin = "round"
+            for (const d of [-1, 1]) {
+                g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(d * R * 0.3, -R * 0.72, d * R * 0.72, -R * 0.56)
+                g.quadraticCurveTo(d * R * 0.86, -R * 0.2, d * R * 0.5, R * 0.06); g.closePath(); g.fill(); g.stroke()
+            }
+            g.beginPath(); ell(g, 0, -R * 0.02, R * 0.13, R * 0.11); g.fill(); g.stroke()
+            g.restore()
+        }
 
     const reach = 1 + (1 - detail) * 0.6, fx = s.gx * R * T.gazeX * reach, fy = s.gy * R * T.gazeY * reach;
     g.fillStyle = rgba(T.cheek, T.cheekA * Math.max(0.35, s.blush));
@@ -333,7 +395,7 @@ class Bot {
     const soft = type === "normal" || type === "big" || type === "tired" || type === "smug";
     const open = soft ? clampv(1 - Math.max(0, s.blink), 0.08, 1) : 1;
     const kk = (type === "big" ? 1.2 : 1) * (world.hovered ? 1.08 : 1) * (1 + (1 - this.detail) * 0.35);
-    const lid = type === "tired" ? 0.62 : type === "smug" ? 0.66 : 1;
+    const lid = type === "tired" ? 0.62 : type === "smug" ? 0.66 : CAST[cur].calm && type === "normal" ? 0.8 : 1;
     for (const d of [-1, 1]) {
       const x = d * R * T.ex + fx, y = R * T.ey + fy, w = R * T.ew * kk, h = R * T.eh * kk;
       g.lineCap = "round"; g.lineJoin = "round";
@@ -465,9 +527,15 @@ function build() {
     host.appendChild(fs);
   }
 }
-build(); save();
-document.getElementById("bReset").onclick = () => { T = Object.assign({}, DEF); build(); save(); };
-document.getElementById("bApply").onclick = () => { try { T = Object.assign({}, DEF, JSON.parse(document.getElementById("json").value)); build(); save(); } catch (e) { alert("Не разобрать: " + e.message); } };
+function pick(c) {
+  cur = c; T = ALL[c]; build(); save(); document.getElementById("pname").textContent = CAST[c].name;
+  document.querySelectorAll("#cast button").forEach(x => x.classList.toggle("on", x.dataset.c === c));
+}
+for (const c in CAST) { const b = document.createElement("button"); b.textContent = CAST[c].name; b.dataset.c = c; b.onclick = () => pick(c); document.getElementById("cast").appendChild(b); }
+pick("miku");
+document.getElementById("bShare").onclick = e => { for (const c in CAST) for (const k of SHARED) ALL[c][k] = T[k]; save(); e.target.textContent = "Готово"; setTimeout(() => e.target.textContent = "Тело, лицо и руки этой — всем", 1200); };
+document.getElementById("bReset").onclick = () => { ALL[cur] = T = Object.assign({}, DEF, CAST[cur].over); build(); save(); };
+document.getElementById("bApply").onclick = () => { try { const sv = JSON.parse(document.getElementById("json").value); for (const c in CAST) if (sv[c]) ALL[c] = Object.assign({}, DEF, CAST[c].over, sv[c]); T = ALL[cur]; build(); save(); } catch (e) { alert("Не разобрать: " + e.message); } };
 document.getElementById("bCopy").onclick = e => { const ta = document.getElementById("json"); ta.select(); try { navigator.clipboard.writeText(ta.value); } catch (x) { document.execCommand("copy"); } e.target.textContent = "Скопировано"; setTimeout(() => e.target.textContent = "Скопировать", 1200); };
 </script>
 </body>

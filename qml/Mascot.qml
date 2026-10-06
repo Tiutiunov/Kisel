@@ -1,7 +1,8 @@
-// The mascots: five mochi-shaped singers drawn by one engine. A rounded square, hair on
-// springs, a headset whose light takes the mood's colour, and two small hands in their
-// sleeves. Drawn in code on one Canvas (see design/miku-mochi.html for the prototype
-// this grew from); nothing here is a bitmap.
+// The mascots: five singers drawn by one engine after coucou's Mochi. Its flattened
+// superellipse in plain cream white, which takes the mood's colour from below; two ink
+// pills for eyes; and on it what makes each of them herself: her fringe, the hair that
+// hangs on springs, what she wears on her head, and a headset whose light takes the
+// mood's colour. Drawn in code on one Canvas; nothing here is a bitmap.
 //
 //   miku  twin tails; bright and earnest. Hums to herself, sulks when slapped.
 //   rin   a big white bow; loud and restless. Bounces, loses her temper when slapped.
@@ -9,12 +10,9 @@
 //   gumi  goggles on her head; sunny and sporty. Laughs a slap off.
 //   teto  twin drills; smug, and flustered the moment anyone is nice to her.
 //
-// Miku is the first to be redrawn after coucou's Mochi (`mochi: true` in `chars`): its
-// flattened superellipse, a plain cream-white body that takes the mood's colour from
-// below, and two ink pills for eyes, under her own fringe, twin tails and headset. Every
-// number of that drawing is in `mk`, and design/miku-editor.html is the same drawing in
-// a browser with a slider for each: what it copies out is pasted into `mk` as it is. The
-// other four follow.
+// Every number of the drawing is in `mk` (`mkBase`, then what differs for each in
+// `mks`). design/miku-editor.html is the same drawing in a browser with a slider for
+// each number; what it copies out goes into `mkBase` and `mks`.
 //
 // `character` picks one. They share every mood and differ in looks (`chars`), in how
 // fast and how high they move, and in the emotes of their own: the quirk each falls into
@@ -49,6 +47,7 @@ Item {
     property real leafScale: 1            // first launch: the hair grows from its roots
     property bool paused: false           // out of sight: nothing is simulated or painted
     property bool music: false            // a tune is playing: idle, she hums along
+    property bool bench: false            // waiting her turn in a seat: small, cheap, but alive (see the bench timer)
     property bool still: false            // a portrait: painted once, never animated (the bar's small ones)
 
     // ---- dragging (motion.md, "Dragging, edges and monitors") ----------------------
@@ -73,42 +72,41 @@ Item {
     // eye: the iris from top to bottom. set / tip: the headset and its mic's tip.
     // energy: how fast she moves. bounce: how high. calm: lowered lids.
     readonly property var chars: ({
-        miku: { name: "Miku", hair: "#39C5BB", hairD: "#22968E", hairTop: "#55DACF", eye: ["#0B3F45", "#1C9C97", "#63E6DB"], style: "twintails",
-                vest: "#C6CFD6", trim: "#39C5BB", tie: "#2FB9AF", set: "#1b1f25", tip: "#E12885", sleeve: "#2B3138", cuff: "#39C5BB",
-                energy: 1, bounce: 1, mouth: "smile", fav: "leek", slap: "annoyed", rest: "love", quirk: "hum", mochi: true },
-        rin:  { name: "Rin", hair: "#FFD24A", hairD: "#E0A92E", hairTop: "#FFE585", eye: ["#0E4A5E", "#2BA6C9", "#8BE3F5"], style: "bow",
-                vest: "#F4F6F8", trim: "#F2B705", tie: "#F2B705", set: "#F4F6F8", tip: "#F2B705", sleeve: "#2B3138", cuff: "#F2B705",
-                energy: 1.3, bounce: 1.4, mouth: "grin", fav: "orange", slap: "angry", rest: "love", quirk: "hype" },
-        luka: { name: "Luka", hair: "#F5A3C0", hairD: "#D9779D", hairTop: "#FFC6DA", eye: ["#123E5A", "#2F86B5", "#8FD3F0"], style: "long",
-                vest: "#3A2A22", trim: "#E3B341", tie: "#3FA7D6", set: "#E3B341", tip: "#3FA7D6", sleeve: "#3A2A22", cuff: "#E3B341",
-                energy: 0.7, bounce: 0.5, mouth: "soft", calm: true, fav: "tuna", slap: "unimpressed", rest: "fond", quirk: "cool" },
-        gumi: { name: "GUMI", hair: "#7ED957", hairD: "#4FAE35", hairTop: "#A9EE88", eye: ["#14502A", "#2FA655", "#8EEBA6"], style: "goggles",
-                vest: "#F59E2B", trim: "#F7D13D", tie: "#7ED957", set: "#F4F6F8", tip: "#F5622B", sleeve: "#F59E2B", cuff: "#F7D13D",
-                energy: 1.15, bounce: 1.2, mouth: "smile", fav: "carrot", slap: "laugh", rest: "love", quirk: "stretch" },
-        teto: { name: "Teto", hair: "#E0405A", hairD: "#B02A44", hairTop: "#F26A82", eye: ["#5A0E22", "#C22F52", "#F58AA2"], style: "drills",
-                vest: "#8E99A6", trim: "#E0405A", tie: "#E0405A", set: "#1b1f25", tip: "#E0405A", sleeve: "#4A525C", cuff: "#E0405A",
-                energy: 1, bounce: 0.9, mouth: "smug", fav: "bread", slap: "tsun", rest: "flustered", quirk: "smug" }
+        miku: { name: "Miku", style: "twintails", energy: 1, bounce: 1, mouth: "smile", fav: "leek", slap: "annoyed", rest: "love", quirk: "hum" },
+        rin:  { name: "Rin", style: "bow", energy: 1.3, bounce: 1.4, mouth: "grin", fav: "orange", slap: "angry", rest: "love", quirk: "hype" },
+        luka: { name: "Luka", style: "long", energy: 0.7, bounce: 0.5, mouth: "soft", calm: true, fav: "tuna", slap: "unimpressed", rest: "fond", quirk: "cool" },
+        gumi: { name: "GUMI", style: "goggles", energy: 1.15, bounce: 1.2, mouth: "smile", fav: "carrot", slap: "laugh", rest: "love", quirk: "stretch" },
+        teto: { name: "Teto", style: "drills", energy: 1, bounce: 0.9, mouth: "smug", fav: "bread", slap: "tsun", rest: "flustered", quirk: "smug" }
     })
-    // The mochi Miku's numbers, in body radii (names as in design/miku-editor.html).
-    readonly property var mk: ({
-        rx: 1.14, ry: 0.88, exp: 2.7, bodyTop: "#FFFAF5", bodyBot: "#DDCCBF", shade: 0.2, hl: 0.55, tint: 0.62,
+    // The drawing's numbers, in body radii (names as in design/miku-editor.html): Miku's,
+    // and under them what the others have of their own.
+    readonly property var mkBase: ({
+        rx: 1.14, ry: 0.88, exp: 3.4, bodyTop: "#FFFAF5", bodyBot: "#DDCCBF", shade: 0.2, hl: 0.55, tint: 0.62,
         ex: 0.32, ey: 0.14, ew: 0.12, eh: 0.19, ink: "#1A1412", gazeX: 0.24, gazeY: 0.15,
         cx: 0.66, cy: 0.42, cw: 0.16, ch: 0.095, cheek: "#FF7896", cheekA: 0.5,
         mouthY: 0.5, mouthRest: 0,
         hairOn: 1, hair: "#39C5BB", hairD: "#22968E", hairTop: "#55DACF", fringeY: -0.14, bangTip: -0.06, bangNotch: -0.4,
         backW: 1.07, backH: 1.04, backUp: 0.08, lock: 0.4, shine: 0.4,
         tx: 0.9, ty: -0.6, seg: 0.36, out: 5, tw: 1, tieOn: 1, tie: "#1B1F25", tieBand: "#E12885",
-        setOn: 1, set: "#1B1F25", tip: "#E12885",
+        setOn: 1, set: "#1B1F25", tip: "#E12885", accY: 0,
         hand: 0.17
     })
+    readonly property var mks: ({
+        miku: {},
+        rin:  { hair: "#FFD24A", hairD: "#E0A92E", hairTop: "#FFE585", lock: 0.26, set: "#F4F6F8", tip: "#F2B705" },
+        luka: { hair: "#F5A3C0", hairD: "#D9779D", hairTop: "#FFC6DA", tx: 0.92, ty: -0.2, seg: 0.38, out: 2, set: "#E3B341", tip: "#3FA7D6" },
+        gumi: { hair: "#7ED957", hairD: "#4FAE35", hairTop: "#A9EE88", lock: 0.62, set: "#F4F6F8", tip: "#F5622B" },
+        teto: { hair: "#E0405A", hairD: "#B02A44", hairTop: "#F26A82", tx: 1.06, ty: -0.45, seg: 0.25, out: 22, tip: "#E0405A" }
+    })
+    readonly property var mk: Object.assign({}, mkBase, mks[shown] || {})
     // Who is drawn. It follows `character` through the change of places below, so the
     // one leaving is still herself while she goes.
     property string shown: "miku"
     readonly property var who: chars[shown] || chars.miku
     readonly property string displayName: who.name
-    readonly property string hair: skin === "github" ? "#8b949e" : who.mochi ? mk.hair : who.hair
-    readonly property string hairD: skin === "github" ? "#57606a" : who.mochi ? mk.hairD : who.hairD
-    readonly property string hairTop: skin === "github" ? "#b1bac4" : who.mochi ? mk.hairTop : who.hairTop
+    readonly property string hair: skin === "github" ? "#8b949e" : mk.hair
+    readonly property string hairD: skin === "github" ? "#57606a" : mk.hairD
+    readonly property string hairTop: skin === "github" ? "#b1bac4" : mk.hairTop
 
     // The hair that hangs on springs: where it is rooted (in body radii), how many links,
     // how long each, how wide along its length, and how far it is pushed outward.
@@ -119,11 +117,11 @@ Item {
         bow: null, goggles: null
     })
 
-    // (the mochi's tails take their root, length, spread and width from `mk`)
+    // (where the hair is rooted, how long, how spread and how wide it is comes from `mk`)
     function hairOf(style) {
         const H = hairs[style]
-        if (!H || !who.mochi || style !== "twintails") return H
-        return { x: mk.tx, y: mk.ty, n: H.n, seg: mk.seg, out: mk.out, w: H.w.map(v => v * mk.tw) }
+        if (!H) return H
+        return { x: mk.tx, y: mk.ty, n: H.n, seg: mk.seg, out: mk.out, w: H.w.map(v => v * mk.tw), coil: H.coil }
     }
 
     // ---- mood, and the emote on top of it ----------------------------------------
@@ -188,10 +186,28 @@ Item {
         running: root.hovered && root.detail > 0.5 && !root.dragging && !root.still
         onTriggered: if (root.emote === "" && (root.m === "idle" || root.m === "walk")) { root.play(root.who.rest, 2400); Sfx.play("hover") }
     }
+    // On the bench nobody sits still: every few seconds one of them hops, bobs, smiles,
+    // sways or falls into her habit. Each has a clock of her own, so they never move as one.
+    Timer {
+        interval: 1500 + Math.random() * 5000
+        running: root.bench && !root.still && !root.paused && root.visible && !Theme.reduced
+        repeat: true
+        onTriggered: {
+            interval = 2500 + Math.random() * 6000 / root.who.energy
+            if (root.emote !== "") return
+            const r = Math.random()
+            if (r < 0.25) root.jump(0.35, false)
+            else if (r < 0.45) root.st.sqv += 5
+            else if (r < 0.6) root.st.swing = 1
+            else if (r < 0.75) { root.st.blink = 1; root.st.blinks = 1 }
+            else if (r < 0.9) root.play("laugh", 1100)
+            else root.play(root.who.quirk, 1600)
+        }
+    }
     // left alone and idle, each falls into a habit of her own now and then
     Timer {
         interval: 9000 + Math.random() * 12000
-        running: !root.still && !root.paused && root.visible && root.m === "idle" && root.emote === "" && !root.dragging && !Theme.reduced
+        running: !root.still && !root.bench && !root.paused && root.visible && root.m === "idle" && root.emote === "" && !root.dragging && !Theme.reduced
         repeat: true
         onTriggered: {
             interval = 9000 + Math.random() * 12000
@@ -326,7 +342,7 @@ Item {
 
     Timer {
         // the bar's mini has little to show: 20 frames a second are plenty there
-        interval: root.detail > 0 || root.dragging ? 16 : 50
+        interval: root.bench ? 66 : root.detail > 0 || root.dragging ? 16 : 50
         running: root.visible && !root.paused && !root.still
         repeat: true
         onTriggered: {
@@ -453,7 +469,7 @@ Item {
         const add = o => s.parts.push(Object.assign({ life: 0, rot: 0, x: P.x, y: P.y }, o))
         if (fx === "heart")  { s.fxClock = 0.22; add({ type: "heart", x: P.x + r() * R * 1.6, y: P.y - R * 0.5, vx: r() * R * 0.4, vy: -R * 1.5, max: 1.3, size: R * (0.16 + Math.random() * 0.12) }) }
         if (fx === "heart1") { s.fxClock = 0.9;  add({ type: "heart", x: P.x + R * 0.9, y: P.y - R * 0.7, vx: R * 0.15, vy: -R * 0.7, max: 1.8, size: R * 0.16 }) }
-        if (fx === "note")   { s.fxClock = 0.3;  add({ type: "note", x: P.x - R * 1.1 + r() * R * 0.5, y: P.y - R * 0.7, vx: -R * 0.5 + r() * R, vy: -R * 1.4, max: 1.5, size: R * 0.26, hue: Math.random() < 0.5 ? hair : who.tip, vr: r() }) }
+        if (fx === "note")   { s.fxClock = 0.3;  add({ type: "note", x: P.x - R * 1.1 + r() * R * 0.5, y: P.y - R * 0.7, vx: -R * 0.5 + r() * R, vy: -R * 1.4, max: 1.5, size: R * 0.26, hue: Math.random() < 0.5 ? hair : mk.tip, vr: r() }) }
         if (fx === "spark") {
             s.fxClock = 0.09
             // every fifth piece of the celebration is her favourite thing
@@ -481,8 +497,8 @@ Item {
         g.bezierCurveTo(x + s * 0.7, y - s * 1.2, x + s * 1.5, y - s * 0.2, x, y + s * 0.9); g.fill()
     }
     function bodyPath(g) {
-        // a rounded square, not a ball; the mochi is coucou's: wider, flatter, exponent 2.7
-        const R = cR, M = who.mochi, rx = (M ? mk.rx : 1.1) * R, ry = (M ? mk.ry : 0.96) * R, e = 2 / (M ? mk.exp : 4.6), dy = R * (M ? 0.06 : 0.04)
+        // coucou's Mochi: a flattened superellipse
+        const R = cR, rx = mk.rx * R, ry = mk.ry * R, e = 2 / mk.exp, dy = R * 0.06
         g.beginPath()
         for (let i = 0; i <= 64; i++) {
             const a = i / 64 * 2 * Math.PI, c = Math.cos(a), s = Math.sin(a)
@@ -511,11 +527,11 @@ Item {
         paintBody(g, L)
         g.restore()
 
-        if (s.tailStyle === "twintails" && (!who.mochi || mk.tieOn)) for (const T of s.tails) {
+        if (s.tailStyle === "twintails" && mk.tieOn) for (const T of s.tails) {
             if (!T.p.length) continue // the ties sit on the tails' roots, over the body's corners
             const a = T.p[0]; g.save(); g.translate(a.x, a.y); g.rotate(P.angle + T.side * 0.5)
-            g.fillStyle = who.mochi ? mk.tie : "#1b1f25"; rr(g, -R * 0.2, -R * 0.14, R * 0.4, R * 0.28, R * 0.06); g.fill()
-            g.fillStyle = who.mochi ? mk.tieBand : "#E12885"; g.fillRect(-R * 0.2, -R * 0.03, R * 0.4, R * 0.06); g.restore()
+            g.fillStyle = mk.tie; rr(g, -R * 0.2, -R * 0.14, R * 0.4, R * 0.28, R * 0.06); g.fill()
+            g.fillStyle = mk.tieBand; g.fillRect(-R * 0.2, -R * 0.03, R * 0.4, R * 0.06); g.restore()
         }
 
         if (detail > 0.25) { g.globalAlpha = clampv((detail - 0.25) / 0.4, 0, 1); paintHands(g, P, L); g.globalAlpha = 1 }
@@ -564,93 +580,11 @@ Item {
         }
     }
 
+    // Coucou's Mochi under each one's own hair: cream from the top right to the bottom
+    // left, the mood's colour rising from below, a soft shade at the rim and a highlight;
+    // over it the back of the hair, the side locks, the fringe and what she wears on her
+    // head. Every number is in `mk`.
     function paintBody(g, L) {
-        const s = st, R = cR, TAU = 2 * Math.PI, W = who
-        if (W.mochi) { paintMochi(g, L); return }
-        g.save(); g.translate(0, -R * 0.07); g.scale(1.07, 1.03); bodyPath(g); g.fillStyle = hairD; g.fill(); g.restore()
-
-        bodyPath(g)
-        const sk = g.createLinearGradient(R, -R, -R, R); sk.addColorStop(0, "#FFF6EE"); sk.addColorStop(1, "#E9D3C6")
-        g.fillStyle = sk; g.fill()
-        g.save(); bodyPath(g); g.clip()
-
-        // outfit: the vest, its trim, a collar and a tie in her colours
-        g.fillStyle = W.vest; g.beginPath(); g.moveTo(-R * 1.3, R * 0.62); g.quadraticCurveTo(0, R * 0.5, R * 1.3, R * 0.62); g.lineTo(R * 1.3, R * 1.2); g.lineTo(-R * 1.3, R * 1.2); g.fill()
-        g.fillStyle = W.trim; g.fillRect(-R * 1.3, R * 0.9, R * 2.6, R * 0.05)
-        g.fillStyle = who.style === "bow" ? "#2B3138" : "#EEF2F5" // Rin's sailor collar is dark
-        g.beginPath(); g.moveTo(0, R * 0.6); g.lineTo(-R * 0.34, R * 0.56); g.lineTo(-R * 0.18, R * 0.76); g.fill()
-        g.beginPath(); g.moveTo(0, R * 0.6); g.lineTo(R * 0.34, R * 0.56); g.lineTo(R * 0.18, R * 0.76); g.fill()
-        g.fillStyle = skin === "github" ? "#8b949e" : W.tie
-        if (who.style === "long") { g.beginPath(); g.arc(0, R * 0.72, R * 0.1, 0, TAU, false); g.fill() } // Luka wears a gem, not a tie
-        else { g.beginPath(); g.moveTo(0, R * 0.6); g.lineTo(R * 0.09, R * 0.68); g.lineTo(R * 0.13, R * 0.98); g.lineTo(-R * 0.13, R * 0.98); g.lineTo(-R * 0.09, R * 0.68); g.fill() }
-
-        // side locks in front of the ears (GUMI's are long, Rin's short and flicked)
-        const lock = who.style === "goggles" ? 0.72 : who.style === "bow" ? 0.3 : 0.48
-        for (const d of [-1, 1]) { g.fillStyle = hair; g.beginPath(); g.moveTo(d * R * 1.2, -R * 0.4); g.quadraticCurveTo(d * R * 0.86, 0, d * R * 1.0, R * lock); g.quadraticCurveTo(d * R * 1.12, R * 0.2, d * R * 1.2, R * (lock + 0.02)); g.fill() }
-
-        // fringe
-        const hg = g.createLinearGradient(0, -R, 0, 0); hg.addColorStop(0, hairTop); hg.addColorStop(1, hair)
-        g.fillStyle = hg; g.beginPath(); g.moveTo(-R * 1.3, -R * 1.1); g.lineTo(R * 1.3, -R * 1.1); g.lineTo(R * 1.3, -R * 0.12)
-        const B = [[1.0, -0.04], [0.74, -0.34], [0.5, 0.0], [0.24, -0.38], [0.02, -0.03], [-0.26, -0.38], [-0.5, 0.0], [-0.74, -0.34], [-1.0, -0.04]]
-        for (let i = 0; i < B.length; i++) { const p = B[i], q = B[i + 1] || [-1.3, -0.12]; g.quadraticCurveTo(p[0] * R, p[1] * R, (p[0] + q[0]) / 2 * R, (p[1] + q[1]) / 2 * R) }
-        g.lineTo(-R * 1.3, -R * 0.12); g.closePath(); g.fill()
-        g.strokeStyle = "rgba(255,255,255,0.4)"; g.lineWidth = R * 0.07; g.lineCap = "round"
-        g.beginPath(); g.arc(0, R * 0.25, R * 0.98, -Math.PI * 0.78, -Math.PI * 0.55, false); g.stroke()
-        g.beginPath(); g.arc(0, R * 0.25, R * 0.98, -Math.PI * 0.42, -Math.PI * 0.34, false); g.stroke()
-
-        if (who.style === "goggles") { // GUMI's goggles, pushed up into her hair
-            g.strokeStyle = "#F5622B"; g.lineWidth = R * 0.09; g.beginPath(); g.moveTo(-R * 1.2, -R * 0.62); g.lineTo(R * 1.2, -R * 0.62); g.stroke()
-            for (const d of [-1, 1]) {
-                g.fillStyle = "#F4F6F8"; g.beginPath(); g.arc(d * R * 0.34, -R * 0.64, R * 0.24, 0, TAU, false); g.fill()
-                g.fillStyle = "#F5622B"; g.beginPath(); g.arc(d * R * 0.34, -R * 0.64, R * 0.17, 0, TAU, false); g.fill()
-                g.fillStyle = "rgba(255,255,255,0.6)"; g.beginPath(); g.arc(d * R * 0.34 - R * 0.06, -R * 0.7, R * 0.05, 0, TAU, false); g.fill()
-            }
-        }
-        if (who.style === "bow") { // Rin's two white hair clips
-            g.strokeStyle = "#F4F6F8"; g.lineWidth = R * 0.06
-            g.beginPath(); g.moveTo(R * 0.5, -R * 0.42); g.lineTo(R * 0.74, -R * 0.3); g.stroke()
-            g.beginPath(); g.moveTo(R * 0.46, -R * 0.3); g.lineTo(R * 0.7, -R * 0.18); g.stroke()
-        }
-        if (who.style === "long") { // Luka's gold band
-            g.strokeStyle = "#E3B341"; g.lineWidth = R * 0.07; g.beginPath(); g.arc(0, R * 0.3, R * 1.12, -Math.PI * 0.86, -Math.PI * 0.14, false); g.stroke()
-        }
-
-        const sh = g.createRadialGradient(R * 0.2, -R * 0.2, R * 0.5, 0, 0, R * 1.35); sh.addColorStop(0, "rgba(0,0,0,0)"); sh.addColorStop(1, "rgba(0,20,30,0.2)")
-        g.fillStyle = sh; g.fillRect(-R * 1.4, -R * 1.2, R * 2.8, R * 2.4)
-        g.restore()
-
-        if (who.style === "bow") { // Rin's bow stands on her head and flops with every bounce
-            const flop = 1 - s.sq * 0.12, tilt = Math.sin(s.t * 2.4) * 0.05
-            g.save(); g.translate(0, -R * 0.94); g.rotate(tilt); g.scale(1, flop)
-            g.fillStyle = "#FFFFFF"; g.strokeStyle = "#D8DEE4"; g.lineWidth = R * 0.03; g.lineJoin = "round"
-            for (const d of [-1, 1]) {
-                g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(d * R * 0.3, -R * 0.72, d * R * 0.72, -R * 0.56)
-                g.quadraticCurveTo(d * R * 0.86, -R * 0.2, d * R * 0.5, R * 0.06); g.closePath(); g.fill(); g.stroke()
-            }
-            g.beginPath(); ell(g, 0, -R * 0.02, R * 0.13, R * 0.11); g.fill(); g.stroke()
-            g.restore()
-        }
-
-        // face
-        // the face travels further in the bar's mini, where a glance must show in two pixels
-        const reach = 1 + (1 - detail) * 0.9
-        const fx = s.gx * R * 0.15 * reach, fy = s.gy * R * 0.1 * reach
-        g.fillStyle = "rgba(255,110,150," + 0.55 * s.blush + ")"
-        for (const d of [-1, 1]) { g.beginPath(); ell(g, d * R * 0.72 + fx, R * 0.38 + fy, R * 0.17, R * 0.1); g.fill() }
-        paintEyes(g, L, fx, fy)
-        paintMouth(g, L, fx * 0.8, fy)
-
-        // headset: the ear piece carries the mood's light, the boom ends in a coloured tip
-        g.fillStyle = W.set; g.beginPath(); ell(g, -R * 1.1, R * 0.02, R * 0.14, R * 0.24); g.fill()
-        g.strokeStyle = L.color; g.lineWidth = R * 0.045; g.beginPath(); ell(g, -R * 1.1, R * 0.02, R * 0.07, R * 0.15); g.stroke()
-        g.strokeStyle = W.set; g.lineWidth = R * 0.045; g.beginPath(); g.moveTo(-R * 1.08, R * 0.22); g.quadraticCurveTo(-R * 0.95, R * 0.6, -R * 0.5 + fx * 0.5, R * 0.56); g.stroke()
-        g.fillStyle = W.tip; g.beginPath(); g.arc(-R * 0.5 + fx * 0.5, R * 0.56, R * 0.055, 0, TAU, false); g.fill()
-    }
-
-    // Coucou's Mochi with Miku's hair on it: cream from the top right to the bottom left,
-    // the mood's colour rising from below, a soft shade at the rim and a highlight; the
-    // fringe, the side locks and the back of the hair as before. Every number is in `mk`.
-    function paintMochi(g, L) {
         const s = st, R = cR, TAU = 2 * Math.PI, T = mk, ry = R * T.ry, gh = skin === "github"
         if (T.hairOn) { // the back of the hair: the body's own shape, a little larger and higher
             g.save(); g.translate(0, -R * T.backUp); g.scale(T.backW, T.backH); bodyPath(g); g.fillStyle = hairD; g.fill(); g.restore()
@@ -679,11 +613,40 @@ Item {
             g.beginPath(); g.arc(0, R * 0.25, R * 0.98, -Math.PI * 0.78, -Math.PI * 0.55, false); g.stroke()
             g.beginPath(); g.arc(0, R * 0.25, R * 0.98, -Math.PI * 0.42, -Math.PI * 0.34, false); g.stroke()
         }
+        if (who.style === "goggles") { // GUMI's goggles, pushed up into her hair
+            const y = R * (-0.58 + T.accY)
+            g.strokeStyle = "#F5622B"; g.lineWidth = R * 0.09; g.beginPath(); g.moveTo(-R * 1.3, y + R * 0.02); g.lineTo(R * 1.3, y + R * 0.02); g.stroke()
+            for (const d of [-1, 1]) {
+                g.fillStyle = "#F4F6F8"; g.beginPath(); g.arc(d * R * 0.34, y, R * 0.23, 0, TAU, false); g.fill()
+                g.fillStyle = "#F5622B"; g.beginPath(); g.arc(d * R * 0.34, y, R * 0.16, 0, TAU, false); g.fill()
+                g.fillStyle = "rgba(255,255,255,0.6)"; g.beginPath(); g.arc(d * R * 0.34 - R * 0.06, y - R * 0.06, R * 0.05, 0, TAU, false); g.fill()
+            }
+        }
+        if (who.style === "bow") { // Rin's two white hair clips
+            const y = R * T.accY
+            g.strokeStyle = "#F4F6F8"; g.lineWidth = R * 0.06; g.lineCap = "round"
+            g.beginPath(); g.moveTo(R * 0.5, y - R * 0.46); g.lineTo(R * 0.74, y - R * 0.34); g.stroke()
+            g.beginPath(); g.moveTo(R * 0.46, y - R * 0.34); g.lineTo(R * 0.7, y - R * 0.22); g.stroke()
+        }
+        if (who.style === "long") { // Luka's gold band
+            g.strokeStyle = "#E3B341"; g.lineWidth = R * 0.07; g.beginPath(); g.arc(0, R * (0.3 + T.accY), R * 1.08, -Math.PI * 0.9, -Math.PI * 0.1, false); g.stroke()
+        }
         const sh = g.createRadialGradient(R * 0.2, -R * 0.2, R * 0.5, 0, 0, R * 1.35); sh.addColorStop(0, "rgba(0,0,0,0)"); sh.addColorStop(1, "rgba(0,0,0," + T.shade + ")")
         g.fillStyle = sh; g.fillRect(-R * 1.5, -R * 1.3, R * 3, R * 2.7)
         const hl = g.createRadialGradient(R * 0.5, -R * 0.5, 0, R * 0.5, -R * 0.5, R * 0.6); hl.addColorStop(0, "rgba(255,255,255," + T.hl + ")"); hl.addColorStop(1, "rgba(255,255,255,0)")
         g.fillStyle = hl; g.fillRect(-R * 1.5, -R * 1.3, R * 3, R * 2.7)
         g.restore()
+        if (who.style === "bow") { // Rin's bow stands on her head and flops with every bounce
+            const flop = 1 - s.sq * 0.12, tilt = Math.sin(s.t * 2.4) * 0.05
+            g.save(); g.translate(0, R * (-0.8 + T.accY)); g.rotate(tilt); g.scale(1, flop)
+            g.fillStyle = "#FFFFFF"; g.strokeStyle = "#D8DEE4"; g.lineWidth = R * 0.03; g.lineJoin = "round"
+            for (const d of [-1, 1]) {
+                g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(d * R * 0.3, -R * 0.72, d * R * 0.72, -R * 0.56)
+                g.quadraticCurveTo(d * R * 0.86, -R * 0.2, d * R * 0.5, R * 0.06); g.closePath(); g.fill(); g.stroke()
+            }
+            g.beginPath(); ell(g, 0, -R * 0.02, R * 0.13, R * 0.11); g.fill(); g.stroke()
+            g.restore()
+        }
 
         // the face: it travels with the glance, further still in the bar's mini
         const reach = 1 + (1 - detail) * 0.6
@@ -693,7 +656,7 @@ Item {
         paintEyes(g, L, fx, fy)
         paintMouth(g, L, fx * 0.9, fy)
 
-        if (T.setOn) { // headset: the ear piece carries the mood's light, the boom ends in a pink tip
+        if (T.setOn) { // headset: the ear piece carries the mood's light, the boom ends in a coloured tip
             const ex = -R * (T.rx - 0.02)
             g.fillStyle = T.set; g.beginPath(); ell(g, ex, R * 0.04, R * 0.12, R * 0.21); g.fill()
             g.strokeStyle = L.color; g.lineWidth = R * 0.045; g.beginPath(); ell(g, ex, R * 0.04, R * 0.055, R * 0.125); g.stroke()
@@ -703,7 +666,7 @@ Item {
     }
 
     function paintEyes(g, L, fx, fy) {
-        const s = st, R = cR, t = s.t, TAU = 2 * Math.PI, M = who.mochi, INK = M ? mk.ink : "#12383A", E = who.eye
+        const s = st, R = cR, t = s.t, TAU = 2 * Math.PI, INK = mk.ink
         const type = eyesShut ? "closed" : L.eyes
         const soft = type === "normal" || type === "big" || type === "tired" || type === "smug"
         const open = soft ? clampv(1 - Math.max(0, s.blink), 0.08, 1) : 1
@@ -712,9 +675,9 @@ Item {
         // lowered lids: Luka always, anyone tired, Teto when she is pleased with herself
         const lid = type === "tired" ? 0.62 : type === "smug" ? 0.66 : who.calm && type === "normal" ? 0.8 : 1
         for (const d of [-1, 1]) {
-            const x = d * R * (M ? mk.ex : 0.44) + fx, y = R * (M ? mk.ey : 0.1) + fy, w = R * (M ? mk.ew : 0.15) * kk, h = R * (M ? mk.eh : 0.2) * kk
+            const x = d * R * mk.ex + fx, y = R * mk.ey + fy, w = R * mk.ew * kk, h = R * mk.eh * kk
             g.lineCap = "round"; g.lineJoin = "round"
-            if (soft && M) { // an ink pill; lowered lids cut its top off
+            if (soft) { // an ink pill; lowered lids cut its top off
                 const hh = Math.max(h * open, R * 0.03)
                 g.fillStyle = INK
                 if (lid < 1) {
@@ -722,23 +685,6 @@ Item {
                     g.save(); g.beginPath(); g.moveTo(x - w * 1.2, top + slant); g.lineTo(x + w * 1.2, top - slant); g.lineTo(x + w * 1.2, y + h * 1.2); g.lineTo(x - w * 1.2, y + h * 1.2); g.closePath(); g.clip()
                     rr(g, x - w, y - hh, w * 2, hh * 2, Math.min(w, hh)); g.fill(); g.restore()
                 } else { rr(g, x - w, y - hh, w * 2, hh * 2, Math.min(w, hh)); g.fill() }
-                continue
-            }
-            if (soft) {
-                const hh = h * open * lid
-                const eg = g.createLinearGradient(0, y - hh, 0, y + hh); eg.addColorStop(0, E[0]); eg.addColorStop(0.55, E[1]); eg.addColorStop(1, E[2])
-                g.fillStyle = eg; g.beginPath(); ell(g, x, y, w, hh); g.fill()
-                if (open > 0.5) {
-                    g.fillStyle = "rgba(0,0,0,0.55)"; g.beginPath(); ell(g, x + fx * 0.12, y, w * 0.45, hh * 0.5); g.fill()
-                    g.fillStyle = "#ffffff"; g.beginPath(); g.arc(x - w * 0.35, y - hh * 0.45, w * 0.3, 0, TAU, false); g.fill()
-                    g.beginPath(); g.arc(x + w * 0.4, y + hh * 0.4, w * 0.15, 0, TAU, false); g.fill()
-                }
-                g.strokeStyle = INK; g.lineWidth = R * 0.055; g.beginPath(); ell(g, x, y, w * 1.08, hh * 1.05, Math.PI * 1.1, Math.PI * 1.9); g.stroke()
-                g.beginPath(); g.moveTo(x + d * w * 1.0, y - hh * 0.55); g.lineTo(x + d * w * 1.45, y - hh * 0.85); g.stroke()
-                if (lid < 1) { // the lid: level when tired or calm, slanted when smug
-                    const slant = type === "smug" ? d * hh * 0.35 : 0
-                    g.beginPath(); g.moveTo(x - w * 1.1, y - hh * 0.9 + slant); g.lineTo(x + w * 1.1, y - hh * 0.9 - slant); g.stroke()
-                }
                 continue
             }
             g.strokeStyle = INK; g.fillStyle = INK; g.lineWidth = R * 0.07
@@ -760,10 +706,10 @@ Item {
     }
 
     function paintMouth(g, L, fx, fy) {
-        const R = cR, t = st.t, x = fx, y = R * (who.mochi ? mk.mouthY : 0.46) + fy, mo = L.mouth, TAU = 2 * Math.PI
-        // the mochi's face at rest is its eyes and cheeks: a mouth appears only to say something
-        if (who.mochi && !mk.mouthRest && (mo === "smile" || mo === "soft" || mo === "flat")) return
-        g.strokeStyle = who.mochi ? mk.ink : "#12383A"; g.fillStyle = "#7A2137"; g.lineWidth = R * 0.05; g.lineCap = "round"; g.lineJoin = "round"
+        const R = cR, t = st.t, x = fx, y = R * mk.mouthY + fy, mo = L.mouth, TAU = 2 * Math.PI
+        // the face at rest is its eyes and cheeks: a mouth appears only to say something
+        if (!mk.mouthRest && (mo === "smile" || mo === "soft" || mo === "flat")) return
+        g.strokeStyle = mk.ink; g.fillStyle = "#7A2137"; g.lineWidth = R * 0.05; g.lineCap = "round"; g.lineJoin = "round"
         if (mo === "smile") { g.beginPath(); g.arc(x, y - R * 0.06, R * 0.13, Math.PI * 0.18, Math.PI * 0.82, false); g.stroke() }
         if (mo === "soft")  { g.beginPath(); g.arc(x, y - R * 0.1, R * 0.12, Math.PI * 0.3, Math.PI * 0.7, false); g.stroke() }      // Luka's small, even smile
         if (mo === "flat")  { g.beginPath(); g.moveTo(x - R * 0.08, y); g.lineTo(x + R * 0.08, y); g.stroke() }
@@ -785,19 +731,10 @@ Item {
     function paintHands(g, P, L) {
         const s = st, R = cR, TAU = 2 * Math.PI
         for (let i = 0; i < 2; i++) {
-            const h = toWorld(P, s.hand[i].x, s.hand[i].y), sh = toWorld(P, (i ? 1 : -1) * 0.9, 0.5)
-            g.save(); g.translate(h.x, h.y); g.rotate(Math.atan2(h.y - sh.y, h.x - sh.x))
-            if (who.mochi) { // a plain cream paw
-                const mg = g.createRadialGradient(R * 0.05, -R * 0.06, R * 0.02, 0, 0, R * (mk.hand + 0.03)); mg.addColorStop(0, mk.bodyTop); mg.addColorStop(1, mk.bodyBot)
-                g.fillStyle = mg; g.beginPath(); g.arc(0, 0, R * mk.hand, 0, TAU, false); g.fill()
-                g.restore(); continue
-            }
-            // the detached sleeve: flared toward the hand, trimmed at the cuff
-            g.fillStyle = who.sleeve; g.beginPath(); g.moveTo(-R * 0.3, -R * 0.08); g.lineTo(-R * 0.03, -R * 0.15); g.lineTo(-R * 0.03, R * 0.15); g.lineTo(-R * 0.3, R * 0.08); g.closePath(); g.fill()
-            g.fillStyle = who.cuff; g.fillRect(-R * 0.08, -R * 0.15, R * 0.05, R * 0.3)
-            g.fillStyle = who.tip; g.fillRect(-R * 0.22, -R * 0.03, R * 0.07, R * 0.06)
-            const hg = g.createRadialGradient(R * 0.08, -R * 0.05, R * 0.02, R * 0.1, 0, R * 0.2); hg.addColorStop(0, "#FFF6EE"); hg.addColorStop(1, "#E9D3C6")
-            g.fillStyle = hg; g.beginPath(); g.arc(R * 0.09, 0, R * 0.15, 0, TAU, false); g.fill()
+            const h = toWorld(P, s.hand[i].x, s.hand[i].y) // a plain cream paw
+            g.save(); g.translate(h.x, h.y)
+            const mg = g.createRadialGradient(R * 0.05, -R * 0.06, R * 0.02, 0, 0, R * (mk.hand + 0.03)); mg.addColorStop(0, mk.bodyTop); mg.addColorStop(1, mk.bodyBot)
+            g.fillStyle = mg; g.beginPath(); g.arc(0, 0, R * mk.hand, 0, TAU, false); g.fill()
             g.restore()
         }
         if (L.hands === "heart" && !dragging) { // the heart the two hands hold between them
