@@ -1,10 +1,12 @@
 // Zundamon's Home: what Spotify is playing. It takes the whole of Home's place
 // (494 x 138): with her on stage the card is a player.
 //
-// A panel washed in the cover's own colours; the cover with a record that slides out
-// from behind it and turns while the tune plays; the title over the artist; a row of
-// bars that dance (they keep time with nothing: the system tells us what plays, not
-// how it sounds); the progress with the time on both sides; previous, play or pause, next.
+// Drawn like a page of a sticker album, straight on the card with no panel under it:
+// the cover is a sticker with a white edge, stuck on a little askew with a strip of
+// tape, a record peeping out from behind it that turns while the tune plays; sparkles
+// twinkle around it; candy-coloured bars bounce (they keep time with nothing: the
+// system tells us what plays, not how it sounds); the progress is a ribbon with a star
+// for a head; the keys are round sweets.
 import QtQuick
 import Kisel.Core
 
@@ -15,104 +17,113 @@ Item {
     height: 138
 
     readonly property bool live: Media.active && Media.playing && visible && !Theme.reduced
+    readonly property var candy: ["#FF9EBB", "#FFE08A", "#B9DC6B", "#9CD4FF", "#C9A8FF"]
     function clock(sec) {
         const s = Math.max(0, Math.floor(sec))
         return Math.floor(s / 60) + ":" + (s % 60 < 10 ? "0" : "") + (s % 60)
     }
 
-    // ---- the panel: the cover, blown up until only its colours are left ----
-    Rectangle {
-        id: panel
-        anchors.fill: parent
-        radius: Theme.radiusMd
-        color: Theme.surface2
-        clip: true
-        opacity: Motion.rise(root.age, 0)
-        Image {
-            anchors.fill: parent
-            anchors.margins: -40
-            source: Media.art
-            visible: Media.art !== ""
-            sourceSize: Qt.size(12, 12) // a dozen pixels stretched over the panel: a blur for free
-            smooth: true
-            fillMode: Image.PreserveAspectCrop
-            opacity: 0.3
-        }
-        Rectangle { // text stays readable over any cover
-            anchors.fill: parent
-            gradient: Gradient {
-                orientation: Gradient.Horizontal
-                GradientStop { position: 0; color: "transparent" }
-                GradientStop { position: 1; color: Qt.rgba(Theme.surface2.r, Theme.surface2.g, Theme.surface2.b, 0.7) }
-            }
-        }
-    }
-
-    // ---- the record, behind the cover: out and turning while the tune plays ----
+    // ---- the record, behind the sticker: out and turning while the tune plays ----
     Item {
         id: record
-        width: 96; height: 96
-        y: 21
-        x: 14 + (Media.active && Media.playing ? 46 : 8)
+        width: 92; height: 92
+        y: 24
+        x: 12 + (Media.active && Media.playing ? 52 : 12)
         Behavior on x { NumberAnimation { duration: 420; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
         opacity: Motion.rise(root.age, 0)
-        Rectangle { anchors.fill: parent; radius: 48; color: "#0d0b0c" }
+        Rectangle { anchors.fill: parent; radius: 46; color: "#2b2430"; border.width: 2; border.color: "#FFFFFF" }
         Repeater { // grooves
-            model: [84, 70, 56]
+            model: [72, 58]
             Rectangle {
                 required property int modelData
                 anchors.centerIn: parent
                 width: modelData; height: modelData; radius: modelData / 2
-                color: "transparent"; border.width: 1; border.color: "#2a2527"
+                color: "transparent"; border.width: 1; border.color: "#4a4050"
             }
         }
         Rectangle { // the light the grooves catch: this is what shows the record turning
             anchors.centerIn: parent
-            width: 2; height: 90; radius: 1
+            width: 3; height: 84; radius: 1.5
             gradient: Gradient {
                 GradientStop { position: 0; color: "#00ffffff" }
-                GradientStop { position: 0.3; color: "#40ffffff" }
+                GradientStop { position: 0.28; color: "#59ffffff" }
                 GradientStop { position: 0.5; color: "#00ffffff" }
-                GradientStop { position: 0.7; color: "#40ffffff" }
+                GradientStop { position: 0.72; color: "#59ffffff" }
                 GradientStop { position: 1; color: "#00ffffff" }
             }
         }
-        Rectangle { anchors.centerIn: parent; width: 34; height: 34; radius: 17; color: Theme.mint
-            Rectangle { anchors.centerIn: parent; width: 14; height: 2; radius: 1; color: "#06281a"; opacity: 0.5 } }
-        Rectangle { anchors.centerIn: parent; width: 6; height: 6; radius: 3; color: "#0d0b0c" }
+        Rectangle { anchors.centerIn: parent; width: 34; height: 34; radius: 17; color: "#FF9EBB"; border.width: 2; border.color: "#FFFFFF" }
+        Rectangle { anchors.centerIn: parent; width: 6; height: 6; radius: 3; color: "#2b2430" }
         RotationAnimation on rotation { running: root.live; from: 0; to: 360; duration: 3600; loops: Animation.Infinite }
     }
 
-    // ---- the cover, or a quiet note where there is none ----
-    Rectangle {
-        id: cover
-        x: 14; y: 17
-        width: 104; height: 104
-        radius: 10
-        color: Theme.surface3
-        clip: true
+    // ---- the cover: a sticker with a white edge, a little askew, held by a strip of tape ----
+    Item {
+        id: sticker
+        x: 12; y: 15
+        width: 108; height: 108
+        rotation: -4
         opacity: Motion.rise(root.age, 0)
         transform: Translate { y: Motion.lift(root.age, 0) }
-        Image {
-            anchors.fill: parent
-            source: Media.art
-            fillMode: Image.PreserveAspectCrop
-            visible: Media.art !== ""
-            asynchronous: true
+        Rectangle { x: 2; y: 4; width: parent.width; height: parent.height; radius: 12; color: "#000000"; opacity: 0.25 }
+        Rectangle { anchors.fill: parent; radius: 12; color: "#FFFFFF" }
+        Rectangle {
+            anchors.fill: parent; anchors.margins: 5
+            color: Theme.surface3
+            clip: true
+            Image {
+                anchors.fill: parent
+                source: Media.art
+                fillMode: Image.PreserveAspectCrop
+                visible: Media.art !== ""
+                asynchronous: true
+            }
+            PlayGlyph { anchors.centerIn: parent; kind: "note"; size: 40; tint: Theme.inkFaint; visible: Media.art === "" }
         }
-        PlayGlyph { anchors.centerIn: parent; kind: "note"; size: 40; tint: Theme.inkFaint; visible: Media.art === "" }
+        Rectangle { // the tape
+            x: 34; y: -8
+            width: 40; height: 15; radius: 2
+            rotation: 6
+            color: "#B9DC6B"; opacity: 0.9
+            Row { anchors.centerIn: parent; spacing: 5
+                Repeater { model: 4; Rectangle { width: 3; height: 15; color: "#FFFFFF"; opacity: 0.35 } } }
+        }
     }
 
-    // ---- everything right of the cover ----
+    // ---- sparkles around the sticker, twinkling in turn while the tune plays ----
+    Repeater {
+        model: [{ x: 4, y: 6, s: 12, c: 1 }, { x: 128, y: 14, s: 9, c: 0 }, { x: 142, y: 104, s: 13, c: 3 }, { x: 2, y: 112, s: 8, c: 4 }, { x: 150, y: 58, s: 7, c: 2 }]
+        Spark {
+            id: twinkle
+            required property var modelData
+            required property int index
+            x: modelData.x; y: modelData.y
+            size: modelData.s
+            tint: root.candy[modelData.c]
+            opacity: Motion.rise(root.age, 2) * (root.live ? 1 : 0.35)
+            Behavior on opacity { NumberAnimation { duration: 300 } }
+            SequentialAnimation on scale {
+                running: root.live
+                loops: Animation.Infinite
+                PauseAnimation { duration: twinkle.index * 260 }
+                NumberAnimation { to: 0.35; duration: 520; easing.type: Easing.InOutSine }
+                NumberAnimation { to: 1.15; duration: 520; easing.type: Easing.OutBack }
+                PauseAnimation { duration: 900 - twinkle.index * 120 }
+            }
+            RotationAnimation on rotation { running: root.live; from: 0; to: 90; duration: 5200 + twinkle.index * 700; loops: Animation.Infinite }
+        }
+    }
+
+    // ---- everything right of the sticker ----
     Item {
         id: side
-        x: 176; y: 12
-        width: parent.width - x - 14
-        height: parent.height - 24
+        x: 184; y: 10
+        width: parent.width - x - 6
+        height: parent.height - 20
 
         Column {
             width: side.width - keys.width - 10
-            spacing: 1
+            spacing: 2
             opacity: Motion.rise(root.age, 1)
             transform: Translate { y: Motion.lift(root.age, 1) }
             Text {
@@ -120,120 +131,147 @@ Item {
                 text: Media.active ? Media.title : "Nothing playing"
                 elide: Text.ElideRight
                 color: Theme.ink
-                font.family: Theme.display; font.pixelSize: 18; font.weight: Font.DemiBold
+                font.family: Theme.display; font.pixelSize: 19; font.weight: Font.Bold
             }
-            Text {
+            Row {
                 width: parent.width
-                text: Media.active ? Media.artist : "Open Spotify and it shows up here"
-                elide: Text.ElideRight
-                color: Theme.inkMuted
-                font.family: Theme.sans; font.pixelSize: 12; font.weight: Font.DemiBold
+                spacing: 5
+                PlayGlyph { anchors.verticalCenter: parent.verticalCenter; kind: "note"; size: 11; tint: "#FF9EBB"; visible: Media.active }
+                Text {
+                    width: parent.width - 16
+                    text: Media.active ? Media.artist : "Open Spotify and it shows up here"
+                    elide: Text.ElideRight
+                    color: Theme.inkMuted
+                    font.family: Theme.sans; font.pixelSize: 12; font.weight: Font.DemiBold
+                }
             }
         }
 
         Row {
             id: keys
             anchors.right: parent.right
-            y: 2
+            y: 0
             spacing: 6
             opacity: Motion.rise(root.age, 2) * (Media.active ? 1 : 0.4)
             transform: Translate { y: Motion.lift(root.age, 2) }
             enabled: Media.active
-            PlayBtn { kind: "prev"; label: "Previous track"; onClicked: Media.previous() }
+            PlayBtn { anchors.verticalCenter: parent.verticalCenter; kind: "prev"; label: "Previous track"; onClicked: Media.previous() }
             PlayBtn { kind: Media.playing ? "pause" : "play"; label: Media.playing ? "Pause" : "Play"; strong: true; onClicked: Media.playPause() }
-            PlayBtn { kind: "next"; label: "Next track"; onClicked: Media.next() }
+            PlayBtn { anchors.verticalCenter: parent.verticalCenter; kind: "next"; label: "Next track"; onClicked: Media.next() }
         }
 
-        // the dancing bars
+        // candy bars, bouncing
         Row {
             id: bars
-            y: 50
-            height: 26
-            spacing: 3
+            y: 52
+            height: 24
+            spacing: 4
             opacity: Motion.rise(root.age, 3) * (Media.active ? 1 : 0.3)
             property real amp: Media.active && Media.playing ? 1 : 0
             Behavior on amp { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
             Repeater {
-                model: Math.floor((side.width + 3) / 6)
+                model: Math.floor((side.width + 4) / 10)
                 Rectangle {
                     id: bar
                     required property int index
                     property real level: 0.2
-                    readonly property real peak: 0.35 + Math.random() * 0.65
-                    readonly property int beat: 220 + Math.floor(Math.random() * 320)
-                    width: 3; radius: 1.5
-                    height: 3 + level * bars.amp * 23
+                    readonly property real peak: 0.4 + Math.random() * 0.6
+                    readonly property int beat: 240 + Math.floor(Math.random() * 300)
+                    width: 6; radius: 3
+                    height: 6 + level * bars.amp * 18
                     anchors.bottom: parent.bottom
-                    color: Theme.mint
-                    opacity: 0.45 + 0.55 * level
+                    color: root.candy[index % root.candy.length]
                     SequentialAnimation on level {
                         running: root.live
                         loops: Animation.Infinite
-                        NumberAnimation { to: bar.peak; duration: bar.beat; easing.type: Easing.InOutSine }
-                        NumberAnimation { to: 0.08 + (bar.index % 3) * 0.06; duration: bar.beat + 90; easing.type: Easing.InOutSine }
+                        NumberAnimation { to: bar.peak; duration: bar.beat; easing.type: Easing.OutBack }
+                        NumberAnimation { to: 0.05 + (bar.index % 3) * 0.07; duration: bar.beat + 110; easing.type: Easing.InOutSine }
                     }
                 }
             }
         }
 
-        // how far the track has got, with a bright head, and the time on both sides
+        // how far the track has got: a ribbon with a star for a head, the time on both sides
         Item {
-            y: 86
-            width: side.width; height: 28
+            y: 88
+            width: side.width; height: 30
             opacity: Motion.rise(root.age, 4) * (Media.active ? 1 : 0.4)
-            Rectangle { width: parent.width; height: 4; radius: 2; color: Theme.ink; opacity: 0.12 }
+            Rectangle { width: parent.width; height: 8; radius: 4; color: Theme.ink; opacity: 0.12 }
             Rectangle {
                 id: fill
-                width: parent.width * Media.progress; height: 4; radius: 2
+                width: Math.max(8, parent.width * Media.progress); height: 8; radius: 4
                 Behavior on width { NumberAnimation { duration: 500 } }
                 gradient: Gradient {
                     orientation: Gradient.Horizontal
-                    GradientStop { position: 0; color: "#B9DC6B" }
-                    GradientStop { position: 1; color: Theme.mint }
+                    GradientStop { position: 0; color: "#FF9EBB" }
+                    GradientStop { position: 0.6; color: "#FFE08A" }
+                    GradientStop { position: 1; color: "#B9DC6B" }
                 }
             }
-            Rectangle { x: fill.width - 5; y: -3; width: 10; height: 10; radius: 5; color: "#FFFFFF"
-                scale: root.live ? 1 : 0.7
-                Behavior on scale { NumberAnimation { duration: 200 } } }
+            Spark {
+                x: fill.width - 10; y: -6
+                size: 20
+                tint: "#FFFFFF"
+                scale: root.live ? 1 : 0.8
+                Behavior on scale { NumberAnimation { duration: 200 } }
+                RotationAnimation on rotation { running: root.live; from: 0; to: 90; duration: 2400; loops: Animation.Infinite }
+            }
             Text {
-                y: 11
+                y: 14
                 text: root.clock(Media.position)
                 visible: Media.duration > 0
                 color: Theme.inkMuted
-                font.family: Theme.mono; font.pixelSize: 10
+                font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.DemiBold
             }
             Text {
-                y: 11
+                y: 14
                 anchors.right: parent.right
                 text: root.clock(Media.duration)
                 visible: Media.duration > 0
                 color: Theme.inkMuted
-                font.family: Theme.mono; font.pixelSize: 10
+                font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.DemiBold
             }
         }
     }
 
+    // a four-pointed star
+    component Spark: Canvas {
+        id: spark
+        property real size: 10
+        property color tint: "#FFFFFF"
+        width: size; height: size
+        onTintChanged: requestPaint()
+        onPaint: {
+            const g = getContext("2d"), s = size, c = s / 2
+            g.reset(); g.fillStyle = tint
+            g.beginPath(); g.moveTo(c, 0)
+            g.quadraticCurveTo(c, c, s, c); g.quadraticCurveTo(c, c, c, s)
+            g.quadraticCurveTo(c, c, 0, c); g.quadraticCurveTo(c, c, c, 0)
+            g.fill()
+        }
+    }
+
+    // a round sweet of a key: white edge, candy inside, a bounce under the pointer
     component PlayBtn: FocusScope {
         id: btn
         property string kind: "play"
         property string label: ""
         property bool strong: false
         signal clicked()
-        width: strong ? 46 : 34; height: 34
+        width: strong ? 42 : 32; height: width
         activeFocusOnTab: true
         Accessible.role: Accessible.Button
         Accessible.name: label
         Rectangle {
             anchors.fill: parent
-            radius: 17
-            color: btn.strong ? Theme.mint : (bt.pressed || bh.hovered ? Theme.surface3 : Qt.rgba(Theme.ink.r, Theme.ink.g, Theme.ink.b, 0.08))
-            opacity: btn.strong && (bt.pressed || bh.hovered) ? 0.85 : 1
+            radius: width / 2
+            color: btn.strong ? "#FF9EBB" : (bt.pressed || bh.hovered ? Theme.surface3 : Theme.surface2)
             Behavior on color { ColorAnimation { duration: Theme.tHover } }
-            scale: bt.pressed ? 0.92 : bh.hovered ? 1.06 : 1
-            Behavior on scale { NumberAnimation { duration: Theme.tPress } }
-            border.width: btn.activeFocus ? 3 : 0
-            border.color: Theme.ink
-            PlayGlyph { anchors.centerIn: parent; kind: btn.kind; size: 14; tint: btn.strong ? "#06281a" : Theme.ink }
+            border.width: btn.activeFocus ? 3 : 2
+            border.color: btn.strong ? "#FFFFFF" : Qt.rgba(Theme.ink.r, Theme.ink.g, Theme.ink.b, btn.activeFocus ? 1 : 0.35)
+            scale: bt.pressed ? 0.9 : bh.hovered ? 1.1 : 1
+            Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutBack } }
+            PlayGlyph { anchors.centerIn: parent; kind: btn.kind; size: btn.strong ? 15 : 12; tint: btn.strong ? "#5a1f33" : Theme.ink }
         }
         HoverHandler { id: bh; cursorShape: Qt.PointingHandCursor }
         TapHandler { id: bt; onTapped: btn.clicked() }

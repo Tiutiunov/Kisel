@@ -601,18 +601,21 @@ Item {
         height: root.height
         y: 0
 
-        // soft shadow: three stacked rounded rectangles, no blur
+        // Soft shadow without a blur: ten rounded rectangles, each a little larger and as
+        // faint as the last, so their sum falls off smoothly over 16 px. It sits 3 px
+        // toward the screen's inside.
         Repeater {
-            model: [{ dy: 3, a: 0.12 }, { dy: 8, a: 0.095 }, { dy: 13, a: 0.07 }]
+            model: 10
             Rectangle {
-                required property var modelData
-                x: card.x + root.shapeX + root.shadowDir.x * modelData.dy
-                y: card.y + root.shapeY + root.shadowDir.y * modelData.dy
-                width: root.shapeW
-                height: root.shapeH
-                radius: root.radius
+                required property int index
+                readonly property real spread: 1 + index * 1.65
+                x: card.x + root.shapeX + root.shadowDir.x * 3 - spread
+                y: card.y + root.shapeY + root.shadowDir.y * 3 - spread
+                width: root.shapeW + 2 * spread
+                height: root.shapeH + 2 * spread
+                radius: root.radius + spread
                 color: "black"
-                opacity: (root.floating && !root.expanded) || root.ghost || (root.assembling && assembly.t < assembly.tBorn) ? 0 : modelData.a
+                opacity: (root.floating && !root.expanded) || root.ghost || (root.assembling && assembly.t < assembly.tBorn) ? 0 : 0.032
                 Behavior on opacity { NumberAnimation { duration: Theme.tFast } }
             }
         }
