@@ -303,6 +303,16 @@ Item {
         PauseAnimation { duration: 200 }
         ScriptAction { script: { mascot.play("proud", 1200) } }
     }
+    readonly property int castW: 50
+    // Zundamon with Spotify playing: the bar names the track and she hums along
+    readonly property bool tune: ownAct && Media.active && Media.playing
+    // ...and whenever the bar has nothing more pressing to say it is her mini player:
+    // the track's name and the three buttons, without opening the card
+    // (only while a tune is actually playing; and a finished task keeps the bar for its
+    // "Done" for five seconds first: `doneHold`)
+    readonly property bool miniPlayer: ownAct && Media.active && Media.playing && Hub.pendingCount === 0 && !(doneHold && Hub.chip === "done")
+    property bool doneHold: false
+    Timer { id: doneHoldTimer; interval: 5000; onTriggered: root.doneHold = false }
     readonly property real pillContentW: labelX + pillRow.implicitWidth + 16
     readonly property real pillW: Math.max(pillMin, Math.min(pillMax, pillContentW))
     readonly property real closedW: floating ? 120 : (vertical ? pillT : pillW)
