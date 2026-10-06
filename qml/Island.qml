@@ -326,6 +326,7 @@ Item {
     readonly property int castW: 50
     // Zundamon with Spotify playing: the bar names the track and she hums along
     readonly property bool tune: ownAct && Media.active && Media.playing
+    readonly property bool awake: tune || (tetoAct && Sys.strain)
     // ...and whenever the bar has nothing more pressing to say it is her mini player:
     // the track's name and the three buttons, without opening the card
     // (only while a tune is actually playing; and a finished task keeps the bar for its
@@ -1316,9 +1317,11 @@ Item {
             music: root.tune
             // Claude's working and thinking are Miku's to act out. Anyone else on stage is
             // herself while Claude works: at ease, or (Teto) the way the computer feels.
+            // (Sleep is Claude's too, and not for one who is busy with her own: Zundamon
+            // does not doze off over a playing tune, nor Teto over a computer in trouble.)
             readonly property string own: root.tetoAct && Sys.strain ? "sad" : "idle"
             mood: root.dropActive ? "wow" : root.dropHappy ? "happy" : root.walking ? "walk"
-                : root.stage !== "miku" && (root.claudeBusy || Hub.mood === "idle") ? own : Hub.mood
+                : root.stage !== "miku" && (root.claudeBusy || Hub.mood === "idle" || (Hub.mood === "sleep" && root.awake)) ? own : Hub.mood
             gazeOn: root.duo && root.duoLook
             gaze: Qt.point(0.9, 0)
             paused: root.tucked && root.tuckA > root.pillT
