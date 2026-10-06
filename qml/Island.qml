@@ -11,7 +11,8 @@
 //            activity, brings it back.
 //   floating the mascot (120 px) is the whole window; click opens the card where it
 //            stands, click again or the close icon closes it. It wanders while idle.
-//   picking up  hold the mascot for 350 ms: a ring fills, then Kisel is drawn out of
+//   picking up  (switched off: `canPickUp`. The island is moved from Settings, "Place".)
+//            Hold the mascot for 350 ms: a ring fills, then Kisel is drawn out of
 //            the pill on a jelly neck. Carry it anywhere; near an edge a zone shows,
 //            and letting go there docks it on that edge. Letting go elsewhere drops
 //            it. Walls resist; a seam between two monitors lets it move across.
@@ -27,6 +28,9 @@ Item {
     property bool dropActive: false   // a file is being dragged over
     property bool dropHappy: false
     readonly property bool floating: Shell.floating
+    // Holding the mascot no longer draws it out of the bar: where the island sits is
+    // chosen in Settings. The carrying code below stays for the day it is wanted again.
+    readonly property bool canPickUp: false
     readonly property real isoX: Shell.viewWide ? Shell.grabX : Shell.originX // the island's origin on the output
     readonly property real isoY: Shell.viewWide ? Shell.grabY : Shell.originY
 
@@ -834,11 +838,12 @@ Item {
                 }
             }
 
-            // the tune's progress: a hairline along the bar's inner edge, with a bright head
+            // the tune's progress: a hairline along the side of the bar that lies on the
+            // screen's edge (that side is square, so it runs the bar's whole width), with a bright head
             Item {
-                x: 10
-                y: root.dockSide === "bottom" ? 0 : root.pillT - 2
-                width: root.pillW - 20
+                x: 0
+                y: root.dockSide === "bottom" ? root.pillT - 2 : 0
+                width: root.pillW
                 height: 2
                 opacity: root.miniPlayer && !root.expanded && !root.floating && !root.vertical && !root.mfree ? 1 : 0
                 visible: opacity > 0
@@ -857,7 +862,7 @@ Item {
                 }
                 Rectangle {
                     width: 4; height: 4; radius: 2
-                    x: tuneFill.width - 2; y: -1
+                    x: tuneFill.width - 2; y: root.dockSide === "bottom" ? -2 : 0
                     color: "#FFFFFF"
                     opacity: Media.playing ? 1 : 0.5
                 }
@@ -1396,7 +1401,7 @@ Item {
                 ring.popped = false
                 hold = 0
                 if (root.expanded || root.floating) mascot.compress() // press compression; none on the click that opens
-                holdAnim.restart()
+                if (root.canPickUp) holdAnim.restart()
             }
             onPositionChanged: (m) => {
                 if (!pressed) return

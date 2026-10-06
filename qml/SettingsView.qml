@@ -20,6 +20,12 @@ Item {
     onActiveChanged: { if (active) { plan = null; note = "" } }
 
     Timer { id: clearPlan; interval: 2200; onTriggered: root.plan = null }
+    // dock the island on `edge`, `fraction` of the way along it, and remember that for this monitor
+    function place(edge, fraction) {
+        const len = Shell.edgeLength(edge)
+        const used = Shell.setDock(edge, fraction * len)
+        Prefs.setDock(Displays.current, edge, used / len)
+    }
     function startPlan(install) {
         planInstall = install
         plan = Hooks.preview(install)
@@ -236,6 +242,31 @@ Item {
                 value: Prefs.closeDelay
                 label: Prefs.closeDelay === 0 ? "Close at once when the pointer leaves" : "Close " + Prefs.closeDelay + " s after the pointer leaves"
                 onMoved: (v) => Prefs.closeDelay = v
+            }
+            // where the island sits: the edge, and how far along it
+            Row {
+                spacing: Theme.space2
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "Place"
+                    color: Theme.inkMuted; font.family: Theme.sans; font.pixelSize: 13; font.weight: Font.DemiBold
+                }
+                Repeater {
+                    model: [{ id: "top", name: "Top" }, { id: "bottom", name: "Bottom" }, { id: "left", name: "Left" }, { id: "right", name: "Right" }]
+                    KButton {
+                        required property var modelData
+                        primary: Shell.edge === modelData.id
+                        text: modelData.name
+                        onClicked: root.place(modelData.id, Shell.along / Shell.edgeLength(Shell.edge))
+                    }
+                }
+            }
+            KSlider {
+                id: alongSlider
+                from: 0; to: 20
+                value: Math.round(Shell.along / Shell.edgeLength(Shell.edge) * 20)
+                label: value === 10 ? "In the middle of the edge" : (Shell.edge === "left" || Shell.edge === "right" ? (value < 10 ? "Toward the top" : "Toward the bottom") : (value < 10 ? "Toward the left" : "Toward the right"))
+                onMoved: (v) => root.place(Shell.edge, v / 20)
             }
             KToggle { visible: Shell.canAvoidPanels; label: "Stay clear of the taskbar"; checked: Prefs.avoidPanels; onToggled: (v) => Prefs.avoidPanels = v }
             Row {

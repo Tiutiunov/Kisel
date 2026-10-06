@@ -77,10 +77,10 @@ void Displays::applyInitial()
     if (qEnvironmentVariableIsSet("KISEL_DEBUG"))
         qInfo("displays: target=%s window-screen=%s primary=%s", qPrintable(target()->name()), qPrintable(current()), qPrintable(QGuiApplication::primaryScreen()->name()));
     m_window->moveToScreen(target());
+    // (the island no longer leaves its edge: one that was left floating docks again)
     if (m_prefs->floating())
-        m_window->restoreFloat(m_prefs->floatX(), m_prefs->floatY());
-    else
-        applyDock();
+        m_prefs->setFloating(false);
+    applyDock();
     emit changed();
 }
 
