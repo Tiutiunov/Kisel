@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Kisel
+Comment=Desktop companion for Claude Code
+Exec=kisel
+Icon=kisel
+Categories=Development;Utility;
+X-KDE-StartupNotify=false
