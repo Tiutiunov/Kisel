@@ -82,7 +82,7 @@ struct Media::Worker
             bool active = false, playing = false, coverChanged = false;
             QString title, artist;
             QByteArray cover;
-            qreal progress = 0;
+            qreal progress = 0, duration = 0;
             try {
                 if (const auto session = spotify(manager)) {
                     if (command == Toggle) session.TryTogglePlayPauseAsync().get();
@@ -103,6 +103,7 @@ struct Media::Worker
                     if (playing)
                         at += winrt::clock::now() - line.LastUpdatedTime();
                     const auto length = line.EndTime() - line.StartTime();
+                    duration = double(length.count()) / 1e7; // 100 ns ticks
                     if (length.count() > 0)
                         progress = qBound(0.0, double(at.count()) / double(length.count()), 1.0);
 
@@ -131,7 +132,7 @@ struct Media::Worker
                 // Spotify went away between two calls: this round reports nothing
             }
 
-            QMetaObject::invokeMethod(owner, [=, o = owner] { o->apply(active, playing, title, artist, progress, coverChanged, cover); },
+            QMetaObject::invokeMethod(owner, [=, o = owner] { o->apply(active, playing, title, artist, progress, duration, coverChanged, cover); },
                                       Qt::QueuedConnection);
         }
     }
@@ -167,16 +168,17 @@ void Media::next() {}
 void Media::previous() {}
 #endif
 
-void Media::apply(bool active, bool playing, const QString &title, const QString &artist, qreal progress,
+void Media::apply(bool active, bool playing, const QString &title, const QString &artist, qreal progress, qreal duration,
                   bool artChanged, const QByteArray &artBytes)
 {
     bool dirty = active != m_active || playing != m_playing || title != m_title || artist != m_artist
-              || qAbs(progress - m_progress) > 0.002;
+              || qAbs(progress - m_progress) > 0.002 || !qFuzzyCompare(duration + 1, m_duration + 1);
     m_active = active;
     m_playing = playing;
     m_title = title;
     m_artist = artist;
     m_progress = progress;
+    m_duration = duration;
     if (artChanged) {
         QString art;
         const QImage image = QImage::fromData(artBytes);
