@@ -887,16 +887,22 @@ Item {
             // collapsed: inside the bar, centred across it and `miniLead` from its leading end
             property real slotX: root.expanded ? 14 + (132 - slot) / 2
                 : root.floating ? 0 : root.vertical ? root.miniPad : root.miniLead
-            property real slotY: root.expanded ? (root.atBottom ? root.animH - slot - 12 : 48)
+            property real slotY: root.expanded ? 48
                 : root.floating ? 0 : root.vertical ? root.miniLead : root.miniPad
+            // Docked at the bottom the card grows upward, so there she is placed from the
+            // card's bottom edge: one steady glide. (Placed from the top, her slot and the
+            // card's height would animate against each other and she would leap up and drop.)
+            property real slotB: root.expanded ? 12 : root.miniPad
             readonly property bool gliding: !root.mfree && !Theme.reduced
             size: root.mfree ? root.freeSize : slot
             x: root.mfree ? root.freeCX - root.freeSize / 2 - root.isoX : card.x + slotX
-            y: root.mfree ? root.freeCY - root.freeSize / 2 - root.isoY : card.y + slotY
+            y: root.mfree ? root.freeCY - root.freeSize / 2 - root.isoY
+               : root.atBottom ? card.y + card.height - height - slotB : card.y + slotY
             // "Reduce motion": the mascot does not glide, it fades between slots
-            Behavior on size { enabled: mascot.gliding; NumberAnimation { duration: root.shrinking ? Theme.tClose : Theme.tOpen; easing.type: Easing.BezierSpline; easing.bezierCurve: root.shrinking ? Theme.easeClose : Theme.springOpen } }
-            Behavior on slotX { enabled: mascot.gliding; NumberAnimation { duration: root.shrinking ? Theme.tClose : Theme.tOpen; easing.type: Easing.BezierSpline; easing.bezierCurve: root.shrinking ? Theme.easeClose : Theme.springOpen } }
-            Behavior on slotY { enabled: mascot.gliding; NumberAnimation { duration: root.shrinking ? Theme.tClose : Theme.tOpen; easing.type: Easing.BezierSpline; easing.bezierCurve: root.shrinking ? Theme.easeClose : Theme.springOpen } }
+            Behavior on size { enabled: mascot.gliding; NumberAnimation { duration: root.shrinking ? Theme.tClose : Theme.tOpen; easing.type: Easing.BezierSpline; easing.bezierCurve: root.shrinking ? Theme.easeClose : Theme.easeGlide } }
+            Behavior on slotX { enabled: mascot.gliding; NumberAnimation { duration: root.shrinking ? Theme.tClose : Theme.tOpen; easing.type: Easing.BezierSpline; easing.bezierCurve: root.shrinking ? Theme.easeClose : Theme.easeGlide } }
+            Behavior on slotY { enabled: mascot.gliding; NumberAnimation { duration: root.shrinking ? Theme.tClose : Theme.tOpen; easing.type: Easing.BezierSpline; easing.bezierCurve: root.shrinking ? Theme.easeClose : Theme.easeGlide } }
+            Behavior on slotB { enabled: mascot.gliding; NumberAnimation { duration: root.shrinking ? Theme.tClose : Theme.tOpen; easing.type: Easing.BezierSpline; easing.bezierCurve: root.shrinking ? Theme.easeClose : Theme.easeGlide } }
             // docked on a side it leans 8 degrees toward the screen
             inwardTilt: root.vertical && !root.expanded ? (root.edge === "left" ? 8 : -8) : 0
             Behavior on inwardTilt { NumberAnimation { duration: 200 } }
@@ -1165,7 +1171,7 @@ Item {
                 picked = false; haveOff = false; moved = false
                 ring.popped = false
                 hold = 0
-                mascot.compress()                  // press compression, 70 ms
+                if (root.expanded || root.floating) mascot.compress() // press compression; none on the click that opens
                 holdAnim.restart()
             }
             onPositionChanged: (m) => {
@@ -1184,16 +1190,16 @@ Item {
                 const progressed = hold
                 hold = 0
                 if (clicked && !moved && root.dockT === 0) {
-                    // a click: squash, sound, and open/close
-                    mascot.poke()
+                    // a click opens the card quietly; on the open card it is a slap
+                    // (she sulks, and three in a row make her dizzy)
                     Hub.poke()
                     if (root.floating) {
                         if (root.expanded) root.collapseNow()
                         else { root.autoOpened = false; root.open() }
                     } else if (!root.expanded) {
                         root.open()
-                    } else if (Hub.pendingCount === 0) {
-                        root.collapseNow()         // docked and open: a click on Kisel puts the card away
+                    } else {
+                        mascot.poke()
                     }
                 } else if (progressed > 0.1) {
                     mascot.land()                  // a hold let go early: a small recoil

@@ -80,6 +80,8 @@ QtObject {
     readonly property int tClose: reduced ? 140 : 340
     readonly property var springOpen: reduced ? [0.33, 1, 0.68, 1, 1, 1] : [0.3, 1.14, 0.4, 1, 1, 1]
     readonly property var easeClose: [0.45, 0, 0.2, 1, 1, 1]
+    // the mascot's glide between its slots: the card's time, without the card's overshoot
+    readonly property var easeGlide: [0.33, 1, 0.68, 1, 1, 1]
 
     readonly property FontLoader fredoka6: FontLoader { source: "resources/fonts/fredoka-latin-600-normal.ttf" }
     readonly property FontLoader fredoka: FontLoader { source: "resources/fonts/fredoka-latin-700-normal.ttf" }

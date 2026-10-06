@@ -54,7 +54,7 @@ Item {
     readonly property string m: dizzyOverride ? "dizzy" : mood
     property string emote: ""
     Timer { id: emoteTimer; onTriggered: root.emote = "" }
-    function play(name, ms) { emote = name; emoteTimer.interval = ms; emoteTimer.restart(); st.sqv -= 2.5 }
+    function play(name, ms) { emote = name; emoteTimer.interval = ms; emoteTimer.restart(); if (name !== "hello") st.sqv -= 2.5 }
 
     onMChanged: {
         emote = ""
@@ -82,7 +82,7 @@ Item {
 
     // ---- one-shot moves the island asks for --------------------------------------
     function blinkNow() { st.blink = 1 }
-    function compress() { st.sqv += 7 }
+    function compress() { st.sqv += 4 }
     function land() { st.sqv += 6 }
     function hang() { st.swing = 1 }
     function jump(power, force) {
