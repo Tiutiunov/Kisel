@@ -814,6 +814,10 @@ Item {
             y0 = Math.min(y0, sign.y); y1 = Math.max(y1, sign.y + sign.height)
             x1 = Math.max(x1, sign.x + sign.width)
         }
+        if (signOpen.on) { // (...and out of the open card)
+            y0 = Math.min(y0, signOpen.y); y1 = Math.max(y1, signOpen.y + signOpen.height)
+            x1 = Math.max(x1, signOpen.x + signOpen.width)
+        }
         if (mfree) Shell.setHitRect(root.x + mascot.x, root.y + mascot.y, mascot.width, mascot.height)
         else Shell.setHitRect(root.x + x0, root.y + body.y + y0, x1 - x0, y1 - y0)
     }
@@ -1311,6 +1315,7 @@ Item {
                 }
                 // the bench again, on the open card: a click swaps her in
                 Row {
+                    id: headerBench
                     anchors.right: headerBtns.left
                     anchors.rightMargin: 10
                     y: 11
@@ -1563,8 +1568,37 @@ Item {
             still: root.tucked
             app: Notes.app
             count: Notes.count
+            apps: Notes.apps
+            counts: Notes.counts
             onXChanged: root.updateHit()
             onWidthChanged: root.updateHit()
+        }
+        // On the open card the sign stands over Rin's seat in the header (or over the
+        // header's own mascot when Rin is the one on stage), out past the card's edge
+        // like the bar's; under a card docked on top it hangs below the header instead.
+        NoteSign {
+            id: signOpen
+            z: 3
+            readonly property int seat: root.bench.indexOf("rin")
+            flip: !root.atBottom
+            x: card.x + (seat >= 0 ? headerBench.x + seat * (26 + headerBench.spacing) + 18 : 14 + 16)
+            y: root.atBottom ? card.y - 19 : card.y + 36
+            on: root.noteUp && root.expanded && !root.floating && !root.vertical && !root.mfree && !root.assembling
+            still: root.tucked
+            app: Notes.app
+            count: Notes.count
+            apps: Notes.apps
+            counts: Notes.counts
+            onOnChanged: root.updateHit()
+            onYChanged: root.updateHit()
+        }
+        MouseArea {
+            z: 4
+            visible: signOpen.on
+            x: signOpen.x; y: signOpen.flip ? signOpen.y + 10 : signOpen.y
+            width: signOpen.fullW; height: 20
+            cursorShape: Qt.PointingHandCursor
+            onClicked: { Hub.poke(); Sfx.play("click"); Notes.open() }
         }
         // looked at: a click on Rin, or on her sign
         MouseArea {

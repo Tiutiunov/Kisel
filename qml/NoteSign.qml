@@ -1,6 +1,7 @@
 // Rin's sign: a little placard on a stick with the name of the program a notification
 // came from, which she waves until it has been looked at. (How many, if more than one,
-// in a red dot on its corner.) It is held up out of the bar, past its free edge, so the
+// in a red dot on its corner.) With notifications from several programs the placard
+// turns over every few seconds and shows them one after another, each with its own count. It is held up out of the bar, past its free edge, so the
 // bar's own contents stay where they are: above a bar on the bottom of the screen, and
 // hanging below one on the top (`flip`).
 import QtQuick
@@ -12,6 +13,20 @@ Item {
     property bool still: false   // tucked away: nothing moves
     property string app: ""
     property int count: 1
+    property var apps: []        // every program with one waiting, newest first
+    property var counts: []      // ...and how many each has
+    property int turn: 0
+    readonly property bool many: apps.length > 1
+    readonly property string shownApp: many ? apps[turn % apps.length] : app
+    readonly property int shownCount: many ? (counts[turn % apps.length] || 1) : count
+    onAppsChanged: turn = 0 // (the newest first)
+    Timer { interval: 2600; repeat: true; running: root.on && root.many && !root.still; onTriggered: Theme.reduced ? root.turn++ : turnOver.restart() }
+    SequentialAnimation {
+        id: turnOver
+        NumberAnimation { target: flipScale; property: "xScale"; to: 0; duration: 130; easing.type: Easing.InQuad }
+        ScriptAction { script: root.turn++ }
+        NumberAnimation { target: flipScale; property: "xScale"; to: 1; duration: 200; easing.type: Easing.OutBack }
+    }
     property real maxText: 84
     property bool flip: false    // hangs down instead of standing up
     readonly property real fullW: board.width + 4
@@ -51,18 +66,19 @@ Item {
             radius: 5
             color: "#FFD24A"
             border.width: 1.5; border.color: "#FFFFFF"
+            transform: Scale { id: flipScale; origin.x: board.width / 2 }
             Text {
                 id: label
                 anchors.centerIn: parent
                 width: Math.min(implicitWidth, root.maxText)
                 elide: Text.ElideRight
-                text: root.app !== "" ? root.app : "New"
+                text: root.shownApp !== "" ? root.shownApp : "New"
                 color: "#3A2A08"
                 font.family: Theme.sans; font.pixelSize: 9; font.weight: Font.ExtraBold
             }
         }
         Rectangle { // how many
-            visible: root.count > 1
+            visible: root.shownCount > 1
             x: board.width - 7; y: board.y - 4
             width: Math.max(11, num.implicitWidth + 5); height: 11; radius: 5.5
             color: "#E0405A"
@@ -70,7 +86,7 @@ Item {
             Text {
                 id: num
                 anchors.centerIn: parent
-                text: root.count > 9 ? "9+" : root.count
+                text: root.shownCount > 9 ? "9+" : root.shownCount
                 color: "#FFFFFF"
                 font.family: Theme.sans; font.pixelSize: 7; font.weight: Font.ExtraBold
             }

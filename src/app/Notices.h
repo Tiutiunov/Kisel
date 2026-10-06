@@ -2,6 +2,8 @@
 
 #include <QObject>
 #include <QString>
+#include <QStringList>
+#include <QVariantList>
 
 #include <memory>
 
@@ -17,6 +19,10 @@ namespace kisel {
 // from is brought to the front, or when it is dismissed from the notification centre
 // after lying there a while. One that vanishes within moments (a passing banner, or a
 // program such as Discord withdrawing its own) has not been looked at, and stays.
+//
+// A click on the sign goes to the notifications: if they are all from one program,
+// that program is brought up (the way its Start menu entry would); if from several,
+// the notification centre opens.
 // Elsewhere `available` is false and nothing happens.
 //
 // The listener is read on a thread of its own; QML sees plain properties.
@@ -27,6 +33,8 @@ class Notices : public QObject
     Q_PROPERTY(bool pending READ pending NOTIFY changed)     // there is one not looked at yet
     Q_PROPERTY(int count READ count NOTIFY changed)          // how many
     Q_PROPERTY(QString app READ app NOTIFY changed)          // the program the newest is from
+    Q_PROPERTY(QStringList apps READ apps NOTIFY changed)    // every program with one waiting, newest first
+    Q_PROPERTY(QVariantList counts READ counts NOTIFY changed) // ...and how many each has
 
 public:
     explicit Notices(QObject *parent = nullptr);
@@ -36,21 +44,27 @@ public:
     bool pending() const { return m_count > 0; }
     int count() const { return m_count; }
     QString app() const { return m_app; }
+    QStringList apps() const { return m_apps; }
+    QVariantList counts() const { return m_counts; }
 
     Q_INVOKABLE void dismiss(); // they have been looked at
-    Q_INVOKABLE void open();    // ...and show the notification centre
+    Q_INVOKABLE void open();    // ...and go to them: the program they are from, or the notification centre if from several
 
 signals:
     void changed();
 
 private:
     struct Worker;
-    void apply(bool available, int count, const QString &app);
+    void apply(bool available, int count, const QString &app, const QStringList &apps, const QVariantList &counts,
+               const QString &target);
     std::unique_ptr<Worker> m_worker;
     bool m_available = false;
     bool m_demo = false;
     int m_count = 0;
     QString m_app;
+    QStringList m_apps;
+    QVariantList m_counts;
+    QString m_target; // the one program they are all from (its identifier in Windows), or ""
 };
 
 } // namespace kisel
