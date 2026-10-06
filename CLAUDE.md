@@ -1,6 +1,6 @@
 # Kisel: guide for coding agents
 
-Desktop companion for KDE Plasma (Qt 6 / QML / C++20). Read `docs/ARCHITECTURE.md` first.
+Desktop companion for KDE Plasma and Windows (Qt 6 / QML / C++20). Read `docs/ARCHITECTURE.md` first.
 
 ## Source of truth
 The **Kisel design system** (claude.ai artifact 4796a68c-b55b-4b5d-877a-bd69e22bfc10: `README.md`, `tokens.json`, `motion.md`) decides look and motion. Colours go into the design system first, then `qml/Theme.qml`. `motion.md` tags each behaviour Built or Spec; `docs/ROADMAP.md` tracks which Spec parts are built here.
@@ -15,7 +15,7 @@ UI check without touching the screen: `QT_QPA_PLATFORM=offscreen KISEL_LAYER_SHE
 - Never block Claude Code: `kisel-hook` has hard deadlines and prints nothing when in doubt.
 - Never approve a permission without an explicit click. "Always" rules are per pattern (`AgentHub::ruleKey`) and clearable.
 - Never overwrite `~/.claude/settings.json` blindly: preview diff, dated backup, atomic write (`HookInstaller`).
-- Secrets only in KWallet. No telemetry. Model output is plain text.
-- Platform-specific code stays in `IslandWindow`, `Tray`, `Secrets`, `Paths`. QML never knows the platform.
+- Secrets only in KWallet (Credential Manager on Windows). No telemetry. Model output is plain text.
+- Platform-specific code stays in `IslandWindow`, `Tray`, `Secrets`, `Sounds`, `Paths` and the relay's transport. QML never knows the platform.
 - `socketPath()` exists twice (`Paths.h`, `hook/main.cpp`): change both.
 - Copy is English, sentence case, one verb per button, no emoji.

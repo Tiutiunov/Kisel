@@ -5,6 +5,15 @@
 #include <QRegion>
 #include <QScreen>
 
+#ifdef Q_OS_WIN
+#include <QCursor>
+#include <QTimer>
+#include <qt_windows.h>
+
+#include <cstdio>
+#include <io.h>
+#endif
+
 #ifdef KISEL_WITH_LAYER_SHELL
 #include <LayerShellQt/Shell>
 #include <LayerShellQt/Window>
@@ -33,6 +42,19 @@ void IslandWindow::preInit()
     if (qEnvironmentVariable("KISEL_LAYER_SHELL") != QLatin1String("0"))
         LayerShellQt::Shell::useLayerShell();
 #endif
+#ifdef Q_OS_WIN
+    // A window-subsystem program has no stdout. Started from a terminal, borrow
+    // its console so --help and the development flags can print; streams that
+    // were redirected somewhere are left alone.
+    if (AttachConsole(ATTACH_PARENT_PROCESS)) {
+        FILE *f = nullptr;
+        if (_fileno(stdout) < 0)
+            freopen_s(&f, "CONOUT$", "w", stdout);
+        if (_fileno(stderr) < 0)
+            freopen_s(&f, "CONOUT$", "w", stderr);
+    }
+    QQuickWindow::setDefaultAlphaBuffer(true); // the surface is transparent around the island
+#endif
 }
 
 IslandWindow::IslandWindow(QQuickView *view, QObject *parent)
@@ -40,7 +62,15 @@ IslandWindow::IslandWindow(QQuickView *view, QObject *parent)
     , m_view(view)
 {
     m_view->setColor(Qt::transparent);
+#ifdef Q_OS_WIN
+    // Tool: no taskbar button. No focus until setKeyboard() asks for it.
+    m_view->setFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool | Qt::WindowDoesNotAcceptFocus);
+    auto *poll = new QTimer(this);
+    connect(poll, &QTimer::timeout, this, &IslandWindow::trackPointer);
+    poll->start(33);
+#else
     m_view->setFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
+#endif
     m_view->setResizeMode(QQuickView::SizeRootObjectToView);
     m_view->resize(kWidth, kHeight);
     m_view->setMinimumSize(QSize(kWidth, kHeight));
@@ -367,11 +397,48 @@ void IslandWindow::setHitRect(qreal x, qreal y, qreal w, qreal h)
     // corner slivers are transparent and a click there is a harmless miss.
     if (QGuiApplication::platformName() == QLatin1String("offscreen"))
         return; // that platform plugin has no input regions
+#ifdef Q_OS_WIN
+    m_hit = QRectF(x, y, w, h);
+    trackPointer();
+#else
     m_view->setMask(QRegion(QRectF(x, y, w, h).toAlignedRect()));
+#endif
 }
+
+#ifdef Q_OS_WIN
+// An input-transparent window gets no pointer events at all, so nothing would
+// tell us the pointer came back: ask where it is, 30 times a second.
+void IslandWindow::trackPointer()
+{
+    if (QGuiApplication::platformName() != QLatin1String("windows"))
+        return;
+    const HWND self = HWND(m_view->winId());
+    const HWND front = GetForegroundWindow();
+    if (front && front != self)
+        m_lastForeground = quintptr(front);
+    // A held button means a press or a drag that started on the island: it keeps
+    // the pointer wherever it goes.
+    const bool held = m_grabbing || QGuiApplication::mouseButtons() != Qt::NoButton;
+    const bool pass = !held && !m_hit.contains(m_view->mapFromGlobal(QCursor::pos()));
+    if (pass == m_passThrough)
+        return;
+    m_passThrough = pass;
+    m_view->setFlag(Qt::WindowTransparentForInput, pass);
+}
+#endif
 
 void IslandWindow::setKeyboard(bool wanted)
 {
+#ifdef Q_OS_WIN
+    // A click focuses the island only while it needs typing or a key answer.
+    // When that ends the keyboard goes back to the window it was taken from,
+    // usually the terminal where Claude Code runs.
+    if (QGuiApplication::platformName() != QLatin1String("windows"))
+        return;
+    m_view->setFlag(Qt::WindowDoesNotAcceptFocus, !wanted);
+    if (!wanted && m_lastForeground && GetForegroundWindow() == HWND(m_view->winId()))
+        SetForegroundWindow(HWND(m_lastForeground));
+#endif
 #ifdef KISEL_WITH_LAYER_SHELL
     // On demand only while the island needs typing or a key answer, so it
     // never steals focus from the terminal where Claude Code runs.

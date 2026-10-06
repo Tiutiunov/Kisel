@@ -20,6 +20,24 @@ ctest --test-dir build --output-on-failure
 
 First launch plays the cover-assembly intro and opens the island for a few seconds. Hold the mascot for a moment (a ring fills) to pick it up: pull it out of the pill to let it roam the desktop, or carry it to any edge of any monitor and let go there to dock it. Settings has a monitor picker, a GitHub token field (Home → GitHub) and the hook installer. Open **Settings → Connect Claude Code** to see the exact diff of what will change in `~/.claude/settings.json`; nothing is written until you click, and a dated backup is taken first.
 
+## Build (Windows 10/11)
+
+Needs Visual Studio 2022 (or its Build Tools) with "Desktop development with C++", CMake, Ninja and Qt 6.5+ for MSVC (`qtbase`, `qtdeclarative`, `qtsvg`). From an "x64 Native Tools" prompt:
+
+```powershell
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=C:\Qt\6.10.3\msvc2022_64
+cmake --build build
+cmake --install build --prefix dist
+```
+
+```powershell
+dist\bin\kisel.exe
+```
+
+`dist\bin` is self-contained (Qt libraries, plugins and QML imports next to `kisel.exe`). To run or test straight from `build`, put Qt's `bin` on `PATH` first. There is no taskbar button and no console: the island and the tray icon are the whole app.
+
+What differs from Plasma: the island is a topmost frameless window; hooks go through the named pipe `\\.\pipe\kisel-<your SID>` and `%LOCALAPPDATA%\kisel\bin\kisel-hook.exe`; keys live in the Windows Credential Manager; sounds play one at a time. Files: `%LOCALAPPDATA%\kisel\kisel.conf`.
+
 ## Develop without Claude Code
 
 ```bash

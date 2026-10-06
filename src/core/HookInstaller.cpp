@@ -8,6 +8,7 @@
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QLibraryInfo>
 #include <QSaveFile>
 
 namespace kisel {
@@ -152,6 +153,24 @@ bool HookInstaller::ensureRelay(const QString &bundledPath) const
         return false;
     const QString dest = paths::hookBinary();
     QDir().mkpath(QFileInfo(dest).path());
+#ifdef Q_OS_WIN
+    // No system Qt here: the relay needs its one library next to it.
+    // (In a build tree it is not next to the app either, but in Qt's own bin.)
+#ifdef QT_DEBUG
+    const QString dll = QStringLiteral("Qt6Cored.dll");
+#else
+    const QString dll = QStringLiteral("Qt6Core.dll");
+#endif
+    QDir from = QFileInfo(bundledPath).dir();
+    if (!from.exists(dll))
+        from.setPath(QLibraryInfo::path(QLibraryInfo::BinariesPath));
+    const QString to = QFileInfo(dest).path() + QLatin1Char('/') + dll;
+    if (QFileInfo(to).size() != QFileInfo(from.filePath(dll)).size()) {
+        QFile::remove(to);
+        if (!QFile::copy(from.filePath(dll), to))
+            return false;
+    }
+#endif
     // Replace only when different, and via rename so a running hook is never cut.
     QFile src(bundledPath);
     QFile cur(dest);

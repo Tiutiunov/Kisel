@@ -37,6 +37,11 @@ Status of every behaviour in the design system (`README.md`, `motion.md`, `compo
 * **Walls and seams**: dragging into a wall with no neighbour presses into it (resistance, up to 18 percent squash at 40 px, springs back); where a monitor has a neighbour Kisel goes on across the seam, drawn on both monitors at once (a transparent input-less layer surface per output it touches, `SeamWindows`), with a contact ripple. Letting go settles it on the monitor that holds its centre, with a 0.25 hop.
 * **Drag mechanics**: the surface is made as big as the output while the pointer is down and stays still, so the mascot follows the pointer exactly (see ARCHITECTURE.md).
 
+## Done in the "Windows and Coucou's manners" pass
+* **Windows port**: see "Windows" in `ARCHITECTURE.md`. Built with MSVC 2022 and Qt 6.10; the 18 core tests pass, a permission request sent through `kisel-hook.exe` was answered with a real click on the island.
+* **The bar, after Coucou's island** (this replaces the 176 to 280 x 44 pill and "hover open" above): 32 px thick, 184 to 288 px wide, the mini Kisel 32 px and still hanging 6 px out of it. A click opens the card, the pointer alone never does; an open card closes 15 s after the pointer leaves (600 ms after an answer), and a click on Kisel puts it away. After a minute with nothing to show the bar slides into the edge and leaves a 240 x 6 strip that brings it back at a touch; any activity brings it back too.
+* Not taken from Coucou: its 640 px card width and 160 px view heights (Kisel's views are laid out for 660 and are taller), global shortcuts.
+
 ## Not applied from the pass
 * **Tab indicator**: the design describes a tab row; Kisel's header uses icon buttons, so there is no tab to stretch.
 * **"Bump" sound** at the wall, and the optional follow-the-active-window leap to another monitor (there is no such setting yet).
@@ -58,7 +63,7 @@ Status of every behaviour in the design system (`README.md`, `motion.md`, `compo
 3. **Service widgets beyond GitHub**, **Claude plan usage pill**, **drag a window as context** (KWin DBus), **jump to the exact Konsole tab** (`KONSOLE_DBUS_SERVICE` is already forwarded by the relay).
 4. **Packaging** – Gentoo ebuild (overlay), `kisel` icon theme entry, autostart `.desktop`.
 5. **Translations** – design copy is English; a Russian pass needs Cyrillic subsets of Fredoka/Nunito/JetBrains Mono (the shipped fonts are Latin subsets).
-6. **Windows** – see "Porting" in `ARCHITECTURE.md`.
+6. **Windows, the rest** – the port is in (see "Windows" in `ARCHITECTURE.md`). Still missing: an installer, start with Windows, an `.ico` for the executable, sounds that overlap.
 
 ## Known limitations
 * `settings.json` is rewritten by Qt's JSON writer, which sorts object keys alphabetically; the diff shown before writing is exact, but the first connect may reorder the user's keys. Replace with an order-preserving writer.

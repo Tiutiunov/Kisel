@@ -1,12 +1,14 @@
 // kisel-hook: the relay Claude Code runs on every hook event.
 //
 // Reads the hook JSON on stdin, adds a little terminal context and hands it to
-// Kisel over the Unix socket $XDG_RUNTIME_DIR/kisel.sock.
+// Kisel over the Unix socket $XDG_RUNTIME_DIR/kisel.sock (on Windows the named
+// pipe \\.\pipe\kisel-<user SID>).
 //
 // Hard rule: NEVER block Claude Code.
 //  * No socket (Kisel is closed): exit 0 at once with nothing on stdout.
-//  * Every step runs against one deadline (poll with a remaining budget), so a
-//    peer that accepts and then stops reading cannot wedge a session.
+//  * Every step runs against one deadline (poll with a remaining budget, or
+//    overlapped I/O on Windows), so a peer that accepts and then stops reading
+//    cannot wedge a session.
 //  * Only PermissionRequest waits for an answer. No answer means empty stdout,
 //    and Claude Code asks in the terminal as if Kisel were not installed.
 //
@@ -14,6 +16,7 @@
 //
 // Depends on QtCore (JSON) only; no event loop, no QCoreApplication.
 
+#include <QDir>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -26,12 +29,23 @@
 #include <cstring>
 #include <string>
 
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#include <sddl.h>
+
+#include <fcntl.h>
+#include <io.h>
+#else
 #include <fcntl.h>
 #include <poll.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/un.h>
 #include <unistd.h>
+#endif
 
 namespace {
 using Clock = std::chrono::steady_clock;
@@ -46,6 +60,146 @@ int msLeft(Clock::time_point deadline)
     const auto d = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - Clock::now()).count();
     return d < 0 ? 0 : int(d);
 }
+
+#ifdef _WIN32
+using Conn = HANDLE;
+const Conn kNoConn = INVALID_HANDLE_VALUE;
+
+long readStdin(char *buf, unsigned size) { return _read(_fileno(stdin), buf, size); }
+
+// The user a process runs as, as a SID in `buf`.
+bool userOf(HANDLE process, BYTE *buf, DWORD size)
+{
+    HANDLE token = nullptr;
+    if (!OpenProcessToken(process, TOKEN_QUERY, &token))
+        return false;
+    DWORD len = 0;
+    const bool ok = GetTokenInformation(token, TokenUser, buf, size, &len) != 0;
+    CloseHandle(token);
+    return ok;
+}
+PSID sidIn(BYTE *buf) { return reinterpret_cast<TOKEN_USER *>(buf)->User.Sid; }
+
+// Must match kisel::paths::socketPath() in the app.
+std::wstring socketPath()
+{
+    BYTE me[256];
+    LPWSTR text = nullptr;
+    if (!userOf(GetCurrentProcess(), me, sizeof me) || !ConvertSidToStringSidW(sidIn(me), &text))
+        return {};
+    const std::wstring path = std::wstring(L"\\\\.\\pipe\\kisel-") + text;
+    LocalFree(text);
+    return path;
+}
+
+// The pipe's name is guessable, so somebody else could have created it first:
+// talk only to a server that runs as the same user.
+bool serverIsSameUser(HANDLE pipe)
+{
+    ULONG pid = 0;
+    if (!GetNamedPipeServerProcessId(pipe, &pid))
+        return false;
+    HANDLE server = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+    if (!server)
+        return false;
+    BYTE me[256], them[256];
+    const bool same = userOf(GetCurrentProcess(), me, sizeof me) && userOf(server, them, sizeof them)
+        && EqualSid(sidIn(me), sidIn(them));
+    CloseHandle(server);
+    return same;
+}
+
+// A short retry while every pipe instance is busy. Any other failure means
+// nobody is listening and waiting would only delay Claude Code.
+Conn connectSocket()
+{
+    const std::wstring path = socketPath();
+    if (path.empty())
+        return kNoConn;
+    const auto deadline = Clock::now() + std::chrono::milliseconds(kConnectMs);
+    for (;;) {
+        // SECURITY_IDENTIFICATION: the server may learn who we are, never act as us.
+        HANDLE h = CreateFileW(path.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING,
+                               FILE_FLAG_OVERLAPPED | SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION, nullptr);
+        if (h != INVALID_HANDLE_VALUE) {
+            if (!serverIsSameUser(h)) {
+                CloseHandle(h);
+                return kNoConn;
+            }
+            return h; // overlapped; every I/O below waits against the deadline
+        }
+        if (GetLastError() != ERROR_PIPE_BUSY || msLeft(deadline) == 0)
+            return kNoConn;
+        WaitNamedPipeW(path.c_str(), DWORD(msLeft(deadline)) | 1); // 0 would mean the pipe's default wait
+    }
+}
+
+// Waits for one overlapped read or write, cancelling it at the deadline.
+bool finishIo(HANDLE h, OVERLAPPED &ov, BOOL started, DWORD *n, Clock::time_point deadline)
+{
+    if (!started) {
+        if (GetLastError() != ERROR_IO_PENDING)
+            return false;
+        if (WaitForSingleObject(ov.hEvent, DWORD(msLeft(deadline))) != WAIT_OBJECT_0) {
+            CancelIo(h);
+            GetOverlappedResult(h, &ov, n, TRUE); // the buffer is ours again only once the cancel has landed
+            return false;
+        }
+    }
+    return GetOverlappedResult(h, &ov, n, FALSE) != 0;
+}
+
+bool writeAll(Conn h, const std::string &data, Clock::time_point deadline)
+{
+    OVERLAPPED ov {};
+    ov.hEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    if (!ov.hEvent)
+        return false;
+    size_t off = 0;
+    bool ok = true;
+    while (ok && off < data.size()) {
+        DWORD n = 0;
+        const BOOL started = WriteFile(h, data.data() + off, DWORD(data.size() - off), nullptr, &ov);
+        ok = finishIo(h, ov, started, &n, deadline) && n > 0;
+        off += n;
+    }
+    CloseHandle(ov.hEvent);
+    return ok;
+}
+
+// Reads until a newline, EOF or the deadline. Empty on timeout.
+std::string readLine(Conn h, Clock::time_point deadline)
+{
+    OVERLAPPED ov {};
+    ov.hEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    if (!ov.hEvent)
+        return {};
+    std::string buf;
+    char chunk[512];
+    bool timedOut = false;
+    for (;;) {
+        DWORD n = 0;
+        const BOOL started = ReadFile(h, chunk, sizeof chunk, nullptr, &ov);
+        if (!finishIo(h, ov, started, &n, deadline) || n == 0) {
+            timedOut = msLeft(deadline) == 0;
+            break; // otherwise the pipe was closed
+        }
+        buf.append(chunk, n);
+        if (buf.find('\n') != std::string::npos)
+            break;
+    }
+    CloseHandle(ov.hEvent);
+    if (timedOut)
+        return {};
+    while (!buf.empty() && (buf.back() == '\n' || buf.back() == ' ' || buf.back() == '\r'))
+        buf.pop_back();
+    return buf;
+}
+#else
+using Conn = int;
+constexpr Conn kNoConn = -1;
+
+long readStdin(char *buf, unsigned size) { return long(read(STDIN_FILENO, buf, size)); }
 
 // Must match kisel::paths::socketPath() in the app.
 std::string socketPath()
@@ -73,7 +227,7 @@ bool serverIsSameUser(int fd)
 
 // Non-blocking connect with a short retry while the backlog is full. Any other
 // failure means nobody is listening and waiting would only delay Claude Code.
-int connectSocket()
+Conn connectSocket()
 {
     const std::string path = socketPath();
     if (path.empty() || path.size() >= sizeof(sockaddr_un::sun_path))
@@ -147,6 +301,7 @@ std::string readLine(int fd, Clock::time_point deadline)
         buf.pop_back();
     return buf;
 }
+#endif
 
 void truncateStrings(QJsonValue &v)
 {
@@ -203,12 +358,18 @@ std::string decisionJson(const std::string &line)
 
 int main(int argc, char **argv)
 {
+#ifdef _WIN32
+    // bytes in, bytes out: no CR LF translation
+    _setmode(_fileno(stdin), _O_BINARY);
+    _setmode(_fileno(stdout), _O_BINARY);
+#else
     std::signal(SIGPIPE, SIG_IGN);
+#endif
 
     // ---- stdin ----
     std::string raw;
     char chunk[4096];
-    for (ssize_t n; (n = read(STDIN_FILENO, chunk, sizeof chunk)) > 0;)
+    for (long n; (n = readStdin(chunk, sizeof chunk)) > 0;)
         raw.append(chunk, size_t(n));
     if (raw.empty())
         return 0;
@@ -243,11 +404,8 @@ int main(int argc, char **argv)
     obj.remove("tool_response");
     obj.remove("transcript_path");
 
-    if (obj.value("cwd").toString().isEmpty()) {
-        char cwd[4096];
-        if (getcwd(cwd, sizeof cwd))
-            obj["cwd"] = QString::fromLocal8Bit(cwd);
-    }
+    if (obj.value("cwd").toString().isEmpty())
+        obj["cwd"] = QDir::currentPath();
     // Terminal context only; never a filter.
     static const struct { const char *key, *var; } ctx[] = {
         {"term_program", "TERM_PROGRAM"}, {"konsole_dbus_service", "KONSOLE_DBUS_SERVICE"},
@@ -264,8 +422,8 @@ int main(int argc, char **argv)
     const bool waits = event == QLatin1String("PermissionRequest");
     const auto deadline = Clock::now() + std::chrono::milliseconds(waits ? kDecisionMs : kFireAndForgetMs);
 
-    const int fd = connectSocket();
-    if (fd < 0)
+    const Conn fd = connectSocket();
+    if (fd == kNoConn)
         return 0;
     std::string line = QJsonDocument(root.toObject()).toJson(QJsonDocument::Compact).toStdString();
     line.push_back('\n');

@@ -97,7 +97,7 @@ Item {
                     id: keyField
                     width: 280
                     echoMode: TextInput.Password
-                    placeholder: root.keySaved ? "Key saved in KWallet" : "Anthropic API key"
+                    placeholder: root.keySaved ? "Key saved in " + Vault.storeName : "Anthropic API key"
                     onAccepted: root.saveKey()
                 }
                 KButton { id: saveBtn; variant: "primary"; text: "Save"; onClicked: root.saveKey() }
@@ -112,7 +112,7 @@ Item {
                     id: ghField
                     width: 280
                     echoMode: TextInput.Password
-                    placeholder: GitHub.hasToken ? "Token saved in KWallet" : "Personal access token (read-only)"
+                    placeholder: GitHub.hasToken ? "Token saved in " + Vault.storeName : "Personal access token (read-only)"
                     onAccepted: root.saveGitHub()
                 }
                 KButton { id: ghSave; variant: "primary"; text: "Save"; onClicked: root.saveGitHub() }
@@ -253,7 +253,7 @@ Item {
             ghSave.success("Saved")
             Sfx.play("done")
         } else {
-            note = "Couldn't reach KWallet"
+            note = "Couldn't reach " + Vault.storeName
         }
     }
 
@@ -266,7 +266,7 @@ Item {
             saveBtn.success("Saved")
             Sfx.play("done")
         } else {
-            note = "Couldn't reach KWallet"
+            note = "Couldn't reach " + Vault.storeName
         }
     }
 }

@@ -14,8 +14,13 @@ namespace kisel {
 namespace {
 constexpr qint64 kMaxAttach = 200 * 1024;
 const QUrl kEndpoint(QStringLiteral("https://api.anthropic.com/v1/messages"));
+#ifdef Q_OS_WIN
+#define KISEL_DESKTOP "Windows"
+#else
+#define KISEL_DESKTOP "KDE Plasma"
+#endif
 const QString kSystem = QStringLiteral(
-    "You are Kisel, a small desktop companion for a developer on KDE Plasma. "
+    "You are Kisel, a small desktop companion for a developer on " KISEL_DESKTOP ". "
     "Answer briefly and concretely. Quote commands and paths in backticks.");
 } // namespace
 

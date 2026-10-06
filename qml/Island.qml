@@ -2,10 +2,13 @@
 // or (floating) a mascot that lives free on the desktop and opens its card in
 // place. Sizes, timings and behaviour follow motion.md.
 //
-//   docked   on top, bottom, left or right: collapsed 176-280 x 44 (44 x 176 on the
+//   docked   on top, bottom, left or right: collapsed 184-288 x 32 (32 x 176 on the
 //            sides) -> home 660x200 | session 300 | permission 236/310/290 | github
-//            276 | chat 412 | settings 440. Opens on hover (280 ms OutCubic), closes
-//            600 ms after the pointer leaves unless something holds it open.
+//            276 | chat 412 | settings 440. The bar's size and manners follow Coucou's
+//            island: a click opens it (280 ms OutCubic), it closes 15 s after the
+//            pointer leaves unless something holds it open, and after a minute with
+//            nothing to show it slides into the edge; touching the edge there, or any
+//            activity, brings it back.
 //   floating the mascot (120 px) is the whole window; click opens the card where it
 //            stands, click again or the close icon closes it. It wanders while idle.
 //   picking up  hold the mascot for 350 ms: a ring fills, then Kisel is drawn out of
@@ -45,12 +48,17 @@ Item {
     readonly property bool vertical: !floating && (edge === "left" || edge === "right")
     readonly property bool atBottom: !floating && edge === "bottom"
     readonly property string dockSide: floating ? "none" : edge
-    // Collapsed v2: a 44 px pill, 176 px at rest, widening to its status (max 280); a
-    // 44 x 176 one on the sides; the mascot alone (120 px) while floating.
-    readonly property real pillContentW: 66 + pillRow.implicitWidth + 16
-    readonly property real pillW: Math.max(176, Math.min(280, pillContentW))
-    readonly property real closedW: floating ? 120 : (vertical ? 44 : pillW)
-    readonly property real closedH: floating ? 120 : (vertical ? 176 : 44)
+    // Collapsed: a 32 px bar, 184 px at rest, widening to its status (max 288); a
+    // 32 x 176 one on the sides; the mascot alone (120 px) while floating.
+    readonly property int pillT: 32      // the bar's thickness
+    readonly property int mini: 32       // the mascot in the bar
+    readonly property int pillMin: 184
+    readonly property int pillMax: 288
+    readonly property int labelX: 12 + mini + 10
+    readonly property real pillContentW: labelX + pillRow.implicitWidth + 16
+    readonly property real pillW: Math.max(pillMin, Math.min(pillMax, pillContentW))
+    readonly property real closedW: floating ? 120 : (vertical ? pillT : pillW)
+    readonly property real closedH: floating ? 120 : (vertical ? 176 : pillT)
     readonly property real cardW: expanded ? 660 : closedW
     readonly property real cardH: expanded ? viewHeight : closedH
     // the radius follows min(26, short side / 2), so the pill turns into a card without a jump
@@ -74,12 +82,12 @@ Item {
     // the surface's centre as it opens; bottom grows upward. Left and right: flush with the
     // edge, centred on the pill along it, kept inside the surface as it opens.
     readonly property real cardX: floating ? (width - animW) / 2
-        : edge === "left" ? 0
-        : edge === "right" ? width - animW
+        : edge === "left" ? -tuckA
+        : edge === "right" ? width - animW + tuckA
         : mix(Shell.pillAlong - animW / 2, 24, openU)
     readonly property real cardY: floating ? 8
-        : edge === "top" ? 0
-        : edge === "bottom" ? height - animH
+        : edge === "top" ? -tuckA
+        : edge === "bottom" ? height - animH + tuckA
         : mix(Shell.pillAlong - animH / 2, Math.max(8, Math.min(height - 8 - animH, Shell.pillAlong - animH / 2)), openU)
     // the dark surface runs `radius` past the flush side, so only the inner corners are round
     readonly property real shapeX: dockSide === "left" ? -radius : 0
@@ -95,7 +103,25 @@ Item {
     readonly property bool holdOpen: Hub.pendingCount > 0 || dropActive || peek.running || typing || dragArea.dragging
     readonly property bool wantsKeys: expanded && (view === "chat" || view === "settings" || view === "permission")
     onWantsKeysChanged: Shell.setKeyboard(wantsKeys)
-    onHoldOpenChanged: if (!holdOpen && !hover.hovered) closeTimer.restart()
+    onHoldOpenChanged: if (!holdOpen && !hover.hovered) closeIn(600)
+
+    // ---- tucked into the edge ----------------------------------------------------
+    // A minute with nothing to show and the bar slides out of sight, leaving a 240 x 6
+    // strip on the edge that brings it back when the pointer touches it.
+    property bool tucked: false
+    readonly property bool canTuck: !floating && !expanded && !mfree && !assembling && !dragArea.pressed
+        && !hover.hovered && !wake.hovered && Hub.pendingCount === 0 && Hub.chip === ""
+        && (Hub.mood === "idle" || Hub.mood === "sleep")
+    onCanTuckChanged: if (!canTuck) tucked = false
+    onTuckedChanged: updateHit()
+    Timer { interval: 60000; running: root.canTuck && !root.tucked; onTriggered: root.tucked = true }
+    // the bar, the mascot hanging 6 px out of it and the shadow all clear the edge
+    property real tuckA: tucked ? pillT + 14 : 0
+    Behavior on tuckA { NumberAnimation { duration: Theme.reduced ? 0 : 340; easing.type: Easing.InOutCubic } }
+    readonly property rect wakeRect: edge === "left" ? Qt.rect(0, Shell.pillAlong - 120, 6, 240)
+        : edge === "right" ? Qt.rect(width - 6, Shell.pillAlong - 120, 6, 240)
+        : edge === "bottom" ? Qt.rect(Shell.pillAlong - 120, height - 6, 240, 6)
+        : Qt.rect(Shell.pillAlong - 120, 0, 240, 6)
 
     function openIsland(v) {
         view = v || "home"
@@ -129,11 +155,13 @@ Item {
         if (Hub.pendingCount === 0) {
             view = "home"
             if (!hover.hovered || floating)
-                closeTimer.restart()
+                closeIn(600)
         }
     }
     function toggleView(v) { view = view === v ? "home" : v }
 
+    // 15 s after the pointer leaves; 600 ms once an answer or a peek is over
+    function closeIn(ms) { closeTimer.interval = ms; closeTimer.restart() }
     Timer {
         id: closeTimer
         interval: 600
@@ -165,7 +193,7 @@ Item {
             Sfx.play("done")
             const inPill = !root.expanded && !root.floating
             if (inPill) // the burst starts from the pill's "Done" chip...
-                burst.fire(card.x + (root.vertical ? 22 : 66 + 28), card.y + (root.vertical ? 34 : 22), 44)
+                burst.fire(card.x + (root.vertical ? root.pillT / 2 : root.labelX + 28), card.y + (root.vertical ? 34 : root.pillT / 2), root.mini)
             else
                 burst.fire(mascot.x + mascot.width / 2, mascot.y + mascot.height * 0.55, mascot.width)
             if (!root.expanded) {
@@ -213,9 +241,9 @@ Item {
         // Where everything lands, from the real layout (Home is 660 x 200, hung at the top centre)
         const cardX = (root.width - 660) / 2
         const ox = cardX + 150, oy = 48 // Home's content origin
-        const pw = 176 // the pill at rest
-        assembly.pill = Qt.rect((root.width - pw) / 2, 0, pw, 44)
-        assembly.leaf = Qt.point((root.width - pw) / 2 + 12 + 27, 6 + 5)
+        const pw = pillMin // the pill at rest
+        assembly.pill = Qt.rect((root.width - pw) / 2, 0, pw, pillT)
+        assembly.leaf = Qt.point((root.width - pw) / 2 + 12 + 27 * mini / 44, 6 + 5 * mini / 44)
         assembly.slot = Qt.rect(cardX + 14 + (132 - 110) / 2, 48, 110, 110)
         const hr = homeView.hookRect, br = homeView.buttonRect
         assembly.card = Qt.rect(ox + hr.x, oy + hr.y, hr.width, hr.height)
@@ -275,6 +303,7 @@ Item {
     }
 
     function updateHit() {
+        if (tucked) { Shell.setHitRect(root.x + wakeRect.x, root.y + wakeRect.y, wakeRect.width, wakeRect.height); return }
         // while the assembly plays, the whole top of the surface takes the click that skips it
         if (assembling) { Shell.setHitRect(0, 0, root.width, 300); return }
         // the card and the mascot (which can overhang it), in the surface's coordinates
@@ -332,8 +361,8 @@ Item {
     property bool mfree: false
     property real freeCX: 0
     property real freeCY: 0
-    property real freeSize: 44
-    property bool growing: false      // freeSize animates (44 -> 120 after the neck snaps)
+    property real freeSize: mini
+    property bool growing: false      // freeSize animates (mini -> 120 after the neck snaps)
     Behavior on freeSize { enabled: root.growing && !Theme.reduced; NumberAnimation { duration: Theme.tBase; easing.type: Easing.OutCubic } }
     property bool ghost: false        // the pill has been left behind: it fades out
     property bool settling: false     // let go; waiting for the surface to shrink back
@@ -357,16 +386,16 @@ Item {
     function slotCenterFinal() {
         const e = Shell.edge
         const vert = e === "left" || e === "right"
-        const cw = vert ? 44 : pillW, ch = vert ? 176 : 44
+        const cw = vert ? pillT : pillW, ch = vert ? 176 : pillT
         const cx = e === "left" ? 0 : e === "right" ? width - cw : Shell.pillAlong - cw / 2
         const cy = e === "top" ? 0 : e === "bottom" ? height - ch : Shell.pillAlong - ch / 2
         const sx = e === "left" ? 6 : e === "right" ? -6 : 12
         const sy = e === "bottom" ? -6 : vert ? 12 : 6
-        return Qt.point(Shell.originX + cx + sx + 22, Shell.originY + cy + sy + 22)
+        return Qt.point(Shell.originX + cx + sx + mini / 2, Shell.originY + cy + sy + mini / 2)
     }
     function freeBox() { return Qt.point(freeCX - freeSize / 2, freeCY - freeSize / 2) }
 
-    // ---- docking: along an arc (320 ms InOutCubic) into the new pill's slot, shrinking to 44 px
+    // ---- docking: along an arc (320 ms InOutCubic) into the new pill's slot, shrinking to `mini`
     property real dockT: 0
     property point dockFrom: Qt.point(0, 0)
     property point dockTo: Qt.point(0, 0)
@@ -386,7 +415,7 @@ Item {
         const cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2 - 40, k = 1 - t
         freeCX = k * k * a.x + 2 * k * t * cx + t * t * b.x
         freeCY = k * k * a.y + 2 * k * t * cy + t * t * b.y
-        freeSize = 120 + (44 - 120) * t   // shrinks to 44 with `detail` falling
+        freeSize = 120 + (mini - 120) * t   // shrinks to `mini` with `detail` falling
     }
     function finishDockArc() {
         // landing: a ripple (ring, 24 to 56 px over 280 ms) and the "click" sound
@@ -556,16 +585,16 @@ Item {
                     if (Shell.debugOn) Shell.log(Date.now() % 100000 + " hover " + hovered + " at output " + Math.round(root.isoX + card.x + point.position.x) + "," + Math.round(root.isoY + card.y + point.position.y))
                     Hub.poke()
                     if (root.floating || root.mfree) return // floating opens and closes by click
-                    if (hovered) {
-                        closeTimer.stop()
-                        if (!root.expanded) {
-                            root.autoOpened = false
-                            root.open()
-                        }
-                    } else {
-                        closeTimer.restart()
-                    }
+                    // the pointer alone never opens the card: the top of a screen is where
+                    // tabs and title bars live. It only keeps an open card open.
+                    if (hovered) closeTimer.stop()
+                    else root.closeIn(15000)
                 }
+            }
+            // a click anywhere on the bar opens it (on the mascot: see dragArea)
+            TapHandler {
+                enabled: !root.expanded && !root.floating && !root.mfree && !root.assembling
+                onTapped: { Hub.poke(); root.autoOpened = false; root.open() }
             }
 
             DropArea {
@@ -612,9 +641,9 @@ Item {
             // slides back in from the right for the last 120 ms.
             Row {
                 id: pillRow
-                x: 66 + (root.expanded ? -8 : 0)
+                x: root.labelX + (root.expanded ? -8 : 0)
                 Behavior on x { NumberAnimation { duration: root.expanded ? 100 : 120; easing.type: Easing.OutCubic } }
-                y: (44 - height) / 2
+                y: (root.pillT - height) / 2
                 height: 24
                 spacing: 10
                 opacity: root.expanded || root.floating || root.vertical ? 0 : 1
@@ -630,8 +659,8 @@ Item {
                     height: parent.height
                     verticalAlignment: Text.AlignVCenter
                     text: pillRow.label
-                    // the label never pushes the pill past 280 px
-                    width: Math.min(implicitWidth, 280 - 66 - 16 - (Hub.mood === "work" ? 34 : 0))
+                    // the label never pushes the pill past its widest
+                    width: Math.min(implicitWidth, root.pillMax - root.labelX - 16 - (Hub.mood === "work" ? 34 : 0))
                     elide: Text.ElideRight
                     color: Hub.mood === "sleep" ? Theme.inkFaint : Theme.ink
                     Behavior on color { ColorAnimation { duration: 160 } }
@@ -647,8 +676,8 @@ Item {
             // collapsed, on a side: the state becomes an icon-only 24 px disc under the mascot;
             // the words appear when the card opens
             PillDisc {
-                x: (44 - width) / 2
-                y: 12 + 44 + 8
+                x: (root.pillT - width) / 2
+                y: 12 + root.mini + 8
                 opacity: root.vertical && !root.expanded ? 1 : 0
                 kind: Hub.chip !== "" ? Hub.chip : Hub.mood === "work" ? "work" : Hub.mood === "think" ? "think" : ""
             }
@@ -796,6 +825,14 @@ Item {
             active: dragArea.dragging && dragArea.snapped && root.zoneEdge !== "" && root.crossTarget === ""
         }
 
+        // tucked away: the strip on the edge that brings the bar back
+        Item {
+            x: root.wakeRect.x; y: root.wakeRect.y
+            width: root.wakeRect.width; height: root.wakeRect.height
+            visible: root.tucked
+            HoverHandler { id: wake }
+        }
+
         // the jelly neck between the pill and the mascot while it is drawn out
         Neck {
             id: neck
@@ -808,7 +845,7 @@ Item {
         Mascot {
             id: mascot
             z: 2
-            readonly property int slot: !root.expanded ? (root.floating ? 120 : 44)
+            readonly property int slot: !root.expanded ? (root.floating ? 120 : root.mini)
                 : ({ home: 110, session: 88, permission: 88, github: 88, chat: 64, settings: 64 })[root.view]
             // collapsed: 12 px from the left edge and 6 px below the pill's top, so it hangs
             // 6 px below the pill like a charm; on the other docks it overhangs 6 px toward the
@@ -956,7 +993,7 @@ Item {
                         root.dentX = 0; root.dentY = 0
                         root.ghost = true               // the pill fades away behind Kisel
                         root.growing = true
-                        root.freeSize = 120             // grows from 44 to 120 along the drag
+                        root.freeSize = 120             // grows from `mini` to 120 along the drag
                         mascot.land()
                     }
                     return
@@ -1078,7 +1115,7 @@ Item {
                 if (!springAnim.running) return
                 root.freeCX = springFrom.x + (springTo.x - springFrom.x) * springT
                 root.freeCY = springFrom.y + (springTo.y - springFrom.y) * springT
-                root.freeSize = 44
+                root.freeSize = root.mini
             }
 
             onPressed: (m) => {
@@ -1118,6 +1155,8 @@ Item {
                         else { root.autoOpened = false; root.open() }
                     } else if (!root.expanded) {
                         root.open()
+                    } else if (Hub.pendingCount === 0) {
+                        root.collapseNow()         // docked and open: a click on Kisel puts the card away
                     }
                 } else if (progressed > 0.1) {
                     mascot.land()                  // a hold let go early: a small recoil

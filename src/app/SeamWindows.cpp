@@ -40,7 +40,11 @@ SeamWindows::Entry &SeamWindows::entryFor(QScreen *screen)
     e.view->setScreen(screen);
     e.view->setColor(Qt::transparent);
     // no input at all: the pointer belongs to the island's surface, which holds the grab
-    e.view->setFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::WindowTransparentForInput);
+    e.view->setFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::WindowTransparentForInput
+#ifdef Q_OS_WIN
+                     | Qt::Tool // no taskbar button
+#endif
+                     );
     e.view->setResizeMode(QQuickView::SizeRootObjectToView);
     e.view->setTitle(QStringLiteral("Kisel seam"));
     e.view->engine()->rootContext()->setContextProperty(QStringLiteral("seam"), e.state);

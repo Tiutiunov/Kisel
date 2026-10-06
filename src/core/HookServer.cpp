@@ -2,8 +2,10 @@
 
 #include <QJsonDocument>
 
+#ifndef Q_OS_WIN
 #include <sys/socket.h>
 #include <unistd.h>
+#endif
 
 namespace kisel {
 
@@ -12,6 +14,12 @@ constexpr qsizetype kMaxPayload = 1 << 20;
 
 // True when the process on the other end runs as the same user. A socket in a
 // 0700 runtime dir already keeps strangers out; this is the belt to that brace.
+#ifdef Q_OS_WIN
+// A named pipe has no SO_PEERCRED, and the relay behind a fire-and-forget event
+// has usually exited before we get here, so its process cannot be asked either.
+// The pipe's access list (UserAccessOption: this user only) is the whole check.
+bool sameUser(QLocalSocket *) { return true; }
+#else
 bool sameUser(QLocalSocket *s)
 {
     ucred cred {};
@@ -20,6 +28,7 @@ bool sameUser(QLocalSocket *s)
         return false;
     return cred.uid == getuid();
 }
+#endif
 } // namespace
 
 HookConnection::HookConnection(QLocalSocket *socket, QObject *parent)

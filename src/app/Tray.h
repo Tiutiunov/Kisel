@@ -4,7 +4,7 @@
 
 namespace kisel {
 
-// Tray icon (StatusNotifierItem: native on Plasma). The island is the whole UI;
+// Tray icon (StatusNotifierItem: native on Plasma; QSystemTrayIcon elsewhere). The island is the whole UI;
 // the tray only offers Open, Settings, Pause and Quit.
 class Tray : public QObject
 {

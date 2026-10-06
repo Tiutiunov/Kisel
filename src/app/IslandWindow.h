@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QPointF>
 #include <QQuickView>
+#include <QRectF>
 
 class QScreen;
 
@@ -16,7 +17,9 @@ namespace kisel {
 // the input region (setMask) is kept equal to the island's shape, so every click
 // outside goes to the windows underneath and the compositor never resizes a
 // surface mid-animation (motion.md: "never animate the window size from inside
-// a loop"). Where the surface sits is one of:
+// a loop"). Windows has no input regions (a mask would clip the drawing too), so
+// there the whole window turns input-transparent while the pointer is outside
+// the island's shape. Where the surface sits is one of:
 //
 //   docked    flush with one edge of the output (top, bottom, left, right), the
 //             pill at `along` px along that edge
@@ -128,6 +131,12 @@ private:
     void setFloatPos(qreal x, qreal y);
     void applyPlacement();
     void applySurfaceSize(bool wide);
+#ifdef Q_OS_WIN
+    void trackPointer();
+    QRectF m_hit;
+    bool m_passThrough = false;
+    quintptr m_lastForeground = 0; // the window that had the keyboard before the island took it
+#endif
     QQuickView *m_view;
     bool m_floating = false;
     bool m_grabbing = false;

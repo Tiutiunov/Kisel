@@ -113,10 +113,10 @@ int main(int argc, char *argv[])
     ChatClient chat(&prefs, &secrets);
 
     // The relay ships next to the app; hooks point at a stable copy in the data dir.
-    hooks.ensureRelay(QCoreApplication::applicationDirPath() + QStringLiteral("/" KISEL_HOOK_BASENAME));
+    hooks.ensureRelay(QCoreApplication::applicationDirPath() + QLatin1Char('/') + paths::hookFileName());
 
     // A grab run must never take over the real socket.
-    const QString socket = cli.isSet("grab") ? QStringLiteral("/tmp/kisel-grab-%1.sock").arg(getpid()) : paths::socketPath();
+    const QString socket = cli.isSet("grab") ? paths::scratchSocketPath(QCoreApplication::applicationPid()) : paths::socketPath();
     if (!hub.start(socket))
         qWarning("Could not listen on %s; hooks will not reach Kisel.", qPrintable(socket));
 
