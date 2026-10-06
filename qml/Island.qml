@@ -114,7 +114,8 @@ Item {
     readonly property var bench: cast.filter(c => c !== stage && !(duo && c === buddyWho))
 
     // ---- two at work ----------------------------------------------------------------
-    // While Claude works the bar holds two of them at its head, side by side: whoever is
+    // While Claude works the bar holds two of them at its head, side by side (Miku is the
+    // one working; the other keeps her company): whoever is
     // on stage and a partner (Miku, or if Miku is the one on stage, the one who rests or
     // the first on the bench). They do not just sit there: every few seconds a little
     // scene plays between them (see `skits`). The bar grows by the partner's width.
@@ -1307,8 +1308,11 @@ Item {
             character: root.stage
             instant: root.duo
             music: root.tune
+            // Claude's working and thinking are Miku's to act out. Anyone else on stage is
+            // herself while Claude works: at ease, or (Teto) the way the computer feels.
+            readonly property string own: root.tetoAct && Sys.strain ? "sad" : "idle"
             mood: root.dropActive ? "wow" : root.dropHappy ? "happy" : root.walking ? "walk"
-                : root.tetoAct && Sys.strain && Hub.mood === "idle" ? "sad" : Hub.mood
+                : root.stage !== "miku" && (root.claudeBusy || Hub.mood === "idle") ? own : Hub.mood
             gazeOn: root.duo && root.duoLook
             gaze: Qt.point(0.9, 0)
             paused: root.tucked && root.tuckA > root.pillT
@@ -1329,7 +1333,7 @@ Item {
             y: (root.atBottom ? card.y + card.height - root.pillT : card.y) + (root.pillT - height) / 2
             character: root.buddyWho
             instant: true
-            mood: "work"
+            mood: root.buddyWho === "miku" ? (Hub.mood === "think" ? "think" : "work") : "idle" // (only Miku does Claude's work)
             property real pop: root.duo ? 1 : 0
             Behavior on pop { NumberAnimation { duration: 320; easing.type: Theme.reduced ? Easing.OutCubic : Easing.OutBack } }
             scale: pop * root.buddyPop
