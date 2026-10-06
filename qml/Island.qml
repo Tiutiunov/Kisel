@@ -131,9 +131,9 @@ Item {
         && !expanded && !floating && !vertical && !mfree && !assembling && !greeting
     // (if Rin is at the head already, on stage or as the partner, the sign is simply hers)
     readonly property bool heraldRin: note && stage !== "rin" && !(duo && buddyWho === "rin")
-    property real heraldSeat: heraldRin ? 23 : 0
+    property real heraldSeat: heraldRin ? mini + 3 : 0 // (she is the size of the one on stage)
     Behavior on heraldSeat { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
-    property real heraldW: heraldRin ? 23 : 0
+    property real heraldW: heraldRin ? mini + 3 : 0
     Behavior on heraldW { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
     function rinItem() { return stage === "rin" ? mascot : duo && buddyWho === "rin" ? buddy : herald }
     readonly property Item rinNow: stage === "rin" ? mascot : duo && buddyWho === "rin" ? buddy : herald
@@ -1402,7 +1402,7 @@ Item {
         Mascot {
             id: herald
             z: 2
-            size: 20
+            size: root.mini
             x: card.x + root.miniLead + root.mini + 3 + root.duoW
             y: (root.atBottom ? card.y + card.height - root.pillT : card.y) + (root.pillT - height) / 2
             character: "rin"
