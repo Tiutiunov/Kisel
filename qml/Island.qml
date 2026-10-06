@@ -65,24 +65,39 @@ Item {
     // The cast. One of them is the mascot; the other four wait at the bar's far end, two
     // by two, as Coucou keeps its other agents, and a click on one swaps her in.
     readonly property var cast: ["miku", "rin", "luka", "zunda", "teto"]
-    // Who is on stage. Miku is Claude Code's own: whoever else was chosen, she steps in
-    // for a few seconds when Claude starts on something or finishes, and stays for as
-    // long as a request waits for an answer; then the chosen one comes back. With Miku
-    // chosen nobody changes places.
+    // Who is on stage: whoever has something to show.
+    //   Miku is Claude Code's. She does not stand there for as long as Claude works (that
+    //   can be an hour): she steps in for a few seconds when there is news (a task begins,
+    //   Claude turns to another session, a task is done) and stays while a request waits
+    //   for an answer. Then she goes.
+    //   Zundamon is Spotify's: while a tune plays she has something to show.
+    // So with Miku chosen and music on, the stage is Zundamon's between Miku's visits, and
+    // the two keep changing places. Anyone else who was chosen simply stays (and Miku
+    // still visits); with no music the chosen one is who you see.
     property string guest: ""
-    readonly property string stage: guest !== "" ? guest : Prefs.character
+    readonly property bool zundaLive: Prefs.zundaSpotify && Media.available && Media.active && Media.playing
+    readonly property string rest: Prefs.character === "miku" && zundaLive ? "zunda" : Prefs.character
+    readonly property string stage: guest !== "" ? guest : rest
     function stepIn() {
-        if (Prefs.character === "miku") return
+        if (rest === "miku") return
         guest = "miku"
         guestTimer.restart()
     }
+    // picked by hand, from the bench or in Settings
+    function choose(who) {
+        Prefs.character = who
+        guest = ""
+        if (who === "miku") stepIn() // (with music on the stage is Zundamon's: Miku at least comes out to say hello)
+    }
     Timer { id: guestTimer; interval: 3000
         onTriggered: { if (Hub.pendingCount > 0) restart(); else root.guest = "" } }
+    readonly property string sessionId: Hub.session.id || ""
+    onSessionIdChanged: if (sessionId !== "") stepIn()
     readonly property bool claudeBusy: Hub.mood === "work" || Hub.mood === "think"
     onClaudeBusyChanged: if (claudeBusy) stepIn()
     // The chosen one with a service of her own (Zundamon with Spotify) minds that service:
     // Claude's working is Miku's news, not hers.
-    readonly property bool ownAct: guest === "" && Prefs.character === "zunda" && Prefs.zundaSpotify && Media.available
+    readonly property bool ownAct: guest === "" && rest === "zunda" && Prefs.zundaSpotify && Media.available
     readonly property var bench: cast.filter(c => c !== stage)
     readonly property int castW: 50
     // Zundamon with Spotify playing: the bar names the track and she hums along
@@ -229,8 +244,8 @@ Item {
         function onPermissionCleared() { root.afterAnswer() }
         function onTaskFinished() {
             root.stepIn()
-            root.doneHold = true
-            if (!root.expanded) doneHoldTimer.restart() // (else the five seconds start when the card closes)
+            root.doneHold = true // (the five seconds start when the card, which opens for a look, closes again)
+            doneHoldTimer.stop()
             Sfx.play("done")
             const inPill = !root.expanded && !root.floating
             if (inPill) // the burst starts from the pill's "Done" chip...
@@ -898,7 +913,7 @@ Item {
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
-                            onClicked: { Hub.poke(); Sfx.play("click"); root.guest = ""; Prefs.character = seat.modelData }
+                            onClicked: { Hub.poke(); Sfx.play("click"); root.choose(seat.modelData) }
                         }
                     }
                 }
@@ -977,7 +992,7 @@ Item {
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: { Sfx.play("click"); root.guest = ""; Prefs.character = chair.modelData }
+                                onClicked: { Sfx.play("click"); root.choose(chair.modelData) }
                             }
                         }
                     }
@@ -1007,6 +1022,7 @@ Item {
                     enterDelay: root.enterDelay
                     HomeView {
                         id: homeView
+                        ownHome: root.rest === "zunda" && Prefs.zundaSpotify && Media.available
                         age: hostHome.age
                         revealCard: assembly.revealCard
                         revealButton: assembly.revealButton

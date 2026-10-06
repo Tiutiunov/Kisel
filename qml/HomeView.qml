@@ -23,7 +23,7 @@ Item {
     readonly property bool hasSession: !!s.id
     // Home belongs to whoever is chosen. Miku's is this one, Claude Code's; Zundamon's is her
     // Spotify player. The ones with no service of their own yet show Claude's.
-    readonly property bool ownHome: Prefs.character === "zunda" && Prefs.zundaSpotify && Media.available
+    property bool ownHome: false // the island says whose Home this is
     // one Home dissolves into the other: Claude's goes first, hers follows
     property real ownU: ownHome ? 1 : 0
     Behavior on ownU { NumberAnimation { duration: Theme.reduced ? 140 : 320; easing.type: Easing.InOutCubic } }
