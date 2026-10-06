@@ -121,7 +121,47 @@ Item {
     // The chosen one with a service of her own (Zundamon with Spotify) minds that service:
     // Claude's working is Miku's news, not hers.
     readonly property bool ownAct: guest === "" && rest === "zunda" && Prefs.zundaSpotify && Media.available
-    readonly property var bench: cast.filter(c => c !== stage && !(duo && c === buddyWho) && !((heraldRin || rinFlying) && c === "rin"))
+    readonly property var benchAfter: cast.filter(c => c !== stage && !(duo && c === buddyWho) && !(heraldRin && c === "rin"))
+    readonly property var bench: benchAfter.filter(c => !flying.includes(c)) // (whoever is in the air has not sat down yet)
+
+    // ---- back to the bench ------------------------------------------------------------
+    // Nobody who leaves the head of the bar just vanishes: she somersaults over it, in an
+    // arc, to her seat on the bench at the far end, and lands there. That goes for the
+    // partner when Claude's work is done, for the one on stage when another takes her
+    // place, and for Rin when her notifications have been looked at. (Several may be in the air at once.)
+    // (Each of the five has a double that does the flying, kept ready and out of sight:
+    // one made on the spot would first play its own coming-in. `flying` names those in the air.)
+    property var flying: []
+    function launch(who, fromX) {
+        if (who === "" || expanded || floating || vertical || mfree || tucked || assembling || greeting || Theme.reduced) return
+        if (benchAfter.indexOf(who) < 0 || flying.includes(who)) return
+        const f = flyers.itemAt(cast.indexOf(who))
+        if (!f) return
+        flying = flying.concat([who])
+        f.go(fromX)
+    }
+    function landed(who) { flying = flying.filter(c => c !== who) }
+    function groundAll() { for (let i = 0; i < flyers.count; ++i) { const f = flyers.itemAt(i); if (f) f.stop() } flying = [] }
+    // (who sat where a moment ago)
+    // Who is at the head of the bar, and where each of them sits. Whenever that changes,
+    // whoever was there and no longer is takes off from where she sat.
+    readonly property var head: [stage].concat(duo ? [buddyWho] : []).concat(heraldRin ? ["rin"] : [])
+    property var headWas: []
+    property var headX: ({})
+    function headSeats() {
+        // (measured from the bar's far end, which stays put while the bar changes width)
+        const m = {}, r = card.x + card.width
+        m[stage] = mascot.x - mainDx - r
+        if (duo) m[buddyWho] = buddy.x - buddyDx - r
+        if (heraldRin) m["rin"] = herald.x - heraldDx - r
+        return m
+    }
+    onHeadChanged: {
+        for (const c of headWas) if (!head.includes(c)) launch(c, headX[c] !== undefined ? card.x + card.width + headX[c] : mascot.x)
+        headWas = head
+        headX = headSeats()
+    }
+    Timer { interval: 0; running: true; onTriggered: { root.headWas = root.head; root.headX = root.headSeats() } }
 
     // ---- Rin and the notifications --------------------------------------------------
     // Rin is the notifications'. While Windows holds one that has not been looked at she
@@ -142,26 +182,6 @@ Item {
     property real heraldW: heraldRin ? mini + 3 : 0
     Behavior on heraldW { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
     readonly property Item rinNow: stage === "rin" ? mascot : duo && buddyWho === "rin" ? buddy : herald
-    // When the notifications have been looked at she does not just vanish from the head
-    // of the bar: she somersaults over it, in an arc, to her seat on the bench at the far
-    // end, and lands there (`rinFlying`, `flyU` 0..1 along the way).
-    property bool rinFlying: false
-    property real flyU: 0
-    property real flyFromX: 0
-    // where her seat on the bench will be (the bench is two wide, in the cast's order)
-    readonly property int flySeat: cast.filter(c => c !== stage && !(duo && c === buddyWho)).indexOf("rin")
-    onHeraldRinChanged: {
-        if (heraldRin || expanded || floating || vertical || mfree || tucked || Theme.reduced || flySeat < 0) return
-        flyFromX = herald.x
-        rinFlying = true
-        flyer.play("hype", 900)
-        flyAnim.restart()
-    }
-    SequentialAnimation {
-        id: flyAnim
-        NumberAnimation { target: root; property: "flyU"; from: 0; to: 1; duration: 620; easing.type: Easing.InOutSine }
-        ScriptAction { script: { root.rinFlying = false; root.flyU = 0 } }
-    }
     property int lastNoteScene: -1
     property int lastNoteSkit: -1
     // the other two (or the one), nearest to Rin first
@@ -365,7 +385,9 @@ Item {
     // takes the lead, or the other way round). Neither vanishes and reappears: each is
     // drawn where she was a moment ago, in the other's seat, and they jump over to their
     // own. (That is why the two change character at once while they are a pair: `instant`.)
-    onStageChanged: if (duo && !Theme.reduced) skTrade.restart()
+    onStageChanged: {
+        if (duo && !Theme.reduced) skTrade.restart()
+    }
     SequentialAnimation {
         id: skTrade
         ScriptAction { script: {
@@ -873,7 +895,7 @@ Item {
     }
     onExpandedChanged: {
         if (!expanded) mikuAsked = false
-        if (expanded && rinFlying) { flyAnim.stop(); rinFlying = false; flyU = 0 }
+        if (expanded) groundAll()
         if (!expanded && doneHold) doneHoldTimer.restart()
         if (!expanded) mikuPinned = false
         if (Shell.debugOn) Shell.log(Date.now() % 100000 + " expanded=" + expanded + " card=" + Math.round(card.x) + "," + Math.round(card.y) + " " + Math.round(card.width) + "x" + Math.round(card.height) + " mascot=" + Math.round(mascot.x) + "," + Math.round(mascot.y) + " size " + Math.round(mascot.width))
@@ -1572,7 +1594,7 @@ Item {
             property real pop: root.duo ? 1 : 0
             Behavior on pop { NumberAnimation { duration: 320; easing.type: Theme.reduced ? Easing.OutCubic : Easing.OutBack } }
             scale: pop * root.buddyPop
-            visible: pop > 0.01
+            visible: pop > 0.01 && !(!root.duo && root.flying.length > 0) // (not shrinking away under her own flight)
             paused: !visible || root.tucked
             gazeOn: true
             gaze: root.duoLook ? Qt.point(-0.9, 0) : Qt.point(0, 0.25)
@@ -1605,29 +1627,42 @@ Item {
             property real pop: root.heraldRin ? 1 : 0
             Behavior on pop { NumberAnimation { duration: 320; easing.type: Theme.reduced ? Easing.OutCubic : Easing.OutBack } }
             scale: pop * root.heraldPop
-            visible: pop > 0.01 && !root.rinFlying
+            visible: pop > 0.01 && !root.flying.includes("rin")
             paused: !visible || root.tucked
             gazeOn: true
             gaze: root.duoLook ? Qt.point(-0.9, 0) : Qt.point(0.5, -0.3) // (at the others, or up at her sign)
         }
-        // ...and Rin on her way back to the bench (see `rinFlying`)
-        Mascot {
-            id: flyer
-            z: 5
-            readonly property real barTop: root.atBottom ? card.y + card.height - root.pillT : card.y
-            readonly property real toX: card.x + card.width - 8 - 40 + (root.flySeat % 2) * 21
-            readonly property real toY: barTop + 1 + Math.floor(root.flySeat / 2) * 15 - 1.5
-            size: root.mini - (root.mini - 18) * root.flyU
-            x: root.flyFromX + (toX - root.flyFromX) * root.flyU
-            // (the arc goes over the bar where there is room for it, and under it on the top edge)
-            y: barTop + (root.pillT - root.mini) / 2 + (toY - (barTop + (root.pillT - root.mini) / 2)) * root.flyU
-               + (root.atBottom ? -1 : 1) * Math.sin(Math.PI * root.flyU) * 24
-            rotation: root.flyU * 360
-            character: "rin"
-            instant: true
-            mood: "idle"
-            visible: root.rinFlying
-            paused: !visible
+        // those on their way back to the bench (see "back to the bench")
+        Repeater {
+            id: flyers
+            model: root.cast
+            Mascot {
+                id: fl
+                required property string modelData
+                readonly property string who: modelData
+                property real fromX: 0
+                property real u: 0 // 0..1 along the way
+                readonly property bool up: root.flying.includes(who)
+                readonly property int seat: root.benchAfter.indexOf(who)
+                readonly property real barTop: root.atBottom ? card.y + card.height - root.pillT : card.y
+                readonly property real fromY: barTop + (root.pillT - root.mini) / 2
+                readonly property real toX: card.x + card.width - 8 - 40 + (seat % 2) * 21
+                readonly property real toY: barTop + 1 + Math.floor(seat / 2) * 15 - 1.5
+                function go(x) { fromX = x; u = 0; flight.restart(); play("hype", 900) }
+                function stop() { flight.stop(); u = 0 }
+                z: 5
+                size: root.mini - (root.mini - 18) * u
+                x: fromX + (toX - fromX) * u
+                // (the arc goes over the bar where there is room for it, and under it on the top edge)
+                y: fromY + (toY - fromY) * u + (root.atBottom ? -1 : 1) * Math.sin(Math.PI * u) * 24
+                rotation: u * 360
+                character: who
+                instant: true
+                mood: "idle"
+                visible: up && seat >= 0
+                paused: !visible
+                NumberAnimation { id: flight; target: fl; property: "u"; from: 0; to: 1; duration: 620; easing.type: Easing.InOutSine; onFinished: root.landed(fl.who) }
+            }
         }
         NoteSign {
             id: sign
