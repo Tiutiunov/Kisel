@@ -10,6 +10,7 @@
 #include "Media.h"
 
 #include <QBuffer>
+#include <QTimer>
 #include <QImage>
 
 #ifdef _WIN32
@@ -143,6 +144,12 @@ Media::Media(QObject *parent)
     , m_worker(std::make_unique<Worker>())
 {
     m_worker->owner = this;
+    // KISEL_DEMO_TUNE=1: a made-up tune is playing and the real player is not asked
+    // (development: pictures of the player without anybody's own music in them)
+    if (qEnvironmentVariableIsSet("KISEL_DEMO_TUNE")) {
+        QTimer::singleShot(0, this, [this] { apply(true, true, QStringLiteral("Jelly Parade"), QStringLiteral("The Mochi Five"), 0.42, 197, false, {}); });
+        return;
+    }
     m_worker->thread = std::thread([w = m_worker.get()] { w->run(); });
 }
 
