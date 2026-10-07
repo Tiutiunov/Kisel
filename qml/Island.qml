@@ -126,43 +126,44 @@ Item {
 
     // ---- a dance to the tune ----------------------------------------------------------
     // The bench sits as it always does. But when two or three are at the head of the bar
-    // and a tune is playing, now and then (between their other scenes, every ten to
-    // twenty seconds) they dance to it together: humming, they step from side to side as
+    // and a tune is playing, now and then (between their other scenes, every eight to
+    // fourteen seconds) they dance to it together: humming, they step from side to side as
     // one, hopping in turn, then all jump at once and finish with a wave down the row.
     function row() { return [mascot].concat(duo ? [buddy] : []).concat(heraldRin ? [herald] : []) }
-    function hopRow(odd) { row().forEach((m, i) => { if (i % 2 === odd) m.jump(0.25, true) }) }
+    function hopRow(odd) { row().forEach((m, i) => { if (i % 2 === odd) m.jump(0.4, true) }) }
     readonly property bool canGroove: zundaLive && (duo || heraldRin) && !expanded && !floating && !vertical && !mfree
         && !tucked && !assembling && !greeting && !Theme.reduced
     onCanGrooveChanged: if (!canGroove && skGroove.running) { skGroove.stop(); mainDx = 0; buddyDx = 0; heraldDx = 0 }
     Timer {
-        interval: 7000
+        interval: 4000
         repeat: true
         running: root.canGroove
         onTriggered: {
-            interval = 10000 + Math.random() * 10000
+            interval = 8000 + Math.random() * 6000
             let busy = skTrade.running || sweeping || noteWave.running || flying.length > 0 || arriving.length > 0
             for (const k of root.skits) busy = busy || k.running
             for (const k of root.noteSkits) busy = busy || k.running
-            if (!busy) { root.duoLook = false; skGroove.restart() }
+            if (busy) interval = 900 // (a scene is on: straight after it)
+            else { root.duoLook = false; skGroove.restart() }
         }
     }
     SequentialAnimation {
         id: skGroove
         ScriptAction { script: root.row().forEach(m => { m.st.swing = 1; m.play("hum", 3600) }) }
-        ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: 5; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "buddyDx"; to: 5; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "heraldDx"; to: 5; duration: 210; easing.type: Easing.InOutSine } }
+        ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: 8; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "buddyDx"; to: 8; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "heraldDx"; to: 8; duration: 210; easing.type: Easing.InOutSine } }
         ScriptAction { script: root.hopRow(0) }
-        ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: -5; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "buddyDx"; to: -5; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "heraldDx"; to: -5; duration: 210; easing.type: Easing.InOutSine } }
+        ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: -8; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "buddyDx"; to: -8; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "heraldDx"; to: -8; duration: 210; easing.type: Easing.InOutSine } }
         ScriptAction { script: root.hopRow(1) }
-        ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: 5; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "buddyDx"; to: 5; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "heraldDx"; to: 5; duration: 210; easing.type: Easing.InOutSine } }
+        ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: 8; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "buddyDx"; to: 8; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "heraldDx"; to: 8; duration: 210; easing.type: Easing.InOutSine } }
         ScriptAction { script: root.hopRow(0) }
-        ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: -5; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "buddyDx"; to: -5; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "heraldDx"; to: -5; duration: 210; easing.type: Easing.InOutSine } }
+        ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: -8; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "buddyDx"; to: -8; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "heraldDx"; to: -8; duration: 210; easing.type: Easing.InOutSine } }
         ScriptAction { script: root.hopRow(1) }
-        ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: 5; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "buddyDx"; to: 5; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "heraldDx"; to: 5; duration: 210; easing.type: Easing.InOutSine } }
+        ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: 8; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "buddyDx"; to: 8; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "heraldDx"; to: 8; duration: 210; easing.type: Easing.InOutSine } }
         ScriptAction { script: root.hopRow(0) }
-        ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: -5; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "buddyDx"; to: -5; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "heraldDx"; to: -5; duration: 210; easing.type: Easing.InOutSine } }
+        ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: -8; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "buddyDx"; to: -8; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "heraldDx"; to: -8; duration: 210; easing.type: Easing.InOutSine } }
         ScriptAction { script: root.hopRow(1) }
         ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: 0; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "buddyDx"; to: 0; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "heraldDx"; to: 0; duration: 210; easing.type: Easing.InOutSine } }
-        ScriptAction { script: root.row().forEach(m => { m.jump(0.5, true); m.play("hype", 900) }) }
+        ScriptAction { script: root.row().forEach(m => { m.jump(0.7, true); m.play("smug", 1000) }) } // (all up at once, with a spin)
         PauseAnimation { duration: 520 }
         ScriptAction { script: { const r = root.row(); r[r.length - 1].jump(0.35, true) } }
         PauseAnimation { duration: 140 }
