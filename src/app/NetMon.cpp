@@ -25,6 +25,10 @@ constexpr int kHistory = 30;     // readings kept: a minute at one every two sec
 constexpr int kLateMs = 250;     // an answer slower than this is late
 constexpr int kLostForDown = 3;  // echoes lost in a row before the connection counts as down
 constexpr int kLateForSlow = 3;
+constexpr qreal kFast = 500 * 1024.0;   // bytes a second: this much coming in is a download, if it lasts
+constexpr qreal kIdle = 100 * 1024.0;   // ...and under this it is over, if that lasts
+constexpr int kReadingsToTell = 4;      // eight seconds
+constexpr qreal kStep = 2.0;            // seconds between readings
 } // namespace
 
 struct NetMon::Worker
@@ -106,14 +110,21 @@ NetMon::NetMon(QObject *parent)
 {
     m_worker->owner = this;
     // KISEL_DEMO_NET=<ms>: act out the connection going down at that time and coming
-    // back six seconds later (development); steady readings otherwise
-    if (const int at = qEnvironmentVariableIntValue("KISEL_DEMO_NET"); at > 0) {
+    // back six seconds later (development); steady readings otherwise.
+    // KISEL_DEMO_FETCH=<ms>: act out a download from that time for twelve seconds.
+    const int fetchAt = qEnvironmentVariableIntValue("KISEL_DEMO_FETCH");
+    if (const int at = fetchAt > 0 ? 100000000 : qEnvironmentVariableIntValue("KISEL_DEMO_NET"); at > 0) {
         m_demo = true;
         auto *tick = new QTimer(this);
-        tick->setInterval(400);
+        tick->setInterval(fetchAt > 0 ? 2000 : 400);
         auto *clock = new int(0);
-        connect(tick, &QTimer::timeout, this, [this, at, clock] {
-            *clock += 400;
+        connect(tick, &QTimer::timeout, this, [this, at, clock, fetchAt] {
+            *clock += fetchAt > 0 ? 2000 : 400;
+            if (fetchAt > 0) {
+                const bool on = *clock >= fetchAt && *clock < fetchAt + 12000;
+                apply(22 + (*clock / 2000) % 5 * 2, on ? 6.3e6 : 2.1e4, 4.0e4);
+                return;
+            }
             const bool down = *clock >= at && *clock < at + 6000;
             apply(down ? -1 : 24 + (*clock / 400) % 7 * 3, down ? 0 : 2.4e6, down ? 0 : 3.1e5);
         });
@@ -159,6 +170,32 @@ void NetMon::apply(int ping, qreal down, qreal up)
     else if (ping >= 0)
         m_online = true;
     m_slow = m_online && m_late >= kLateForSlow;
+    // a download: a lot coming in, steadily
+    if (!m_downloading) {
+        if (down >= kFast) {
+            ++m_fast;
+            m_pending += down * kStep;
+            if (m_fast >= kReadingsToTell) {
+                m_downloading = true;
+                m_justFetched = false;
+                m_fetched = m_pending;
+                m_idle = 0;
+            }
+        } else {
+            m_fast = 0;
+            m_pending = 0;
+        }
+    } else {
+        m_fetched += down * kStep;
+        m_idle = down < kIdle ? m_idle + 1 : 0;
+        if (m_idle >= kReadingsToTell) {
+            m_downloading = false;
+            m_fast = 0;
+            m_pending = 0;
+            m_justFetched = true;
+            QTimer::singleShot(8000, this, [this] { m_justFetched = false; emit changed(); });
+        }
+    }
     if (!wasOnline && m_online) {
         m_justBack = true;
         QTimer::singleShot(6000, this, [this] { m_justBack = false; emit changed(); });

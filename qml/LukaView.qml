@@ -25,11 +25,18 @@ Item {
         return v >= 1048576 ? (v / 1048576).toFixed(v >= 10485760 ? 0 : 1) + " MB/s"
             : v >= 1024 ? Math.round(v / 1024) + " KB/s" : "0 KB/s"
     }
+    // bytes, in words
+    function amount(v) {
+        return v >= 1073741824 ? (v / 1073741824).toFixed(2) + " GB"
+            : v >= 1048576 ? Math.round(v / 1048576) + " MB" : Math.round(v / 1024) + " KB"
+    }
 
     readonly property string line: !Net.available ? "I cannot see the connection from here."
         : !Net.online ? "The line is down. It will come back; they always do."
         : Net.justBack ? "And we are back. No need to fuss."
         : Net.slow ? "Answers are coming late. Something is in the way."
+        : Net.downloading ? "Something is coming down: " + root.amount(Net.fetched) + " so far. I am watching it."
+        : Net.justFetched ? "That is the download done: " + root.amount(Net.fetched) + " came in."
         : Net.down > 5242880 ? "A lot is coming in. Downloading something nice?"
         : Net.up > 2097152 ? "A lot is going out. Sharing, are we?"
         : Net.ping > 90 ? "A little slow, but steady."
@@ -95,7 +102,7 @@ Item {
         Column {
             y: 2
             spacing: 8
-            Flow1 { name: "Down"; value: Net.down; downward: true }
+            Flow1 { name: Net.downloading ? "Downloading" : "Down"; value: Net.down; downward: true; lit: Net.downloading }
             Flow1 { name: "Up"; value: Net.up; downward: false }
         }
     }
@@ -174,9 +181,11 @@ Item {
         property string name: ""
         property real value: 0
         property bool downward: true
+        property bool lit: false // (a download is on: the tile fills with her pink)
         width: 104; height: 48
         radius: 12
-        color: Qt.rgba(root.pink.r, root.pink.g, root.pink.b, 0.14)
+        color: Qt.rgba(root.pink.r, root.pink.g, root.pink.b, lit ? 0.5 : 0.14)
+        Behavior on color { ColorAnimation { duration: 300 } }
         border.width: 2; border.color: "#FFFFFF"
         Canvas { // the arrow, drawn
             x: 10; y: 13

@@ -1,7 +1,10 @@
 // Luka's readings in the collapsed bar: the ping with a light that says how the line is,
 // and what is coming in and going out. Nothing here moves by itself. When the line is
 // down the readings give way to the news of it, and for a few seconds after it comes
-// back, to that. They slide in from the right like Teto's gauges.
+// back, to that. While something is being downloaded the incoming speed sits in a pink
+// capsule with how much has come in so far, and the outgoing one steps aside; when the
+// download ends the bar says so for a few seconds. They slide in from the right like
+// Teto's gauges.
 import QtQuick
 import Kisel.Core
 
@@ -23,7 +26,12 @@ Row {
     Behavior on opacity { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
     transform: Translate { x: root.on ? 0 : 18; Behavior on x { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } } }
 
-    readonly property bool news: !Net.online || Net.justBack
+    function amount(v) {
+        return v >= 1073741824 ? (v / 1073741824).toFixed(2) + " GB"
+            : v >= 1048576 ? Math.round(v / 1048576) + " MB" : Math.round(v / 1024) + " KB"
+    }
+    readonly property bool fetchNews: Net.online && !Net.justBack && Net.justFetched && !Net.downloading
+    readonly property bool news: !Net.online || Net.justBack || fetchNews
 
     // the light, and the ping (or the news)
     Row {
@@ -37,13 +45,44 @@ Row {
         }
         Text {
             anchors.verticalCenter: parent.verticalCenter
-            text: !Net.online ? "No connection" : Net.justBack ? "Back online" : Net.ping < 0 ? "..." : Net.ping + " ms"
+            text: !Net.online ? "No connection" : Net.justBack ? "Back online"
+                : root.fetchNews ? "Downloaded " + root.amount(Net.fetched) : Net.ping < 0 ? "..." : Net.ping + " ms"
             color: !Net.online ? "#FF8FA0" : Theme.ink
             font.family: Theme.sans; font.pixelSize: root.news ? 13 : 12; font.weight: Font.ExtraBold
         }
     }
-    Reading { visible: !root.news; downward: true; value: Net.down }
-    Reading { visible: !root.news; downward: false; value: Net.up }
+    Reading { visible: !root.news && !Net.downloading; downward: true; value: Net.down }
+    Reading { visible: !root.news && !Net.downloading; downward: false; value: Net.up }
+    // a download: the speed and how much so far, in a capsule of their own
+    Rectangle {
+        visible: !root.news && Net.downloading
+        anchors.verticalCenter: parent.verticalCenter
+        width: fetchRow.width + 14; height: 20
+        radius: 10
+        color: "#F5A3C0"
+        border.width: 1.5; border.color: "#FFFFFF"
+        Row {
+            id: fetchRow
+            anchors.centerIn: parent
+            spacing: 4
+            Canvas {
+                anchors.verticalCenter: parent.verticalCenter
+                width: 8; height: 11
+                onPaint: {
+                    const g = getContext("2d")
+                    g.reset(); g.strokeStyle = "#4a1730"; g.lineWidth = 2; g.lineCap = "round"; g.lineJoin = "round"
+                    g.beginPath(); g.moveTo(4, 1.5); g.lineTo(4, 9.5); g.stroke()
+                    g.beginPath(); g.moveTo(1, 6); g.lineTo(4, 9.5); g.lineTo(7, 6); g.stroke()
+                }
+            }
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: root.speed(Net.down) + "  \u00B7  " + root.amount(Net.fetched)
+                color: "#4a1730"
+                font.family: Theme.sans; font.pixelSize: 10; font.weight: Font.ExtraBold
+            }
+        }
+    }
 
     // an arrow and a speed
     component Reading: Row {

@@ -90,6 +90,9 @@ Item {
     //   slow, and for a few seconds after it comes back. That comes after Teto's troubles
     //   and before music.
     readonly property bool lukaLive: Prefs.lukaNet && Net.available && (Net.trouble || Net.justBack)
+    //   (...and while something is being downloaded, and for a few seconds after: but
+    //   that is no trouble, and gives way to music)
+    readonly property bool lukaBusy: Prefs.lukaNet && Net.available && (Net.downloading || Net.justFetched)
     //   And when a minute has passed with nothing to show while a tune plays, the stage
     //   goes to Zundamon and her player whoever was chosen (`idleTune`), until Claude
     //   works again or someone is picked by hand. With no tune the bar tucks away instead.
@@ -100,7 +103,7 @@ Item {
     property bool mikuAsked: false
     readonly property string rest: mikuAsked ? "miku" : idleTune && zundaLive ? "zunda"
         : Prefs.character !== "miku" || mikuPinned ? Prefs.character
-        : tetoLive ? "teto" : lukaLive ? "luka" : zundaLive ? "zunda" : "miku"
+        : tetoLive ? "teto" : lukaLive ? "luka" : zundaLive ? "zunda" : lukaBusy ? "luka" : "miku"
     readonly property string stage: guest !== "" ? guest : rest
     function stepIn() {
         if (rest === "miku") return
@@ -702,6 +705,9 @@ Item {
     readonly property bool lukaAct: guest === "" && rest === "luka" && Prefs.lukaNet && Net.available
     readonly property bool miniNet: lukaAct && Hub.pendingCount === 0 && !(doneHold && Hub.chip === "done")
     // (she starts when the line goes, and is quietly pleased when it is back)
+    // (...and is pleased with a download that has come in whole)
+    readonly property bool fetchDone: Net.available && Net.justFetched
+    onFetchDoneChanged: if (fetchDone && stage === "luka") { mascot.play("proud", 1500); mascot.jump(0.5, true) }
     readonly property bool lineDown: Net.available && !Net.online
     onLineDownChanged: if (stage === "luka") { if (lineDown) { mascot.play("surprised", 1100); mascot.jump(0.5, true) } else mascot.play("fond", 1600) }
     readonly property bool barOwn: miniPlayer || miniGauges || miniNet // the bar belongs to the one on stage, not to Claude's label
@@ -768,7 +774,7 @@ Item {
         && !hover.hovered && !wake.hovered && Hub.pendingCount === 0 && Hub.chip === ""
         && (Hub.mood === "idle" || Hub.mood === "sleep") && !tune
         && !(Prefs.rinNotes && Notes.available && Notes.pending) // (Rin has something to show)
-        && !(lukaAct && (Net.trouble || Net.justBack))           // (...or Luka has)
+        && !(lukaAct && (Net.trouble || Net.justBack || Net.downloading || Net.justFetched)) // (...or Luka has)
     onCanTuckChanged: if (!canTuck) tucked = false
     onTuckedChanged: updateHit()
     Timer { interval: 60000; running: root.canTuck && !root.tucked; onTriggered: { if (root.zundaLive) root.idleTune = true; else root.tucked = true } } // (a tune playing: the player instead)
