@@ -770,7 +770,27 @@ Item {
     // A minute with nothing to show (and no tune playing) and the bar slides out of sight, leaving a 240 x 6
     // strip on the edge that brings it back when the pointer touches it.
     property bool tucked: false
-    readonly property bool canTuck: !floating && !expanded && !mfree && !assembling && !dragArea.pressed
+    // ---- moving the bar by hand: the Move key in the card's header ----
+    // The card closes and the bar waits to be dragged (a lemon edge pulses round it). It
+    // follows the pointer along the edge it is on, and goes over to another edge when the
+    // pointer is clearly nearer to that one. Letting go keeps the place; so does a click,
+    // and so do fifteen seconds of nothing.
+    property bool moving: false
+    function startMove() {
+        if (floating) return
+        collapseNow()
+        tucked = false
+        moving = true
+    }
+    function endMove() {
+        if (!moving) return
+        moving = false
+        Prefs.setDock(Displays.current, Shell.edge, Shell.along / Shell.edgeLength(Shell.edge))
+        updateHit()
+    }
+    Timer { interval: 15000; running: root.moving && !moveArea.pressed; onTriggered: root.endMove() }
+
+    readonly property bool canTuck: !floating && !expanded && !mfree && !assembling && !dragArea.pressed && !moving
         && !hover.hovered && !wake.hovered && Hub.pendingCount === 0 && Hub.chip === ""
         && (Hub.mood === "idle" || Hub.mood === "sleep") && !tune
         && !(Prefs.rinNotes && Notes.available && Notes.pending) // (Rin has something to show)
@@ -1555,6 +1575,7 @@ Item {
                     spacing: 2
                     IconBtn { icon: Prefs.soundOn ? "sound" : "mute"; label: Prefs.soundOn ? "Mute sounds" : "Unmute sounds"; onClicked: Prefs.soundOn = !Prefs.soundOn }
                     IconBtn { icon: "chat"; label: "Chat"; active: root.view === "chat"; onClicked: root.toggleView("chat") }
+                    IconBtn { visible: !root.floating; icon: "move"; label: "Move the bar"; onClicked: { Sfx.play("click"); root.startMove() } }
                     IconBtn { icon: "gear"; label: "Settings"; active: root.view === "settings"; onClicked: root.toggleView("settings") }
                     IconBtn { visible: root.floating; icon: "up"; label: "Close"; onClicked: root.collapseNow() }
                 }
@@ -2215,6 +2236,61 @@ Item {
             }
             onReleased: finishPress(true)
             onCanceled: finishPress(false)
+        }
+
+        // the bar, waiting to be dragged (see `moving`)
+        Rectangle {
+            visible: root.moving
+            z: 5
+            x: card.x - 3; y: card.y - 3
+            width: card.width + 6; height: card.height + 6
+            radius: Math.min(width, height) / 2
+            color: "transparent"
+            border.width: 2
+            border.color: "#FFE08A"
+            SequentialAnimation on opacity {
+                running: root.moving && !Theme.reduced
+                loops: Animation.Infinite
+                NumberAnimation { from: 1; to: 0.35; duration: 500; easing.type: Easing.InOutSine }
+                NumberAnimation { from: 0.35; to: 1; duration: 500; easing.type: Easing.InOutSine }
+            }
+        }
+        MouseArea {
+            id: moveArea
+            visible: root.moving
+            z: 6
+            x: Math.min(card.x, mascot.x); y: Math.min(card.y, mascot.y)
+            width: Math.max(card.x + card.width, mascot.x + mascot.width) - x
+            height: Math.max(card.y + card.height, mascot.y + mascot.height) - y
+            cursorShape: pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor
+            property real off: 0       // the pointer minus the bar's centre, along the edge
+            property bool dragged: false
+            // the pointer on the monitor the bar is on
+            function where(m) {
+                const g = mapToGlobal(m.x, m.y)
+                let s = { x: 0, y: 0 }
+                for (const d of Displays.screens) if (d.name === Displays.current) s = d
+                return Qt.point(g.x - s.x, g.y - s.y)
+            }
+            function alongOf(edge, P) { return edge === "left" || edge === "right" ? P.y : P.x }
+            onPressed: (m) => { dragged = false; off = alongOf(Shell.edge, where(m)) - Shell.along; mascot.compress() }
+            onPositionChanged: (m) => {
+                if (!pressed) return
+                const P = where(m)
+                const d = { top: P.y, bottom: root.screenH - P.y, left: P.x, right: root.screenW - P.x }
+                let edge = Shell.edge
+                for (const e of ["top", "bottom", "left", "right"])
+                    if (e !== edge && d[e] < 90 && d[e] < d[edge] - 60) edge = e
+                if (edge !== Shell.edge) { off = 0; Sfx.play("hover") }
+                const to = alongOf(edge, P) - off
+                if (edge !== Shell.edge || Math.abs(to - Shell.along) >= 1) {
+                    dragged = true
+                    Shell.setDock(edge, to)
+                    root.updateHit()
+                }
+            }
+            onReleased: { if (dragged) mascot.land(); root.endMove() }
+            onCanceled: root.endMove()
         }
 
         DoneBurst { id: burst; anchors.fill: parent; z: 10 }
