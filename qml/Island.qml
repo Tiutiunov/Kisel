@@ -1432,20 +1432,42 @@ Item {
 
             // the tune's progress: a hairline along the side of the bar that lies on the
             // screen's edge (that side is square, so it runs the bar's whole width), with a star for a head
+            // (Where the player allows it the line is a handle too: press or drag along the
+            // bar's edge and the track goes there. The line grows thicker under the pointer
+            // to say so; `scrub` holds the star meanwhile, as on the open player.)
             Item {
+                id: tuneLine
                 x: 0
-                y: root.dockSide === "bottom" ? root.pillT - 2 : 0
+                y: root.dockSide === "bottom" ? root.pillT - height : 0
                 width: root.pillW
-                height: 2
+                height: tuneScrub.containsMouse || tuneScrub.pressed ? 4 : 2
+                Behavior on height { NumberAnimation { duration: 120 } }
                 opacity: root.miniPlayer && !root.expanded && !root.floating && !root.vertical && !root.mfree ? 1 : 0
                 visible: opacity > 0
                 Behavior on opacity { NumberAnimation { duration: 120 } }
+                property real scrub: -1
+                readonly property real shown: scrub >= 0 ? scrub : Media.progress
+                Timer { id: tuneHold; interval: 1200; onTriggered: tuneLine.scrub = -1 }
+                MouseArea {
+                    id: tuneScrub
+                    x: 0
+                    y: root.dockSide === "bottom" ? parent.height - 5 : 0
+                    width: parent.width; height: 5
+                    hoverEnabled: true
+                    enabled: Media.canSeek && Media.duration > 0
+                    cursorShape: Qt.PointingHandCursor
+                    function at(m) { return Math.max(0, Math.min(1, m.x / width)) }
+                    onPressed: (m) => { tuneHold.stop(); tuneLine.scrub = at(m) }
+                    onPositionChanged: (m) => { if (pressed) tuneLine.scrub = at(m) }
+                    onReleased: { Media.seek(tuneLine.scrub); Sfx.play("click"); tuneHold.restart() }
+                    onCanceled: tuneLine.scrub = -1
+                }
                 Rectangle { anchors.fill: parent; radius: 1; color: Theme.ink; opacity: 0.1 }
                 Rectangle {
                     id: tuneFill
-                    height: 2; radius: 1
-                    width: parent.width * Media.progress
-                    Behavior on width { NumberAnimation { duration: 500 } }
+                    height: parent.height; radius: 1
+                    width: parent.width * tuneLine.shown
+                    Behavior on width { enabled: !tuneScrub.pressed; NumberAnimation { duration: 500 } }
                     gradient: Gradient {
                         orientation: Gradient.Horizontal
                         GradientStop { position: 0; color: "#FF9EBB" }
@@ -1456,7 +1478,9 @@ Item {
                 Spark { // the head: a star that turns while the tune plays
                     size: 9
                     x: tuneFill.width - size / 2
-                    y: 1 - size / 2 // (its middle on the line; the half past the bar's edge is cut off with it)
+                    y: parent.height / 2 - size / 2 // (its middle on the line; the half past the bar's edge is cut off with it)
+                    scale: tuneScrub.pressed ? 1.5 : 1
+                    Behavior on scale { NumberAnimation { duration: 160 } }
                     tint: "#FFFFFF"
                     opacity: Media.playing ? 1 : 0.5
                     RotationAnimation on rotation { running: root.miniPlayer && Media.playing && !Theme.reduced && !root.tucked; from: 0; to: 90; duration: 2400; loops: Animation.Infinite }

@@ -30,7 +30,7 @@ namespace mc = winrt::Windows::Media::Control;
 
 struct Media::Worker
 {
-    enum Command { None, Toggle, Next, Previous };
+    enum Command { None, Toggle, Next, Previous, Seek };
 
     Media *owner = nullptr;
     std::thread thread;
@@ -38,10 +38,11 @@ struct Media::Worker
     std::condition_variable wake;
     std::atomic<bool> stop {false};
     Command pending = None;
+    double seekTo = 0; // (Seek) 0..1 through the track
 
-    void post(Command c)
+    void post(Command c, double at = 0)
     {
-        { std::lock_guard<std::mutex> lock(mutex); pending = c; }
+        { std::lock_guard<std::mutex> lock(mutex); pending = c; seekTo = at; }
         wake.notify_one();
     }
 
@@ -71,16 +72,18 @@ struct Media::Worker
         int coverTries = 0; // Spotify publishes the cover a moment after the title
         while (!stop) {
             Command command = None;
+            double seekAt = 0;
             {
                 std::unique_lock<std::mutex> lock(mutex);
                 wake.wait_for(lock, std::chrono::milliseconds(500), [this] { return stop || pending != None; });
                 command = pending;
+                seekAt = seekTo;
                 pending = None;
             }
             if (stop)
                 break;
 
-            bool active = false, playing = false, coverChanged = false;
+            bool active = false, playing = false, coverChanged = false, canSeek = false;
             QString title, artist;
             QByteArray cover;
             qreal progress = 0, duration = 0;
@@ -89,9 +92,17 @@ struct Media::Worker
                     if (command == Toggle) session.TryTogglePlayPauseAsync().get();
                     if (command == Next) session.TrySkipNextAsync().get();
                     if (command == Previous) session.TrySkipPreviousAsync().get();
+                    if (command == Seek) {
+                        const auto was = session.GetTimelineProperties();
+                        const auto span = was.EndTime() - was.StartTime();
+                        if (span.count() > 0)
+                            session.TryChangePlaybackPositionAsync(was.StartTime().count() + int64_t(double(span.count()) * seekAt)).get();
+                    }
 
                     using Status = mc::GlobalSystemMediaTransportControlsSessionPlaybackStatus;
-                    playing = session.GetPlaybackInfo().PlaybackStatus() == Status::Playing;
+                    const auto info = session.GetPlaybackInfo();
+                    playing = info.PlaybackStatus() == Status::Playing;
+                    canSeek = info.Controls().IsPlaybackPositionEnabled();
                     const auto props = session.TryGetMediaPropertiesAsync().get();
                     const winrt::hstring t = props.Title(), a = props.Artist();
                     title = QString::fromWCharArray(t.c_str(), int(t.size()));
@@ -133,7 +144,7 @@ struct Media::Worker
                 // Spotify went away between two calls: this round reports nothing
             }
 
-            QMetaObject::invokeMethod(owner, [=, o = owner] { o->apply(active, playing, title, artist, progress, duration, coverChanged, cover); },
+            QMetaObject::invokeMethod(owner, [=, o = owner] { o->apply(active, playing, title, artist, progress, duration, coverChanged, cover, canSeek); },
                                       Qt::QueuedConnection);
         }
     }
@@ -147,7 +158,7 @@ Media::Media(QObject *parent)
     // KISEL_DEMO_TUNE=1: a made-up tune is playing and the real player is not asked
     // (development: pictures of the player without anybody's own music in them)
     if (qEnvironmentVariableIsSet("KISEL_DEMO_TUNE")) {
-        QTimer::singleShot(0, this, [this] { apply(true, true, QStringLiteral("Jelly Parade"), QStringLiteral("The Mochi Five"), 0.42, 197, false, {}); });
+        QTimer::singleShot(0, this, [this] { apply(true, true, QStringLiteral("Jelly Parade"), QStringLiteral("The Mochi Five"), 0.42, 197, false, {}, true); });
         return;
     }
     m_worker->thread = std::thread([w = m_worker.get()] { w->run(); });
@@ -165,6 +176,7 @@ bool Media::available() const { return true; }
 void Media::playPause() { m_worker->post(Worker::Toggle); }
 void Media::next() { m_worker->post(Worker::Next); }
 void Media::previous() { m_worker->post(Worker::Previous); }
+void Media::seek(qreal fraction) { m_worker->post(Worker::Seek, qBound(0.0, double(fraction), 1.0)); }
 #else
 struct Media::Worker {};
 Media::Media(QObject *parent) : QObject(parent) {}
@@ -173,13 +185,15 @@ bool Media::available() const { return false; }
 void Media::playPause() {}
 void Media::next() {}
 void Media::previous() {}
+void Media::seek(qreal) {}
 #endif
 
 void Media::apply(bool active, bool playing, const QString &title, const QString &artist, qreal progress, qreal duration,
-                  bool artChanged, const QByteArray &artBytes)
+                  bool artChanged, const QByteArray &artBytes, bool canSeek)
 {
     bool dirty = active != m_active || playing != m_playing || title != m_title || artist != m_artist
               || qAbs(progress - m_progress) > 0.002 || !qFuzzyCompare(duration + 1, m_duration + 1);
+    if (canSeek != m_canSeek) { m_canSeek = canSeek; dirty = true; }
     m_active = active;
     m_playing = playing;
     m_title = title;

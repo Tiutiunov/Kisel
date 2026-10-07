@@ -26,6 +26,7 @@ class Media : public QObject
     Q_PROPERTY(qreal progress READ progress NOTIFY changed)  // 0..1 through the track
     Q_PROPERTY(qreal position READ position NOTIFY changed)  // seconds into the track
     Q_PROPERTY(qreal duration READ duration NOTIFY changed)  // its length in seconds, 0 if unknown
+    Q_PROPERTY(bool canSeek READ canSeek NOTIFY changed)     // the player lets the position be set
 
 public:
     explicit Media(QObject *parent = nullptr);
@@ -40,10 +41,12 @@ public:
     qreal progress() const { return m_progress; }
     qreal position() const { return m_progress * m_duration; }
     qreal duration() const { return m_duration; }
+    bool canSeek() const { return m_canSeek; }
 
     Q_INVOKABLE void playPause();
     Q_INVOKABLE void next();
     Q_INVOKABLE void previous();
+    Q_INVOKABLE void seek(qreal fraction); // 0..1 through the track
 
 signals:
     void changed();
@@ -51,13 +54,14 @@ signals:
 private:
     struct Worker;
     void apply(bool active, bool playing, const QString &title, const QString &artist, qreal progress, qreal duration,
-               bool artChanged, const QByteArray &artBytes);
+               bool artChanged, const QByteArray &artBytes, bool canSeek = false);
     std::unique_ptr<Worker> m_worker;
     bool m_active = false;
     bool m_playing = false;
     QString m_title, m_artist, m_art;
     qreal m_progress = 0;
     qreal m_duration = 0;
+    bool m_canSeek = false;
 };
 
 } // namespace kisel

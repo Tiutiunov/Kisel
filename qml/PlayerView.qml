@@ -192,15 +192,34 @@ Item {
         }
 
         // how far the track has got: a ribbon with a star for a head, the time on both sides
+        // (Where the player allows it, the ribbon is a handle as well: press or drag along
+        // it and the track goes there when the button is let go. `scrub` is where the
+        // star is held meanwhile, and for a moment after, until the player has caught up.)
         Item {
+            id: ribbon
             y: 88
             width: side.width; height: 30
             opacity: Motion.rise(root.age, 4) * (Media.active ? 1 : 0.4)
+            property real scrub: -1
+            readonly property real shown: scrub >= 0 ? scrub : Media.progress
+            Timer { id: scrubHold; interval: 1200; onTriggered: ribbon.scrub = -1 }
+            MouseArea {
+                id: scrubArea
+                x: 0; y: -8
+                width: parent.width; height: 24
+                enabled: Media.active && Media.canSeek && Media.duration > 0
+                cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                function at(m) { return Math.max(0, Math.min(1, m.x / width)) }
+                onPressed: (m) => { scrubHold.stop(); ribbon.scrub = at(m) }
+                onPositionChanged: (m) => { if (pressed) ribbon.scrub = at(m) }
+                onReleased: { Media.seek(ribbon.scrub); Sfx.play("click"); scrubHold.restart() }
+                onCanceled: ribbon.scrub = -1
+            }
             Rectangle { width: parent.width; height: 8; radius: 4; color: Theme.ink; opacity: 0.12 }
             Rectangle {
                 id: fill
-                width: Math.max(8, parent.width * Media.progress); height: 8; radius: 4
-                Behavior on width { NumberAnimation { duration: 500 } }
+                width: Math.max(8, parent.width * ribbon.shown); height: 8; radius: 4
+                Behavior on width { enabled: !scrubArea.pressed; NumberAnimation { duration: 500 } }
                 gradient: Gradient {
                     orientation: Gradient.Horizontal
                     GradientStop { position: 0; color: "#FF9EBB" }
@@ -212,13 +231,13 @@ Item {
                 x: fill.width - 10; y: -6
                 size: 20
                 tint: "#FFFFFF"
-                scale: root.live ? 1 : 0.8
+                scale: scrubArea.pressed ? 1.35 : root.live ? 1 : 0.8
                 Behavior on scale { NumberAnimation { duration: 200 } }
                 RotationAnimation on rotation { running: root.live; from: 0; to: 90; duration: 2400; loops: Animation.Infinite }
             }
             Text {
                 y: 14
-                text: root.clock(Media.position)
+                text: root.clock(ribbon.scrub >= 0 ? ribbon.scrub * Media.duration : Media.position)
                 visible: Media.duration > 0
                 color: Theme.inkMuted
                 font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.DemiBold
