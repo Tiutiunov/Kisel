@@ -8,6 +8,8 @@
 #include <QSettings>
 #include <QStandardPaths>
 #include <QMargins>
+#include <QQmlEngine>
+#include <QQuickItem>
 #include <QRegion>
 #include <QScreen>
 
@@ -590,6 +592,20 @@ void IslandWindow::log(const QString &text) const
 void IslandWindow::quit()
 {
     emit quitRequested();
+}
+
+void IslandWindow::rest()
+{
+    if (QQmlEngine *engine = qmlEngine(m_view->rootObject())) {
+        engine->collectGarbage();
+        engine->trimComponentCache();
+    }
+    m_view->releaseResources(); // (textures and caches the scene is not showing)
+#ifdef Q_OS_WIN
+    // The pages nothing has touched for a while leave the working set; any that are
+    // needed again simply come back.
+    SetProcessWorkingSetSize(GetCurrentProcess(), SIZE_T(-1), SIZE_T(-1));
+#endif
 }
 
 } // namespace kisel

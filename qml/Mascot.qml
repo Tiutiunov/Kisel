@@ -337,6 +337,7 @@ Item {
     // The canvas is as big as she ever gets (the 120 px box, with room for hair, hands
     // and sparks) and is scaled down to `size`; the clip grows with `detail`.
     readonly property real k: size / 120
+    readonly property real rs: detail > 0 || size > 40 ? 1 : size <= 20 ? 0.25 : 0.34
     readonly property real spill: detail * 84
     Item {
         anchors.centerIn: parent
@@ -344,11 +345,15 @@ Item {
         width: root.size + 2 * (root.spill * root.k + 4 * (1 - root.detail))
         height: width
         clip: true
+        // (The drawing is 288 units across whatever her size. In the bar and on the bench
+        // she is a fifth of that on the screen, so the canvas is made small to match
+        // (`rs`, with room to spare for sharpness) and the drawing is scaled into it:
+        // painting and uploading the full sheet for a 24 px face cost twelve times as much.)
         Canvas {
             id: canvas
-            width: 288; height: 288
+            width: Math.ceil(288 * root.rs); height: width
             anchors.centerIn: parent
-            scale: root.k * Math.max(0, root.swap)
+            scale: root.k / root.rs * Math.max(0, root.swap)
             rotation: (1 - root.swap) * -70
             antialiasing: true
             onPaint: root.paint(getContext("2d"))
@@ -365,8 +370,21 @@ Item {
             const dt = Math.min(0.05, root.st.last ? (now - root.st.last) / 1000 : 0.016)
             root.st.last = now
             root.step(dt)
-            canvas.requestPaint()
+            // In the bar and on the bench most of the time she only breathes. Then one
+            // picture in four is plenty; she is painted every time only while something
+            // is actually happening to her (an emote, a blink, a hop, a glance).
+            if (root.detail > 0 || root.lively() || ++root.st.skipped >= 4) { root.st.skipped = 0; canvas.requestPaint() }
         }
+    }
+
+    function lively() {
+        const s = st
+        if (emote !== "" || m !== "idle" || music || celebrating || dragging || s.parts.length > 0) return true
+        if (s.blink > 0 || s.jump < 0 || s.jumpV < 0 || s.rollT < 1 || s.shake > 0 || s.swing > 0) return true
+        if (Math.abs(s.sq) > 0.02 || Math.abs(s.sqv) > 0.4) return true
+        const moved = Math.abs(s.gx - (s.gxWas || 0)) + Math.abs(s.gy - (s.gyWas || 0)) > 0.004 // (her eyes are on the move)
+        s.gxWas = s.gx; s.gyWas = s.gy
+        return moved || swap < 1
     }
 
     // ---- constants of the drawing -----------------------------------------------------
@@ -526,6 +544,7 @@ Item {
 
     function paint(g) {
         g.reset()
+        g.scale(rs, rs)
         const s = st, R = cR, L = look(), P = pose(), col = L.color
         if (!s.tails) return
 

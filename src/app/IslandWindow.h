@@ -76,6 +76,9 @@ public:
     Q_INVOKABLE void setHitRect(qreal x, qreal y, qreal w, qreal h);
     Q_INVOKABLE void setKeyboard(bool wanted); // permission card or chat input focused
     Q_INVOKABLE void quit();
+    // Hands back to the system the memory Kisel is not using just now (what starting up
+    // and the last open card left behind). The island asks for it when it comes to rest.
+    Q_INVOKABLE void rest();
     // KISEL_DEBUG=1: lines from QML (pointer, drag, crossing) end up on stderr
     Q_INVOKABLE void log(const QString &text) const;
 

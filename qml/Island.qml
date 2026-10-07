@@ -786,6 +786,13 @@ Item {
     // A minute with nothing to show (and no tune playing) and the bar slides out of sight, leaving a 240 x 6
     // strip on the edge that brings it back when the pointer touches it.
     property bool tucked: false
+    // How finely the animations step (see Ticker.h): the open card, and anything that is
+    // being moved across the screen, at 60 a second; the bar's small life at 40.
+    Binding {
+        target: Ticker; property: "rate"
+        value: root.expanded || root.mfree || root.assembling || root.greeting || root.moving || dockAnim.running ? 60 : 40
+    }
+
     // ---- moving the bar by hand: the Move key in the card's header ----
     // The card closes and the bar waits to be dragged (a lemon edge pulses round it). It
     // follows the pointer along the edge it is on, and goes over to another edge when the
@@ -813,6 +820,14 @@ Item {
         && !(lukaAct && (Net.trouble || Net.justBack || Net.downloading || Net.justFetched)) // (...or Luka has)
     onCanTuckChanged: if (!canTuck) tucked = false
     onTuckedChanged: updateHit()
+    // At rest (a while after starting, after the card has closed, on tucking away) Kisel
+    // gives back the memory it is not using (Shell.rest).
+    Timer { id: restSoon; interval: 12000; running: true; onTriggered: if (!root.expanded) Shell.rest() }
+    Connections {
+        target: root
+        function onTuckedChanged() { if (root.tucked) restSoon.restart() }
+        function onExpandedChanged() { if (!root.expanded) restSoon.restart() }
+    }
     Timer { interval: 60000; running: root.canTuck && !root.tucked; onTriggered: { if (root.zundaLive) root.idleTune = true; else root.tucked = true } } // (a tune playing: the player instead)
     // the bar and its shadow clear the edge
     property real tuckA: tucked ? pillT + 14 : 0

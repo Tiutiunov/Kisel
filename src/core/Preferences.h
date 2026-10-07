@@ -93,6 +93,7 @@ public:
     {
         m_s.setValue(QStringLiteral("dock/%1/edge").arg(screen), edge);
         m_s.setValue(QStringLiteral("dock/%1/frac").arg(screen), fraction);
+        m_s.sync(); // (written at once: the place must survive Kisel being stopped the next moment)
     }
 
     // "Always" answers the user gave to permission cards. Each is an explicit

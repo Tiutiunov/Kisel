@@ -15,6 +15,7 @@
 #include "Secrets.h"
 #include "SeamWindows.h"
 #include "Sounds.h"
+#include "Ticker.h"
 #include "Tray.h"
 
 #include <QApplication>
@@ -149,6 +150,14 @@ int main(int argc, char *argv[])
     if (!hub.start(socket))
         qWarning("Could not listen on %s; hooks will not reach Kisel.", qPrintable(socket));
 
+    // The animations' clock is Kisel's own (see Ticker.h). It goes in before the window
+    // exists; a grab is rendered without one, and so is anything but Windows for now.
+    Ticker ticker;
+#ifdef Q_OS_WIN
+    if (!cli.isSet("grab") && !qEnvironmentVariableIsSet("KISEL_NO_TICKER"))
+        ticker.install();
+#endif
+
     QQuickView view;
     IslandWindow shell(&view);
     shell.setAvoidPanels(prefs.avoidPanels());
@@ -185,6 +194,7 @@ int main(int argc, char *argv[])
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Seams", &seams);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "GitHub", &github);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Updates", &updater);
+    qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Ticker", &ticker);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Media", &media);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Sys", &sysmon);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Notes", &notices);
