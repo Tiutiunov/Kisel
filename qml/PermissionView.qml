@@ -1,6 +1,8 @@
-// The permission card: tool, an amber "Needs you" tag, the command or diff,
+// The permission card: tool, a lemon "Needs you" tag, the command or diff,
 // and Allow, Always, Deny with Allow first and focused. Kisel never answers
 // for you: every decision here is an explicit click.
+// In the sticker style of the Homes: keys with a white edge, Miku's teal for yes,
+// Teto's red for no, lemon for what is waiting.
 import QtQuick
 import Kisel.Core
 
@@ -10,6 +12,11 @@ Item {
     property real age: 800 // ms since shown; blocks rise from it (Motion.rise)
     readonly property var p: Hub.permission
     readonly property bool has: Hub.pendingCount > 0
+
+    readonly property color teal: "#39C5BB"
+    readonly property color deep: "#22968E"
+    readonly property color red: "#E0405A"
+    readonly property color lemon: "#FFE08A"
 
     width: 494
     onActiveChanged: if (active) allowBtn.forceActiveFocus()
@@ -89,16 +96,29 @@ Item {
             spacing: Theme.space2
             height: 28
             Rectangle {
-                height: 24; width: tag.implicitWidth + 24
-                radius: Theme.radiusPill
-                color: Theme.amber
+                height: 24; width: tag.implicitWidth + 22
+                radius: 12
+                color: root.lemon
+                border.width: 2; border.color: "#FFFFFF"
                 anchors.verticalCenter: parent.verticalCenter
                 Row {
                     id: tag
                     anchors.centerIn: parent
                     spacing: Theme.space1
-                    Icon { name: "bell"; size: 14; color: Theme.surface0; anchors.verticalCenter: parent.verticalCenter }
-                    Text { text: "Needs you"; color: Theme.surface0; anchors.verticalCenter: parent.verticalCenter
+                    Icon { name: "bell"; size: 14; color: "#3d2c00"; anchors.verticalCenter: parent.verticalCenter
+                        // the bell rings: a short swing now and then
+                        transformOrigin: Item.Top
+                        SequentialAnimation on rotation {
+                            running: root.active && !Theme.reduced
+                            loops: Animation.Infinite
+                            NumberAnimation { to: 16; duration: 90 }
+                            NumberAnimation { to: -14; duration: 160 }
+                            NumberAnimation { to: 9; duration: 140 }
+                            NumberAnimation { to: 0; duration: 120 }
+                            PauseAnimation { duration: 2200 }
+                        }
+                    }
+                    Text { text: "Needs you"; color: "#3d2c00"; anchors.verticalCenter: parent.verticalCenter
                         font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.ExtraBold }
                 }
             }
@@ -106,7 +126,7 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 text: root.p.tool || ""
                 color: Theme.ink
-                font.family: Theme.sans; font.pixelSize: 16; font.weight: Font.ExtraBold
+                font.family: Theme.display; font.pixelSize: 16; font.weight: Font.Bold
             }
             Row {
                 anchors.verticalCenter: parent.verticalCenter
@@ -131,6 +151,9 @@ Item {
             y: top.height + Theme.space2
             width: parent.width
             height: buttons.y - y - Theme.space2
+            radius: 12
+            border.width: 2
+            border.color: Qt.rgba(root.lemon.r, root.lemon.g, root.lemon.b, 0.55)
             command: root.p.kind === "command" ? (root.p.summary || "") : ""
             lines: root.p.kind === "diff" ? root.p.diff : []
             caption: root.p.kind === "diff" ? (root.p.file + "   +" + root.p.added + " −" + root.p.removed) : ""
@@ -179,24 +202,26 @@ Item {
                                     id: chip
                                     required property var modelData
                                     readonly property bool on: !!root.picks[q.index] && root.picks[q.index].indexOf(modelData.label) >= 0
-                                    height: 30; width: lab.implicitWidth + 28
-                                    radius: Theme.radiusPill
-                                    color: on ? Theme.kisel : (ch.hovered ? Theme.surface3 : Theme.surface2)
+                                    height: 30; width: chipRow.implicitWidth + 26
+                                    radius: 10
+                                    color: on ? root.teal : Qt.rgba(root.teal.r, root.teal.g, root.teal.b, ch.hovered ? 0.32 : 0.14)
                                     Behavior on color { ColorAnimation { duration: Theme.tHover } }
-                                    scale: ct.pressed ? 0.96 : 1
-                                    Behavior on scale { NumberAnimation { duration: Theme.tPress } }
+                                    border.width: 2; border.color: "#FFFFFF"
+                                    scale: ct.pressed ? 0.94 : ch.hovered ? 1.05 : 1
+                                    Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutBack } }
                                     Accessible.role: q.modelData.multi ? Accessible.CheckBox : Accessible.RadioButton
                                     Accessible.name: modelData.label
                                     Accessible.checked: on
                                     Row {
+                                        id: chipRow
                                         anchors.centerIn: parent
                                         spacing: 4
-                                        DrawnCheck { visible: chip.on; size: 14; color: Theme.onKisel; anchors.verticalCenter: parent.verticalCenter }
+                                        DrawnCheck { visible: chip.on; size: 14; color: "#04302c"; anchors.verticalCenter: parent.verticalCenter }
                                         Text {
                                             id: lab
                                             text: chip.modelData.label
-                                            color: chip.on ? Theme.onKisel : Theme.ink
-                                            font.family: Theme.sans; font.pixelSize: 13; font.weight: Font.DemiBold
+                                            color: chip.on ? "#04302c" : Theme.ink
+                                            font.family: Theme.sans; font.pixelSize: 13; font.weight: Font.ExtraBold
                                             anchors.verticalCenter: parent.verticalCenter
                                         }
                                     }
@@ -214,39 +239,96 @@ Item {
             id: buttons
             y: parent.height - height
             spacing: Theme.space2
-            KButton {
+            Key {
                 id: allowBtn
                 visible: root.p.kind !== "question"
-                variant: "primary"; icon: "check"; text: "Allow"
+                kind: "yes"; icon: "check"; text: "Allow"
                 onClicked: Hub.allow(root.p.id)
             }
-            KButton {
+            Key {
                 visible: root.p.kind !== "question" && root.p.canAlways === true
-                variant: "secondary"; text: "Always"
+                kind: "soft"; text: "Always"
                 onClicked: Hub.always(root.p.id)
             }
-            KButton {
+            Key {
                 visible: root.p.kind !== "question"
-                variant: "danger"; icon: "cross"; text: "Deny"
+                kind: "no"; icon: "cross"; text: "Deny"
                 onClicked: Hub.deny(root.p.id)
             }
-            KButton {
+            Key {
                 visible: root.p.kind === "question"
                 id: sendBtn
-                variant: "primary"; icon: "send"; text: "Send answer"
+                kind: "yes"; icon: "send"; text: "Send answer"
                 enabled: root.answered
                 onClicked: root.submit()
             }
-            KButton {
+            Key {
                 visible: root.p.kind === "question"
-                variant: "ghost"; icon: "terminal"; text: "Reply in terminal"
+                kind: "plain"; icon: "terminal"; text: "Reply in terminal"
                 onClicked: Hub.passToTerminal(root.p.id)
             }
-            KButton {
+            Key {
                 visible: root.p.kind !== "question"
-                variant: "ghost"; icon: "terminal"; text: "In terminal"
+                kind: "plain"; icon: "terminal"; text: "In terminal"
                 onClicked: Hub.passToTerminal(root.p.id)
             }
         }
+    }
+
+    // a key: yes (teal), no (red), soft (a teal wash), plain (only the edge)
+    component Key: FocusScope {
+        id: k
+        property string text: ""
+        property string icon: ""
+        property string kind: "soft"
+        signal clicked()
+        readonly property color fg: kind === "yes" ? "#04302c" : kind === "no" ? "#FFFFFF" : Theme.ink
+        implicitWidth: keyRow.implicitWidth + 30
+        implicitHeight: 36
+        activeFocusOnTab: true
+        Accessible.role: Accessible.Button
+        Accessible.name: text
+        Accessible.onPressAction: k.clicked()
+        Rectangle {
+            id: face
+            anchors.fill: parent
+            radius: 12
+            opacity: k.enabled ? 1 : 0.4
+            color: k.kind === "yes" ? (kt.pressed ? root.deep : root.teal)
+                : k.kind === "no" ? (kt.pressed ? Qt.darker(root.red, 1.2) : root.red)
+                : k.kind === "soft" ? Qt.rgba(root.teal.r, root.teal.g, root.teal.b, kt.pressed ? 0.5 : kh.hovered ? 0.32 : 0.14)
+                : Qt.rgba(root.teal.r, root.teal.g, root.teal.b, kt.pressed ? 0.3 : kh.hovered ? 0.16 : 0)
+            Behavior on color { ColorAnimation { duration: Theme.tHover } }
+            border.width: 2
+            border.color: k.kind === "plain" ? Theme.inkFaint : "#FFFFFF"
+            scale: kt.pressed ? 0.94 : kh.hovered && k.enabled ? 1.05 : 1
+            Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutBack } }
+            Row {
+                id: keyRow
+                anchors.centerIn: parent
+                spacing: Theme.space1
+                Icon { visible: k.icon !== ""; name: k.icon; size: 16; color: k.fg; anchors.verticalCenter: parent.verticalCenter }
+                Text {
+                    text: k.text
+                    color: k.fg
+                    font.family: Theme.sans; font.pixelSize: 14; font.weight: Font.ExtraBold
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+            }
+        }
+        // focus: a lemon ring just off the key
+        Rectangle {
+            anchors.fill: parent
+            anchors.margins: -4
+            visible: k.activeFocus
+            radius: 16
+            color: "transparent"
+            border.width: 2
+            border.color: root.lemon
+        }
+        HoverHandler { id: kh; cursorShape: Qt.PointingHandCursor; onHoveredChanged: if (hovered && k.enabled) Sfx.play("hover") }
+        TapHandler { id: kt; onTapped: k.clicked() }
+        Keys.onReturnPressed: k.clicked()
+        Keys.onSpacePressed: k.clicked()
     }
 }

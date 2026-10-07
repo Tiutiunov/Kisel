@@ -40,7 +40,7 @@ Item {
     readonly property int viewHeight: {
         switch (view) {
         case "session": return 300
-        case "permission": return Hub.permission.kind === "diff" ? 310 : Hub.permission.kind === "question" ? 290 : 236
+        case "permission": return Hub.permission.kind === "diff" ? 310 : Hub.permission.kind === "question" ? 298 : 236
         case "github": return 276
         case "chat": return 412
         case "settings": return 440
