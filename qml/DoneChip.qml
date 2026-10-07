@@ -105,7 +105,7 @@ Item {
                 }
             }
             Text {
-                text: "Done"
+                text: Tr.t("Done")
                 color: "#06281a"
                 font.family: Theme.sans; font.pixelSize: 12; font.weight: Font.ExtraBold
             }

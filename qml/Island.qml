@@ -300,7 +300,23 @@ Item {
     // few seconds a little scene plays among the three (`noteScene`), between the scenes
     // the first two have of their own. A click on her or her sign counts as looking: it opens the
     // notification centre and she goes back to the bench.
-    readonly property bool note: Prefs.rinNotes && Notes.available && Notes.pending
+    // (A new version of Kisel is hers to announce as well: the sign reads "Kisel 0.3.0".
+    // A click on her then opens Settings at "Updates", and she does not bring that
+    // version up again.)
+    readonly property bool updateUp: Updates.available && Updates.state === "found" && Prefs.updateSeen !== Updates.latest
+    readonly property bool notesOn: Prefs.rinNotes && Notes.available && Notes.pending
+    readonly property bool noteAny: notesOn || updateUp
+    readonly property var signApps: (updateUp ? ["Kisel " + Updates.latest] : []).concat(notesOn ? Notes.apps : [])
+    readonly property var signCounts: (updateUp ? [1] : []).concat(notesOn ? Notes.counts : [])
+    function openNote() {
+        if (!updateUp) { Notes.open(); return }
+        Prefs.updateSeen = Updates.latest
+        view = "settings"
+        autoOpened = false
+        open()
+        settingsView.showUpdates()
+    }
+    readonly property bool note: noteAny
         && !expanded && !floating && !vertical && !mfree && !assembling && !greeting
     // (if Rin is at the head already, on stage or as the partner, the sign is simply hers)
     readonly property bool heraldRin: note && stage !== "rin" && !(duo && buddyWho === "rin")
@@ -479,7 +495,7 @@ Item {
     // scene plays between them (see `skits`). The bar grows by the partner's width.
     // (A notification does not bring a partner: Miku sits there only while Claude works.
     // With Rin and her sign that makes two at rest and three at work.)
-    readonly property bool noteUp: Prefs.rinNotes && Notes.available && Notes.pending
+    readonly property bool noteUp: noteAny
     readonly property bool duo: claudeBusy && !expanded && !floating && !vertical && !mfree && !assembling && !greeting
     readonly property string buddyWho: stage !== "miku" ? "miku" : rest !== "miku" ? rest : "rin"
     property real duoW: duo ? mini + 3 : 0 // (the partner is the size of the one on stage)
@@ -793,7 +809,7 @@ Item {
     readonly property bool canTuck: !floating && !expanded && !mfree && !assembling && !dragArea.pressed && !moving
         && !hover.hovered && !wake.hovered && Hub.pendingCount === 0 && Hub.chip === ""
         && (Hub.mood === "idle" || Hub.mood === "sleep") && !tune
-        && !(Prefs.rinNotes && Notes.available && Notes.pending) // (Rin has something to show)
+        && !noteAny // (Rin has something to show)
         && !(lukaAct && (Net.trouble || Net.justBack || Net.downloading || Net.justFetched)) // (...or Luka has)
     onCanTuckChanged: if (!canTuck) tucked = false
     onTuckedChanged: updateHit()
@@ -1368,8 +1384,8 @@ Item {
 
                 readonly property string label: root.barOwn ? ""
                     : Hub.chip !== "" ? ""
-                    : Hub.mood === "work" ? Hub.statusLine
-                    : Hub.mood === "think" ? "Thinking"
+                    : Hub.mood === "work" ? Tr.d(Hub.statusLine)
+                    : Hub.mood === "think" ? Tr.t("Thinking")
                     : (Hub.mood === "alert" || Hub.mood === "happy" || Hub.mood === "sad") ? ""
                     : mascot.displayName
                 Text {
@@ -1524,11 +1540,11 @@ Item {
                     height: 24
                     elide: Text.ElideRight
                     verticalAlignment: Text.AlignVCenter
-                    text: root.view === "session" ? (Hub.session.name || "Session")
-                        : root.view === "permission" ? (Hub.permission.kind === "question" ? "Question" : "Permission")
-                        : root.view === "chat" ? "Chat"
+                    text: root.view === "session" ? (Hub.session.name || Tr.t("Session"))
+                        : root.view === "permission" ? (Hub.permission.kind === "question" ? Tr.t("Question") : Tr.t("Permission"))
+                        : root.view === "chat" ? Tr.t("Chat")
                         : root.view === "github" ? "GitHub"
-                        : root.view === "settings" ? "Settings" : ""
+                        : root.view === "settings" ? Tr.t("Settings") : ""
                     color: Theme.ink
                     font.family: Theme.display
                     font.weight: Font.DemiBold
@@ -1562,7 +1578,7 @@ Item {
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
                                 // (Rin with a notification waiting: the click goes to it, not to choosing her)
-                                onClicked: { Sfx.play("click"); if (root.noteUp && chair.modelData === "rin") Notes.open(); else root.choose(chair.modelData) }
+                                onClicked: { Sfx.play("click"); if (root.noteUp && chair.modelData === "rin") root.openNote(); else root.choose(chair.modelData) }
                             }
                         }
                     }
@@ -1573,11 +1589,11 @@ Item {
                     anchors.rightMargin: 12
                     y: 8
                     spacing: 2
-                    IconBtn { icon: Prefs.soundOn ? "sound" : "mute"; label: Prefs.soundOn ? "Mute sounds" : "Unmute sounds"; onClicked: Prefs.soundOn = !Prefs.soundOn }
-                    IconBtn { icon: "chat"; label: "Chat"; active: root.view === "chat"; onClicked: root.toggleView("chat") }
-                    IconBtn { visible: !root.floating; icon: "move"; label: "Move the bar"; onClicked: { Sfx.play("click"); root.startMove() } }
-                    IconBtn { icon: "gear"; label: "Settings"; active: root.view === "settings"; onClicked: root.toggleView("settings") }
-                    IconBtn { visible: root.floating; icon: "up"; label: "Close"; onClicked: root.collapseNow() }
+                    IconBtn { icon: Prefs.soundOn ? "sound" : "mute"; label: Prefs.soundOn ? Tr.t("Mute sounds") : Tr.t("Unmute sounds"); onClicked: Prefs.soundOn = !Prefs.soundOn }
+                    IconBtn { icon: "chat"; label: Tr.t("Chat"); active: root.view === "chat"; onClicked: root.toggleView("chat") }
+                    IconBtn { visible: !root.floating; icon: "move"; label: Tr.t("Move the bar"); onClicked: { Sfx.play("click"); root.startMove() } }
+                    IconBtn { icon: "gear"; label: Tr.t("Settings"); active: root.view === "settings"; onClicked: root.toggleView("settings") }
+                    IconBtn { visible: root.floating; icon: "up"; label: Tr.t("Close"); onClicked: root.collapseNow() }
                 }
             }
 
@@ -1776,7 +1792,7 @@ Item {
             cursorShape: Qt.PointingHandCursor
             onClicked: {
                 Hub.poke()
-                if (root.note && root.buddyWho === "rin") { Sfx.play("click"); Notes.open(); return } // (Rin with her sign)
+                if (root.note && root.buddyWho === "rin") { Sfx.play("click"); root.openNote(); return } // (Rin with her sign)
                 if (root.buddyWho === "miku") root.mikuAsked = true
                 root.autoOpened = false; root.open()
             }
@@ -1850,10 +1866,10 @@ Item {
             y: (root.atBottom ? card.y + card.height - root.pillT - 19 : card.y + root.pillT - 11)
             on: root.note
             still: root.tucked
-            app: Notes.app
-            count: Notes.count
-            apps: Notes.apps
-            counts: Notes.counts
+            app: root.signApps.length ? root.signApps[0] : ""
+            count: root.signCounts.length ? root.signCounts[0] : 1
+            apps: root.signApps
+            counts: root.signCounts
             onXChanged: root.updateHit()
             onWidthChanged: root.updateHit()
         }
@@ -1869,10 +1885,10 @@ Item {
             y: root.atBottom ? card.y - 19 : card.y + 36
             on: root.noteUp && root.expanded && !root.floating && !root.vertical && !root.mfree && !root.assembling
             still: root.tucked
-            app: Notes.app
-            count: Notes.count
-            apps: Notes.apps
-            counts: Notes.counts
+            app: root.signApps.length ? root.signApps[0] : ""
+            count: root.signCounts.length ? root.signCounts[0] : 1
+            apps: root.signApps
+            counts: root.signCounts
             onOnChanged: root.updateHit()
             onYChanged: root.updateHit()
         }
@@ -1882,7 +1898,7 @@ Item {
             x: signOpen.x; y: signOpen.flip ? signOpen.y + 10 : signOpen.y
             width: signOpen.fullW; height: 20
             cursorShape: Qt.PointingHandCursor
-            onClicked: { Hub.poke(); Sfx.play("click"); Notes.open() }
+            onClicked: { Hub.poke(); Sfx.play("click"); root.openNote() }
         }
         // looked at: a click on Rin, or on her sign
         MouseArea {
@@ -1891,7 +1907,7 @@ Item {
             x: root.rinNow.x; y: (root.atBottom ? card.y + card.height - root.pillT : card.y)
             width: root.rinNow.width; height: root.pillT
             cursorShape: Qt.PointingHandCursor
-            onClicked: { Hub.poke(); Sfx.play("click"); Notes.open() }
+            onClicked: { Hub.poke(); Sfx.play("click"); root.openNote() }
         }
         MouseArea {
             z: 4
@@ -1899,7 +1915,7 @@ Item {
             x: sign.x; y: sign.flip ? sign.y + 10 : sign.y
             width: sign.fullW; height: 20
             cursorShape: Qt.PointingHandCursor
-            onClicked: { Hub.poke(); Sfx.play("click"); Notes.open() }
+            onClicked: { Hub.poke(); Sfx.play("click"); root.openNote() }
         }
 
         // the notes that rise over their heads while they dance (see `skDisco`)
@@ -2223,7 +2239,7 @@ Item {
                         if (root.expanded) root.collapseNow()
                         else { root.autoOpened = false; root.open() }
                     } else if (!root.expanded && root.note && root.stage === "rin") {
-                        Sfx.play("click"); Notes.open()                  // (Rin with her sign: the notifications, not the card)
+                        Sfx.play("click"); root.openNote()                  // (Rin with her sign: the notifications, not the card)
                     } else if (!root.expanded) {
                         if (root.stage === "miku") root.mikuAsked = true // (Miku clicked: her card)
                         root.open()

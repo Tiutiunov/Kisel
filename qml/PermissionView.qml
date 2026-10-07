@@ -118,7 +118,7 @@ Item {
                             PauseAnimation { duration: 2200 }
                         }
                     }
-                    Text { text: "Needs you"; color: "#3d2c00"; anchors.verticalCenter: parent.verticalCenter
+                    Text { text: Tr.t("Needs you"); color: "#3d2c00"; anchors.verticalCenter: parent.verticalCenter
                         font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.ExtraBold }
                 }
             }
@@ -139,7 +139,7 @@ Item {
                 Row {
                     visible: Hub.pendingCount > 1
                     spacing: 3
-                    Text { text: "\u00b7  1 of"; color: Theme.inkFaint; font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.DemiBold }
+                    Text { text: Tr.t("\u00b7  1 of"); color: Theme.inkFaint; font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.DemiBold }
                     RollText { text: String(Hub.pendingCount) }
                 }
             }
@@ -182,7 +182,7 @@ Item {
                         spacing: Theme.space1
                         Text {
                             visible: q.modelData.header !== ""
-                            text: q.modelData.header + (q.modelData.multi ? "  \u00b7  pick any" : "")
+                            text: q.modelData.header + (q.modelData.multi ? Tr.t("  \u00b7  pick any") : "")
                             color: Theme.inkFaint
                             font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.DemiBold
                         }
@@ -242,34 +242,34 @@ Item {
             Key {
                 id: allowBtn
                 visible: root.p.kind !== "question"
-                kind: "yes"; icon: "check"; text: "Allow"
+                kind: "yes"; icon: "check"; text: Tr.t("Allow")
                 onClicked: Hub.allow(root.p.id)
             }
             Key {
                 visible: root.p.kind !== "question" && root.p.canAlways === true
-                kind: "soft"; text: "Always"
+                kind: "soft"; text: Tr.t("Always")
                 onClicked: Hub.always(root.p.id)
             }
             Key {
                 visible: root.p.kind !== "question"
-                kind: "no"; icon: "cross"; text: "Deny"
+                kind: "no"; icon: "cross"; text: Tr.t("Deny")
                 onClicked: Hub.deny(root.p.id)
             }
             Key {
                 visible: root.p.kind === "question"
                 id: sendBtn
-                kind: "yes"; icon: "send"; text: "Send answer"
+                kind: "yes"; icon: "send"; text: Tr.t("Send answer")
                 enabled: root.answered
                 onClicked: root.submit()
             }
             Key {
                 visible: root.p.kind === "question"
-                kind: "plain"; icon: "terminal"; text: "Reply in terminal"
+                kind: "plain"; icon: "terminal"; text: Tr.t("Reply in terminal")
                 onClicked: Hub.passToTerminal(root.p.id)
             }
             Key {
                 visible: root.p.kind !== "question"
-                kind: "plain"; icon: "terminal"; text: "In terminal"
+                kind: "plain"; icon: "terminal"; text: Tr.t("In terminal")
                 onClicked: Hub.passToTerminal(root.p.id)
             }
         }

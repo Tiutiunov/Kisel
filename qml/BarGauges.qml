@@ -37,7 +37,7 @@ Row {
             visible: opacity > 0.01
             Meter { name: "CPU"; value: Sys.cpu }
             Meter { visible: Sys.hasGpu; name: "GPU"; value: Sys.gpu }
-            Meter { name: "RAM"; value: Sys.mem }
+            Meter { name: Tr.t("RAM"); value: Sys.mem }
         }
         Row { // the news of a clean, in the gauges' place
             anchors.horizontalCenter: parent.horizontalCenter
@@ -53,7 +53,7 @@ Row {
             }
             Text {
                 anchors.verticalCenter: parent.verticalCenter
-                text: Sys.freedGb >= 0.05 ? "Freed " + Sys.freedGb.toFixed(1) + " GB" : "Already tidy"
+                text: Sys.freedGb >= 0.05 ? Tr.t("Freed ") + Sys.freedGb.toFixed(1) + Tr.t(" GB") : Tr.t("Already tidy")
                 color: Theme.ink
                 font.family: Theme.sans; font.pixelSize: 13; font.weight: Font.ExtraBold
             }

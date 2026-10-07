@@ -25,14 +25,14 @@ Item {
         DotWave { anchors.horizontalCenter: parent.horizontalCenter; running: root.active && !GitHub.hasToken }
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: "Add a GitHub token"
+            text: Tr.t("Add a GitHub token")
             color: Theme.ink
             font.family: Theme.sans; font.pixelSize: 16; font.weight: Font.ExtraBold
         }
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             horizontalAlignment: Text.AlignHCenter
-            text: "Settings → GitHub. A read-only personal access token is enough."
+            text: Tr.t("Settings → GitHub. A read-only personal access token is enough.")
             color: Theme.inkMuted
             font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.DemiBold
         }
@@ -71,12 +71,12 @@ Item {
             spacing: Theme.space6
             Column {
                 Text { text: GitHub.openCount; color: Theme.ink; font.family: Theme.sans; font.pixelSize: 26; font.weight: Font.ExtraBold }
-                Text { text: "open PRs"; color: Theme.inkMuted; font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.DemiBold }
+                Text { text: Tr.t("open PRs"); color: Theme.inkMuted; font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.DemiBold }
             }
             Column {
                 Text { text: GitHub.reviewCount; color: GitHub.reviewCount > 0 ? Theme.amber : Theme.ink
                     font.family: Theme.sans; font.pixelSize: 26; font.weight: Font.ExtraBold }
-                Text { text: "waiting for your review"; color: Theme.inkMuted; font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.DemiBold }
+                Text { text: Tr.t("waiting for your review"); color: Theme.inkMuted; font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.DemiBold }
             }
         }
 
@@ -86,7 +86,7 @@ Item {
             anchors.right: parent.right
             width: 32; height: 32
             Accessible.role: Accessible.Button
-            Accessible.name: "Refresh"
+            Accessible.name: Tr.t("Refresh")
             Rectangle { anchors.fill: parent; radius: 16; color: rh.hovered || rt.pressed ? Theme.surface3 : "transparent"
                 Behavior on color { ColorAnimation { duration: Theme.tHover } } }
             Icon {
@@ -155,8 +155,8 @@ Item {
                                          : chip.ci === "pending" ? Theme.amber : Theme.inkFaint }
                                 Text { anchors.verticalCenter: parent.verticalCenter; color: Theme.ink
                                     font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.ExtraBold
-                                    text: row.modelData.draft ? "Draft" : chip.ci === "success" ? "Passing" : chip.ci === "failure" ? "Failing"
-                                        : chip.ci === "pending" ? "Running" : "No checks" }
+                                    text: row.modelData.draft ? Tr.t("Draft") : chip.ci === "success" ? Tr.t("Passing") : chip.ci === "failure" ? Tr.t("Failing")
+                                        : chip.ci === "pending" ? Tr.t("Running") : Tr.t("No checks") }
                             }
                         }
                     }
@@ -166,7 +166,7 @@ Item {
             }
             Text {
                 visible: GitHub.loaded && GitHub.rows.length === 0
-                text: "No open pull requests"
+                text: Tr.t("No open pull requests")
                 color: Theme.inkFaint
                 font.family: Theme.sans; font.pixelSize: 13; font.weight: Font.DemiBold
             }
@@ -180,7 +180,7 @@ Item {
             color: Theme.diffDelBg
             Row { x: 8; anchors.verticalCenter: parent.verticalCenter; spacing: Theme.space1
                 Icon { name: "cross"; size: 14; color: Theme.danger; anchors.verticalCenter: parent.verticalCenter }
-                Text { width: 440; elide: Text.ElideRight; text: GitHub.error; color: Theme.danger
+                Text { width: 440; elide: Text.ElideRight; text: Tr.d(GitHub.error); color: Theme.danger
                     font.family: Theme.sans; font.pixelSize: 12; font.weight: Font.DemiBold }
             }
         }

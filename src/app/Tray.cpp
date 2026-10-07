@@ -23,10 +23,10 @@ Tray::Tray(QObject *parent)
     item->setStatus(KStatusNotifierItem::Active);
 
     auto *menu = new QMenu;
-    menu->addAction(QStringLiteral("Open"), this, &Tray::openRequested);
-    menu->addAction(QStringLiteral("Settings…"), this, &Tray::settingsRequested);
+    m_open = menu->addAction(QStringLiteral("Open"), this, &Tray::openRequested);
+    m_settings = menu->addAction(QStringLiteral("Settings…"), this, &Tray::settingsRequested);
     menu->addSeparator();
-    menu->addAction(QStringLiteral("Quit"), this, &Tray::quitRequested);
+    m_quit = menu->addAction(QStringLiteral("Quit"), this, &Tray::quitRequested);
     item->setContextMenu(menu);
     connect(item, &KStatusNotifierItem::activateRequested, this, &Tray::openRequested);
 #else
@@ -37,10 +37,10 @@ Tray::Tray(QObject *parent)
     item->setToolTip(QStringLiteral("Kisel"));
 
     auto *menu = new QMenu;
-    menu->addAction(QStringLiteral("Open"), this, &Tray::openRequested);
-    menu->addAction(QStringLiteral("Settings…"), this, &Tray::settingsRequested);
+    m_open = menu->addAction(QStringLiteral("Open"), this, &Tray::openRequested);
+    m_settings = menu->addAction(QStringLiteral("Settings…"), this, &Tray::settingsRequested);
     menu->addSeparator();
-    menu->addAction(QStringLiteral("Quit"), this, &Tray::quitRequested);
+    m_quit = menu->addAction(QStringLiteral("Quit"), this, &Tray::quitRequested);
     item->setContextMenu(menu);
     connect(item, &QSystemTrayIcon::activated, this, [this](QSystemTrayIcon::ActivationReason why) {
         if (why == QSystemTrayIcon::Trigger)
@@ -48,6 +48,15 @@ Tray::Tray(QObject *parent)
     });
     item->show();
 #endif
+}
+
+void Tray::setRussian(bool on)
+{
+    if (!m_open)
+        return;
+    m_open->setText(on ? QStringLiteral("Открыть") : QStringLiteral("Open"));
+    m_settings->setText(on ? QStringLiteral("Настройки…") : QStringLiteral("Settings…"));
+    m_quit->setText(on ? QStringLiteral("Выйти") : QStringLiteral("Quit"));
 }
 
 } // namespace kisel

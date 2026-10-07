@@ -22,6 +22,7 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QLocalSocket>
+#include <QLocale>
 #include <QQmlContext>
 #include <QQuickItem>
 #include <QQuickStyle>
@@ -199,6 +200,27 @@ int main(int argc, char *argv[])
     shell.show();
 
     Tray tray;
+    const auto trayLanguage = [&] {
+        const QString l = prefs.language();
+        tray.setRussian(l == QLatin1String("ru") || (l != QLatin1String("en") && QLocale::system().language() == QLocale::Russian));
+    };
+    trayLanguage();
+    QObject::connect(&prefs, &Preferences::changed, &tray, trayLanguage);
+
+    // Updates: one question to GitHub a little after start and once a day (Settings can
+    // switch that off). Nothing is downloaded; if a newer version is out Rin says so.
+    const auto askForUpdates = [&] {
+        if (updater.available() && prefs.updateCheck() && !cli.isSet("grab"))
+            updater.check(true);
+    };
+    QTimer::singleShot(20000, &app, askForUpdates);
+    QTimer daily;
+    daily.setInterval(24 * 60 * 60 * 1000);
+    QObject::connect(&daily, &QTimer::timeout, &app, askForUpdates);
+    daily.start();
+    // KISEL_DEMO_UPDATE=<ms>: as if version 9.9.9 came out at that time (development)
+    if (const int at = qEnvironmentVariableIntValue("KISEL_DEMO_UPDATE"); at > 0)
+        QTimer::singleShot(at, &app, [&] { updater.pretend(QStringLiteral("9.9.9")); });
     QObject::connect(&tray, &Tray::openRequested, root, [root] { QMetaObject::invokeMethod(root, "openIsland", Q_ARG(QVariant, "home")); });
     QObject::connect(&tray, &Tray::settingsRequested, root, [root] { QMetaObject::invokeMethod(root, "openIsland", Q_ARG(QVariant, "settings")); });
     QObject::connect(&tray, &Tray::quitRequested, &app, &QApplication::quit);

@@ -15,8 +15,8 @@ Row {
 
     function heat(ms) { return ms < 0 ? "#E0405A" : ms > 250 ? "#E0405A" : ms > 90 ? "#FFE08A" : "#B9DC6B" }
     function speed(v) {
-        return v >= 1048576 ? (v / 1048576).toFixed(v >= 10485760 ? 0 : 1) + " MB/s"
-            : v >= 1024 ? Math.round(v / 1024) + " KB/s" : "0 KB/s"
+        return v >= 1048576 ? (v / 1048576).toFixed(v >= 10485760 ? 0 : 1) + Tr.t(" MB/s")
+            : v >= 1024 ? Math.round(v / 1024) + Tr.t(" KB/s") : Tr.t("0 KB/s")
     }
 
     height: 24
@@ -27,8 +27,8 @@ Row {
     transform: Translate { x: root.on ? 0 : 18; Behavior on x { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } } }
 
     function amount(v) {
-        return v >= 1073741824 ? (v / 1073741824).toFixed(2) + " GB"
-            : v >= 1048576 ? Math.round(v / 1048576) + " MB" : Math.round(v / 1024) + " KB"
+        return v >= 1073741824 ? (v / 1073741824).toFixed(2) + Tr.t(" GB")
+            : v >= 1048576 ? Math.round(v / 1048576) + Tr.t(" MB") : Math.round(v / 1024) + Tr.t(" KB")
     }
     readonly property bool fetchNews: Net.online && !Net.justBack && Net.justFetched && !Net.downloading
     readonly property bool news: !Net.online || Net.justBack || fetchNews
@@ -45,8 +45,8 @@ Row {
         }
         Text {
             anchors.verticalCenter: parent.verticalCenter
-            text: !Net.online ? "No connection" : Net.justBack ? "Back online"
-                : root.fetchNews ? "Downloaded " + root.amount(Net.fetched) : Net.ping < 0 ? "..." : Net.ping + " ms"
+            text: !Net.online ? Tr.t("No connection") : Net.justBack ? Tr.t("Back online")
+                : root.fetchNews ? Tr.t("Downloaded ") + root.amount(Net.fetched) : Net.ping < 0 ? "..." : Net.ping + " ms"
             color: !Net.online ? "#FF8FA0" : Theme.ink
             font.family: Theme.sans; font.pixelSize: root.news ? 13 : 12; font.weight: Font.ExtraBold
         }

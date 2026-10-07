@@ -20,15 +20,15 @@ Item {
     // how full a gauge is decides its colour: calm, busy, too much
     function heat(v) { return v > 0.9 ? root.red : v > 0.7 ? root.lemon : "#B9DC6B" }
 
-    readonly property string line: !Sys.available ? "I cannot see this machine from here."
-        : Sys.cleaning ? "Sweeping the memory. Stand back."
-        : Sys.justCleaned ? (Sys.freedGb >= 0.05 ? "Freed " + Sys.freedGb.toFixed(1) + " GB. You are welcome." : "Nothing much to free. It was tidy already.")
-        : Sys.worry === "mem" ? "The memory is full. Close something, will you?"
-        : Sys.worry === "cpu" ? "The processor is flat out. What are you running?"
-        : Sys.gpu > 0.85 ? "The graphics card is flat out. Playing, are we?"
-        : Sys.cpu > 0.6 ? "Busy, but nothing I cannot handle."
-        : Sys.mem > 0.8 ? "A lot is open. Not that I am counting."
-        : "All quiet. Thanks to me, obviously."
+    readonly property string line: !Sys.available ? Tr.t("I cannot see this machine from here.")
+        : Sys.cleaning ? Tr.t("Sweeping the memory. Stand back.")
+        : Sys.justCleaned ? (Sys.freedGb >= 0.05 ? Tr.t("Freed ") + Sys.freedGb.toFixed(1) + Tr.t(" GB. You are welcome.") : Tr.t("Nothing much to free. It was tidy already."))
+        : Sys.worry === "mem" ? Tr.t("The memory is full. Close something, will you?")
+        : Sys.worry === "cpu" ? Tr.t("The processor is flat out. What are you running?")
+        : Sys.gpu > 0.85 ? Tr.t("The graphics card is flat out. Playing, are we?")
+        : Sys.cpu > 0.6 ? Tr.t("Busy, but nothing I cannot handle.")
+        : Sys.mem > 0.8 ? Tr.t("A lot is open. Not that I am counting.")
+        : Tr.t("All quiet. Thanks to me, obviously.")
 
     Row {
         id: gauges
@@ -38,7 +38,7 @@ Item {
         transform: Translate { y: Motion.lift(root.age, 0) }
         Gauge { value: Sys.cpu; name: "CPU" }
         Gauge { visible: Sys.hasGpu; value: Sys.gpu; name: "GPU" }
-        Gauge { value: Sys.mem; name: "Memory"; note: Sys.memUsedGb.toFixed(1) + " / " + Math.round(Sys.memTotalGb) + " GB" }
+        Gauge { value: Sys.mem; name: Tr.t("Memory"); note: Sys.memUsedGb.toFixed(1) + " / " + Math.round(Sys.memTotalGb) + Tr.t(" GB") }
     }
 
     Item {
@@ -55,7 +55,7 @@ Item {
             Spark { anchors.verticalCenter: parent.verticalCenter; size: 11; tint: root.red
                 RotationAnimation on rotation { running: root.visible && !Theme.reduced; from: 0; to: 90; duration: 3000; loops: Animation.Infinite } }
             Text {
-                text: "The last minute"
+                text: Tr.t("The last minute")
                 color: Theme.inkMuted
                 font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.DemiBold
             }
@@ -127,14 +127,14 @@ Item {
         Behavior on color { ColorAnimation { duration: 200 } }
         activeFocusOnTab: true
         Accessible.role: Accessible.Button
-        Accessible.name: "Clean memory"
+        Accessible.name: Tr.t("Clean memory")
         Column {
             anchors.centerIn: parent
             spacing: 1
             BroomGlyph { anchors.horizontalCenter: parent.horizontalCenter; size: 15; opacity: Sys.cleaning ? 0.5 : 1 }
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: "Clean"
+                text: Tr.t("Clean")
                 color: "#FFFFFF"
                 font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.ExtraBold
             }

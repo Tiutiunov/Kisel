@@ -45,18 +45,18 @@ Item {
     readonly property bool busy: st === "work" || st === "think"
     readonly property color stTint: busy ? root.teal : st === "alert" ? "#FFE08A" : st === "done" ? "#B9DC6B"
         : st === "failed" ? "#E0405A" : Qt.rgba(root.teal.r, root.teal.g, root.teal.b, 0.45)
-    readonly property string stWord: !Hooks.installed ? "Not connected" : !hasSession ? "Listening"
-        : st === "work" ? "Working" : st === "think" ? "Thinking" : st === "alert" ? "Needs you"
-        : st === "done" ? "Done" : st === "failed" ? "Failed" : "Idle"
-    readonly property string line: !Hooks.installed ? "Claude Code is not connected yet. Shall we fix that?"
-        : !Hub.serverUp ? "I cannot listen for hooks right now. Sorry!"
-        : !hasSession ? "Ready and listening. Start a session and I will watch it."
-        : st === "think" ? "Thinking it over. Give it a moment."
-        : st === "work" ? "Working on it. I will tell you when it is done."
-        : st === "alert" ? "Claude needs you. Have a look?"
-        : st === "done" ? "All done! Come and see."
-        : st === "failed" ? "That one went wrong. Want to see why?"
-        : "Nothing is running. I am right here."
+    readonly property string stWord: !Hooks.installed ? Tr.t("Not connected") : !hasSession ? Tr.t("Listening")
+        : st === "work" ? Tr.t("Working") : st === "think" ? Tr.t("Thinking") : st === "alert" ? Tr.t("Needs you")
+        : st === "done" ? Tr.t("Done") : st === "failed" ? Tr.t("Failed") : Tr.t("Idle")
+    readonly property string line: !Hooks.installed ? Tr.t("Claude Code is not connected yet. Shall we fix that?")
+        : !Hub.serverUp ? Tr.t("I cannot listen for hooks right now. Sorry!")
+        : !hasSession ? Tr.t("Ready and listening. Start a session and I will watch it.")
+        : st === "think" ? Tr.t("Thinking it over. Give it a moment.")
+        : st === "work" ? Tr.t("Working on it. I will tell you when it is done.")
+        : st === "alert" ? Tr.t("Claude needs you. Have a look?")
+        : st === "done" ? Tr.t("All done! Come and see.")
+        : st === "failed" ? Tr.t("That one went wrong. Want to see why?")
+        : Tr.t("Nothing is running. I am right here.")
 
     // ---- Miku's Home: Claude Code ----
     Item {
@@ -113,7 +113,7 @@ Item {
                     y: 82
                     width: parent.width
                     horizontalAlignment: Text.AlignHCenter
-                    text: counter.count === 1 ? "Session" : "Sessions"
+                    text: counter.count === 1 ? Tr.t("Session") : Tr.t("Sessions")
                     color: Theme.ink
                     font.family: Theme.sans; font.pixelSize: 12; font.weight: Font.ExtraBold
                 }
@@ -132,13 +132,13 @@ Item {
                 y: 2
                 spacing: 8
                 Key1 {
-                    over: "Claude"; label: "Chat"; icon: "chat"
+                    over: "Claude"; label: Tr.t("Chat"); icon: "chat"
                     opacity: root.revealTiles[0] * Motion.rise(root.age, 1)
                     transform: Translate { y: Motion.lift(root.age, 1) }
                     onClicked: root.go("chat")
                 }
                 Key1 {
-                    over: "Repos"; label: "GitHub"; icon: "github"
+                    over: Tr.t("Repos"); label: "GitHub"; icon: "github"
                     opacity: root.revealTiles[1] * Motion.rise(root.age, 2)
                     transform: Translate { y: Motion.lift(root.age, 2) }
                     onClicked: root.go("github")
@@ -206,7 +206,7 @@ Item {
                     x: 42
                     width: parent.width - x - 12
                     anchors.verticalCenter: parent.verticalCenter
-                    text: root.hasSession ? (root.s.line || root.s.cwd || "") : Hooks.installed ? "waiting for a session" : "not connected"
+                    text: root.hasSession ? (Tr.d(root.s.line) || root.s.cwd || "") : Hooks.installed ? Tr.t("waiting for a session") : Tr.t("not connected")
                     elide: Text.ElideRight
                     color: "#F2ECF5"
                     opacity: root.hasSession ? 1 : 0.6
@@ -262,7 +262,7 @@ Item {
             Behavior on color { ColorAnimation { duration: 200 } }
             activeFocusOnTab: true
             Accessible.role: Accessible.Button
-            Accessible.name: connects ? "Connect Claude Code" : "Open session"
+            Accessible.name: connects ? Tr.t("Connect Claude Code") : Tr.t("Open session")
             function act() { root.go(connects ? "settings" : "session") }
             Column {
                 anchors.centerIn: parent
@@ -270,7 +270,7 @@ Item {
                 Icon { anchors.horizontalCenter: parent.horizontalCenter; size: 17; name: key.connects ? "plus" : "terminal"; color: "#04302c" }
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: key.connects ? "Connect" : "Open"
+                    text: key.connects ? Tr.t("Connect") : Tr.t("Open")
                     color: "#04302c"
                     font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.ExtraBold
                 }

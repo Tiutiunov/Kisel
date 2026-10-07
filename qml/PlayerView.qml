@@ -128,7 +128,7 @@ Item {
             transform: Translate { y: Motion.lift(root.age, 1) }
             Text {
                 width: parent.width
-                text: Media.active ? Media.title : "Nothing playing"
+                text: Media.active ? Media.title : Tr.t("Nothing playing")
                 elide: Text.ElideRight
                 color: Theme.ink
                 font.family: Theme.display; font.pixelSize: 19; font.weight: Font.Bold
@@ -139,7 +139,7 @@ Item {
                 PlayGlyph { anchors.verticalCenter: parent.verticalCenter; kind: "note"; size: 11; tint: "#FF9EBB"; visible: Media.active }
                 Text {
                     width: parent.width - 16
-                    text: Media.active ? Media.artist : "Open Spotify and it shows up here"
+                    text: Media.active ? Media.artist : Tr.t("Open Spotify and it shows up here")
                     elide: Text.ElideRight
                     color: Theme.inkMuted
                     font.family: Theme.sans; font.pixelSize: 12; font.weight: Font.DemiBold
@@ -155,9 +155,9 @@ Item {
             opacity: Motion.rise(root.age, 2) * (Media.active ? 1 : 0.4)
             transform: Translate { y: Motion.lift(root.age, 2) }
             enabled: Media.active
-            PlayBtn { anchors.verticalCenter: parent.verticalCenter; kind: "prev"; label: "Previous track"; onClicked: Media.previous() }
-            PlayBtn { kind: Media.playing ? "pause" : "play"; label: Media.playing ? "Pause" : "Play"; strong: true; onClicked: Media.playPause() }
-            PlayBtn { anchors.verticalCenter: parent.verticalCenter; kind: "next"; label: "Next track"; onClicked: Media.next() }
+            PlayBtn { anchors.verticalCenter: parent.verticalCenter; kind: "prev"; label: Tr.t("Previous track"); onClicked: Media.previous() }
+            PlayBtn { kind: Media.playing ? "pause" : "play"; label: Media.playing ? Tr.t("Pause") : Tr.t("Play"); strong: true; onClicked: Media.playPause() }
+            PlayBtn { anchors.verticalCenter: parent.verticalCenter; kind: "next"; label: Tr.t("Next track"); onClicked: Media.next() }
         }
 
         // candy bars, bouncing

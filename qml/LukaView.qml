@@ -22,25 +22,25 @@ Item {
     function heat(ms) { return ms < 0 ? root.red : ms > 250 ? root.red : ms > 90 ? root.lemon : root.mint }
     // bytes a second, in words
     function speed(v) {
-        return v >= 1048576 ? (v / 1048576).toFixed(v >= 10485760 ? 0 : 1) + " MB/s"
-            : v >= 1024 ? Math.round(v / 1024) + " KB/s" : "0 KB/s"
+        return v >= 1048576 ? (v / 1048576).toFixed(v >= 10485760 ? 0 : 1) + Tr.t(" MB/s")
+            : v >= 1024 ? Math.round(v / 1024) + Tr.t(" KB/s") : Tr.t("0 KB/s")
     }
     // bytes, in words
     function amount(v) {
-        return v >= 1073741824 ? (v / 1073741824).toFixed(2) + " GB"
-            : v >= 1048576 ? Math.round(v / 1048576) + " MB" : Math.round(v / 1024) + " KB"
+        return v >= 1073741824 ? (v / 1073741824).toFixed(2) + Tr.t(" GB")
+            : v >= 1048576 ? Math.round(v / 1048576) + Tr.t(" MB") : Math.round(v / 1024) + Tr.t(" KB")
     }
 
-    readonly property string line: !Net.available ? "I cannot see the connection from here."
-        : !Net.online ? "The line is down. It will come back; they always do."
-        : Net.justBack ? "And we are back. No need to fuss."
-        : Net.slow ? "Answers are coming late. Something is in the way."
-        : Net.downloading ? "Something is coming down: " + root.amount(Net.fetched) + " so far. I am watching it."
-        : Net.justFetched ? "That is the download done: " + root.amount(Net.fetched) + " came in."
-        : Net.down > 5242880 ? "A lot is coming in. Downloading something nice?"
-        : Net.up > 2097152 ? "A lot is going out. Sharing, are we?"
-        : Net.ping > 90 ? "A little slow, but steady."
-        : "A quiet line. Just the way I like it."
+    readonly property string line: !Net.available ? Tr.t("I cannot see the connection from here.")
+        : !Net.online ? Tr.t("The line is down. It will come back; they always do.")
+        : Net.justBack ? Tr.t("And we are back. No need to fuss.")
+        : Net.slow ? Tr.t("Answers are coming late. Something is in the way.")
+        : Net.downloading ? Tr.t("Something is coming down: ") + root.amount(Net.fetched) + Tr.t(" so far. I am watching it.")
+        : Net.justFetched ? Tr.t("That is the download done: ") + root.amount(Net.fetched) + Tr.t(" came in.")
+        : Net.down > 5242880 ? Tr.t("A lot is coming in. Downloading something nice?")
+        : Net.up > 2097152 ? Tr.t("A lot is going out. Sharing, are we?")
+        : Net.ping > 90 ? Tr.t("A little slow, but steady.")
+        : Tr.t("A quiet line. Just the way I like it.")
 
     Row {
         id: left
@@ -92,7 +92,7 @@ Item {
                 y: 82
                 width: parent.width
                 horizontalAlignment: Text.AlignHCenter
-                text: "Ping"
+                text: Tr.t("Ping")
                 color: Theme.ink
                 font.family: Theme.sans; font.pixelSize: 12; font.weight: Font.ExtraBold
             }
@@ -102,8 +102,8 @@ Item {
         Column {
             y: 2
             spacing: 8
-            Flow1 { name: Net.downloading ? "Downloading" : "Down"; value: Net.down; downward: true; lit: Net.downloading }
-            Flow1 { name: "Up"; value: Net.up; downward: false }
+            Flow1 { name: Net.downloading ? Tr.t("Downloading") : Tr.t("Down"); value: Net.down; downward: true; lit: Net.downloading }
+            Flow1 { name: Tr.t("Up"); value: Net.up; downward: false }
         }
     }
 
@@ -120,7 +120,7 @@ Item {
             transform: Translate { y: Motion.lift(root.age, 1) }
             Spark { anchors.verticalCenter: parent.verticalCenter; size: 11; tint: root.deep }
             Text {
-                text: "The last minute"
+                text: Tr.t("The last minute")
                 color: Theme.inkMuted
                 font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.DemiBold
             }

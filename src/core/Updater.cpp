@@ -114,11 +114,30 @@ void Updater::request(const QUrl &url, bool asset)
     m_reply = m_net.get(req);
 }
 
-void Updater::check()
+// a check that failed: said in Settings if it was asked for there, passed over if not
+void Updater::fail(const QString &error)
+{
+    if (m_quiet)
+        set(m_state == QLatin1String("checking") ? QStringLiteral("idle") : m_state);
+    else
+        set(QStringLiteral("failed"), error);
+}
+
+void Updater::pretend(const QString &version)
+{
+    m_release = Release();
+    m_release.version = version;
+    set(QStringLiteral("found"));
+}
+
+void Updater::check(bool quiet)
 {
     if (m_reply || m_state == QLatin1String("downloading") || m_state == QLatin1String("starting"))
         return;
-    set(QStringLiteral("checking"));
+    m_quiet = quiet;
+    if (quiet && m_state == QLatin1String("found")) // (already known: nothing to ask again today)
+        return;
+    set(quiet ? m_state : QStringLiteral("checking"));
     request(m_api, false);
     connect(m_reply, &QNetworkReply::finished, this, [this] {
         QNetworkReply *r = m_reply;
@@ -129,21 +148,21 @@ void Updater::check()
         const int status = r->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         const QByteArray body = r->readAll();
         if (status == 401) {
-            set(QStringLiteral("failed"), QStringLiteral("GitHub rejected the token"));
+            fail( QStringLiteral("GitHub rejected the token"));
             return;
         }
         if (status == 404 || status == 403) {
-            set(QStringLiteral("failed"), QStringLiteral("GitHub does not show the releases just now. Try again in a while."));
+            fail( QStringLiteral("GitHub does not show the releases just now. Try again in a while."));
             return;
         }
         if (status != 200) {
-            set(QStringLiteral("failed"), status == 0 ? r->errorString() : QStringLiteral("GitHub answered %1").arg(status));
+            fail( status == 0 ? r->errorString() : QStringLiteral("GitHub answered %1").arg(status));
             return;
         }
         Release rel;
         QString err;
         if (!pick(body, &rel, &err)) {
-            set(QStringLiteral("failed"), err);
+            fail( err);
             return;
         }
         m_release = rel;

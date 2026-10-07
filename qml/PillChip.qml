@@ -32,7 +32,7 @@ Item {
         Text {
             id: label
             anchors.centerIn: parent
-            text: root.shownKind === "needs" ? "Needs you" : root.shownKind === "done" ? "Done" : "Failed"
+            text: root.shownKind === "needs" ? Tr.t("Needs you") : root.shownKind === "done" ? Tr.t("Done") : Tr.t("Failed")
             color: Theme.surface0
             font.family: Theme.sans; font.pixelSize: 12; font.weight: Font.ExtraBold
         }

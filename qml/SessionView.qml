@@ -23,7 +23,7 @@ Item {
         spacing: Theme.space1
         Text {
             width: parent.width
-            text: root.s.prompt ? root.s.prompt : "No prompt yet"
+            text: root.s.prompt ? root.s.prompt : Tr.t("No prompt yet")
             elide: Text.ElideRight
             color: Theme.inkMuted
             font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.DemiBold
@@ -48,7 +48,7 @@ Item {
                 }
                 Text {
                     width: 190 - 24
-                    text: step.modelData.text
+                    text: Tr.d(step.modelData.text)
                     elide: Text.ElideRight
                     anchors.verticalCenter: parent.verticalCenter
                     color: step.running ? Theme.ink : Theme.inkMuted
@@ -74,7 +74,7 @@ Item {
     Text {
         x: 202
         visible: !root.s.file
-        text: "Nothing changed yet"
+        text: Tr.t("Nothing changed yet")
         color: Theme.inkFaint
         font.family: Theme.sans; font.pixelSize: 13; font.weight: Font.DemiBold
     }

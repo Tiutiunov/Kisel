@@ -128,7 +128,7 @@ Item {
                     anchors.centerIn: parent
                     width: Math.min(implicitWidth, root.maxText)
                     elide: Text.ElideRight
-                    text: root.shownApp !== "" ? root.shownApp : "New"
+                    text: root.shownApp !== "" ? root.shownApp : Tr.t("New")
                     color: "#3A2A08"
                     font.family: Theme.sans; font.pixelSize: 9; font.weight: Font.ExtraBold
                 }

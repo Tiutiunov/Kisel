@@ -215,13 +215,13 @@ Item {
             }
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: "Ask Claude anything"
+                text: Tr.t("Ask Claude anything")
                 color: Theme.ink
                 font.family: Theme.display; font.pixelSize: 16; font.weight: Font.DemiBold
             }
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: root.pal.name + " is listening"
+                text: root.pal.name + Tr.t(" is listening")
                 color: Theme.inkFaint
                 font.family: Theme.sans; font.pixelSize: 12; font.weight: Font.DemiBold
             }
@@ -241,7 +241,7 @@ Item {
             color: Theme.diffDelBg
             Row { x: 8; anchors.verticalCenter: parent.verticalCenter; spacing: Theme.space1
                 Icon { name: "cross"; size: 14; color: Theme.danger; anchors.verticalCenter: parent.verticalCenter }
-                Text { width: 440; elide: Text.ElideRight; text: Chat.error; color: Theme.danger
+                Text { width: 440; elide: Text.ElideRight; text: Tr.d(Chat.error); color: Theme.danger
                     font.family: Theme.sans; font.pixelSize: 12; font.weight: Font.DemiBold }
             }
         }
@@ -285,7 +285,7 @@ Item {
                 anchors { left: parent.left; right: sendBtn.left; top: parent.top; bottom: parent.bottom; margins: 4; leftMargin: 12 }
                 C.TextArea {
                     id: input
-                    placeholderText: "Message Claude"
+                    placeholderText: Tr.t("Message Claude")
                     placeholderTextColor: Theme.inkFaint
                     wrapMode: TextEdit.Wrap
                     color: Theme.ink
@@ -311,7 +311,7 @@ Item {
                 scale: sendTap.pressed ? 0.9 : sendHover.hovered ? 1.1 : 1
                 Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutBack } }
                 Accessible.role: Accessible.Button
-                Accessible.name: Chat.busy ? "Stop" : "Send"
+                Accessible.name: Chat.busy ? Tr.t("Stop") : Tr.t("Send")
                 Icon { anchors.centerIn: parent; size: 18; name: Chat.busy ? "cross" : "send"; color: Chat.busy ? Theme.ink : root.onAcc }
                 TapHandler { id: sendTap; onTapped: Chat.busy ? Chat.cancel() : root.send() }
                 HoverHandler { id: sendHover; cursorShape: Qt.PointingHandCursor }
@@ -336,7 +336,7 @@ Item {
             DotWave { anchors.horizontalCenter: parent.horizontalCenter; drop: true; running: root.dropActive }
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: "Drop the file on me"
+                text: Tr.t("Drop the file on me")
                 color: Theme.ink
                 font.family: Theme.sans; font.pixelSize: 16; font.weight: Font.ExtraBold
             }

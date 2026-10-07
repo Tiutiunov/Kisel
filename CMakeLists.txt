@@ -78,7 +78,7 @@ target_compile_definitions(kisel PRIVATE KISEL_RELAY_NEXT_TO_EXE)
 
 qt_policy(SET QTP0001 NEW) # resource prefix /qt/qml
 qt_policy(SET QTP0004 NEW)
-set_source_files_properties(qml/Theme.qml qml/Sfx.qml qml/Motion.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+set_source_files_properties(qml/Theme.qml qml/Sfx.qml qml/Motion.qml qml/Tr.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 # All QML lives in one flat module directory (type names = file names).
 file(GLOB KISEL_QML_SOURCES CONFIGURE_DEPENDS qml/*.qml)
 foreach(f ${KISEL_QML_SOURCES})
@@ -91,6 +91,7 @@ qt_add_qml_module(kisel
     QML_FILES
         qml/Main.qml
         qml/Theme.qml
+        qml/Tr.qml
         qml/Sfx.qml
         qml/Motion.qml
         qml/Icon.qml

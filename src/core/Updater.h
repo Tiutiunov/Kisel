@@ -51,7 +51,9 @@ public:
     qreal progress() const { return m_progress; }
     QString error() const { return m_error; }
 
-    Q_INVOKABLE void check();
+    // (quiet: the check Kisel makes by itself; if it fails nothing is said about it)
+    Q_INVOKABLE void check(bool quiet = false);
+    void pretend(const QString &version); // development: as if that version were out
     Q_INVOKABLE void update(); // download the release found, check it, start it, quit
 
     struct Release {
@@ -72,6 +74,7 @@ signals:
 
 private:
     void set(const QString &state, const QString &error = {});
+    void fail(const QString &error);
     void request(const QUrl &url, bool asset);
     void fetch(const QUrl &url);
     void finishDownload();
@@ -84,6 +87,7 @@ private:
     Release m_release;
     QString m_state = QStringLiteral("idle");
     QString m_error;
+    bool m_quiet = false;
     qreal m_progress = 0;
     std::unique_ptr<QFile> m_file;
     std::unique_ptr<QCryptographicHash> m_hash;

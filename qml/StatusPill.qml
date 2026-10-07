@@ -6,8 +6,8 @@ Rectangle {
     id: root
     property string state: "idle" // idle | work | think | alert | done | failed
 
-    readonly property string word: state === "work" ? "Working" : state === "think" ? "Thinking"
-        : state === "alert" ? "Needs you" : state === "done" ? "Done" : state === "failed" ? "Failed" : "Idle"
+    readonly property string word: state === "work" ? Tr.t("Working") : state === "think" ? Tr.t("Thinking")
+        : state === "alert" ? Tr.t("Needs you") : state === "done" ? Tr.t("Done") : state === "failed" ? Tr.t("Failed") : Tr.t("Idle")
     readonly property color dot: state === "work" || state === "think" ? Theme.info
         : state === "alert" ? Theme.amber : state === "done" ? Theme.mint
         : state === "failed" ? Theme.danger : Theme.inkFaint
