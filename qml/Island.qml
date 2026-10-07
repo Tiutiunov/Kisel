@@ -1550,6 +1550,10 @@ Item {
                     Mascot { size: 24; still: true; character: root.stage }
                     Text {
                         text: mascot.displayName
+                        // (only on Home: on any other view the title stands where a long name would run into it)
+                        opacity: root.view === "home" ? 1 : 0
+                        visible: opacity > 0.01
+                        Behavior on opacity { NumberAnimation { duration: 140 } }
                         color: Theme.ink
                         font.family: Theme.display
                         font.weight: Font.Bold

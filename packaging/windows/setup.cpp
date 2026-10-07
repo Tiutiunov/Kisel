@@ -41,7 +41,7 @@ namespace {
 const wchar_t *const kTitle = L"Kisel";
 const wchar_t *const kVersion = WIDEN(KISEL_VERSION);
 const wchar_t *const kUninstallKey = L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Kisel";
-const wchar_t *const kParts[] = {L"bin", L"plugins", L"qml", L"translations"}; // what the zip holds
+const wchar_t *const kParts[] = {L"bin", L"plugins", L"qml", L"translations", L"licenses"}; // what the zip holds
 
 bool g_silent = false;
 

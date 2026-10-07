@@ -59,6 +59,9 @@ qt_add_executable(kisel src/app/main.cpp src/app/IslandWindow.cpp src/app/Tray.c
 target_link_libraries(kisel PRIVATE kisel_core Qt6::Quick Qt6::QuickControls2 Qt6::Widgets Qt6::Test)
 target_compile_options(kisel PRIVATE ${KISEL_WARNINGS})
 if(WIN32)
+    # The icon Explorer, the Start menu and "Installed apps" show for it.
+    enable_language(RC)
+    target_sources(kisel PRIVATE packaging/windows/kisel.rc)
     # No console window; started from a terminal it still prints (IslandWindow::preInit).
     set_target_properties(kisel PROPERTIES WIN32_EXECUTABLE TRUE)
     target_link_libraries(kisel PRIVATE winmm WindowsApp pdh shell32 iphlpapi ws2_32) # PlaySound; the media session (Media.cpp)
@@ -173,6 +176,9 @@ target_link_libraries(test_core PRIVATE kisel_core Qt6::Test)
 add_test(NAME core COMMAND test_core)
 
 install(TARGETS kisel kisel-hook RUNTIME DESTINATION bin)
+# what the package must carry: Kisel's licence, whose work it depicts and is built on, and
+# the text of the licence Qt comes under
+install(FILES LICENSE THIRD-PARTY-NOTICES.md licenses/LGPL-3.0.txt licenses/GPL-3.0.txt DESTINATION licenses)
 if(WIN32)
     # The compiler's runtime DLLs go next to the app, so it starts on a machine that has
     # never had Visual Studio or its redistributable.
@@ -192,7 +198,7 @@ endif()
 # setup program below with the whole application appended to it as a zip. It is what a
 # release on GitHub carries (tag `win-v<version>`), and what Settings downloads to update.
 if(WIN32)
-    add_executable(kisel-setup WIN32 packaging/windows/setup.cpp)
+    add_executable(kisel-setup WIN32 packaging/windows/setup.cpp packaging/windows/kisel.rc)
     target_compile_definitions(kisel-setup PRIVATE KISEL_VERSION="${PROJECT_VERSION}")
     target_compile_options(kisel-setup PRIVATE ${KISEL_WARNINGS})
     target_link_libraries(kisel-setup PRIVATE shell32 ole32 advapi32 user32 uuid)

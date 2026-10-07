@@ -116,4 +116,20 @@ dist\bin\kisel.exe
 
 Kisel начинался как спутник для KDE Plasma, эта ветка — его версия для Windows. Форма персонажей (сплюснутый суперэллипс) сделана по мотивам Mochi из Coucou.
 
-Это фанатская работа. Hatsune Miku, Kagamine Rin и Megurine Luka принадлежат Crypton Future Media, Kasane Teto и Zundamon — своим правообладателям. Проект с ними не связан и ими не одобрен.
+## Авторство и лицензии
+
+**Код Kisel** распространяется по лицензии [MIT](LICENSE). Она относится только к коду: на персонажей и сторонние компоненты не распространяется.
+
+**Персонажи.** Kisel — фанатский некоммерческий проект. Он не связан с правообладателями персонажей и не одобрен ими. Персонажи нарисованы собственным кодом Kisel в своём упрощённом стиле; чужих иллюстраций, голосов и музыки в проекте нет.
+
+- Hatsune Miku, Kagamine Rin, Megurine Luka © Crypton Future Media, INC. [www.piapro.net](https://www.piapro.net) — используются по [Piapro Character License](https://piapro.jp/license/pcl/summary) (некоммерческие производные работы).
+- Kasane Teto © TWINDRILL — по [правилам использования персонажа](https://kasaneteto.jp/guidelines/character.html).
+- Zundamon © SSS LLC. — по [правилам использования персонажей](https://zunko.jp/guideline.html).
+
+> この作品はピアプロ・キャラクター・ライセンスに基づいてクリプトン・フューチャー・メディア株式会社のキャラクター「初音ミク」「鏡音リン」「巡音ルカ」を描いたものです。
+
+**Claude.** Kisel — неофициальный сторонний проект, не связан с Anthropic и не одобрен ею. Claude и Claude Code — товарные знаки Anthropic.
+
+**Qt.** Kisel использует [Qt 6](https://www.qt.io) по лицензии GNU LGPL v3. Qt подключён динамически: его библиотеки лежат рядом с `kisel.exe` без изменений, и их можно заменить своей сборкой той же версии. Исходный код Qt: [download.qt.io](https://download.qt.io/official_releases/qt/). Тексты лицензий лежат в папке `licenses` рядом с программой.
+
+Шрифты (Fredoka, Nunito, JetBrains Mono — SIL Open Font License 1.1) и всё остальное перечислено в [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

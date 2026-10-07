@@ -88,3 +88,19 @@ Files: config `~/.config/kisel/kisel.conf`, relay copy `~/.local/share/kisel/bin
 ## Rules
 
 Never block Claude Code. Never approve without an explicit click. Never overwrite `settings.json` blindly. Keys only in KWallet. No telemetry.
+
+## Authorship and licences
+
+**Kisel's code** is under the [MIT licence](LICENSE). It covers the code only, not the characters or the third-party components.
+
+**Characters.** Kisel is a non-commercial fan work. It is not affiliated with or endorsed by the characters' rights holders. The characters are drawn by Kisel's own code in a simplified style of its own; nobody's artwork, voice or music is included.
+
+- Hatsune Miku, Kagamine Rin, Megurine Luka © Crypton Future Media, INC. [www.piapro.net](https://www.piapro.net), used under the [Piapro Character License](https://piapro.jp/license/pcl/summary) (non-commercial derivative works).
+- Kasane Teto © TWINDRILL, under the [character usage terms](https://kasaneteto.jp/guidelines/character.html).
+- Zundamon © SSS LLC., under the [character usage guidelines](https://zunko.jp/guideline.html).
+
+**Claude.** Kisel is an unofficial third-party project. It is not affiliated with or endorsed by Anthropic. Claude and Claude Code are trademarks of Anthropic.
+
+**Qt.** Kisel uses [Qt 6](https://www.qt.io) under the GNU LGPL v3, linked dynamically: Qt's unmodified libraries sit next to `kisel.exe` and can be replaced with another build of the same version. Qt's source: [download.qt.io](https://download.qt.io/official_releases/qt/). The licence texts are in the `licenses` folder next to the program.
+
+Fonts (Fredoka, Nunito, JetBrains Mono: SIL Open Font License 1.1) and everything else are listed in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
