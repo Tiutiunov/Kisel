@@ -110,32 +110,6 @@ Item {
             }
             Text { text: Chat.model; color: Theme.inkFaint; font.family: Theme.mono; font.pixelSize: 11 }
 
-            // ---- Claude's allowance: a sign-in key, so Miku can show how much is used ----
-            Text { text: "Claude limit"; color: Theme.ink; font.family: Theme.display; font.pixelSize: 16; font.weight: Font.DemiBold }
-            Row {
-                spacing: Theme.space2
-                KField {
-                    id: limitField
-                    width: 280
-                    echoMode: TextInput.Password
-                    placeholder: Limits.hasKey ? "Key saved in " + Vault.storeName : "Sign-in key from: claude setup-token"
-                    onAccepted: root.saveLimitKey()
-                }
-                KButton { id: limitSave; variant: "primary"; text: "Save"; onClicked: root.saveLimitKey() }
-                KButton { visible: Limits.hasKey; variant: "ghost"; text: "Remove"
-                    onClicked: { Vault.remove("claude-signin"); root.toast("Sign-in key removed") } }
-            }
-            Text {
-                width: parent.width
-                wrapMode: Text.WordWrap
-                text: Limits.state === "ok" ? "Five hours: " + Math.round(Limits.fiveHour * 100) + "% used. Week: " + Math.round(Limits.week * 100) + "% used."
-                    : Limits.state === "error" ? Limits.error
-                    : Limits.state === "loading" ? "Asking Anthropic for the limit."
-                    : "The key stays in " + Vault.storeName + " and is sent only to Anthropic, to ask how much of your allowance is used."
-                color: Limits.state === "error" ? Theme.danger : Theme.inkFaint
-                font.family: Theme.sans; font.pixelSize: 11
-            }
-
             // ---- GitHub: a read-only token for the widget ----
             Text { text: "GitHub"; color: Theme.ink; font.family: Theme.display; font.pixelSize: 16; font.weight: Font.DemiBold }
             Row {
@@ -336,18 +310,6 @@ Item {
         if (Vault.store("github", ghField.text.trim())) {
             ghField.text = ""
             ghSave.success("Saved")
-            Sfx.play("done")
-        } else {
-            note = "Couldn't reach " + Vault.storeName
-        }
-    }
-
-    function saveLimitKey() {
-        if (limitField.text.trim() === "")
-            return
-        if (Vault.store("claude-signin", limitField.text.trim())) {
-            limitField.text = ""
-            limitSave.success("Saved")
             Sfx.play("done")
         } else {
             note = "Couldn't reach " + Vault.storeName

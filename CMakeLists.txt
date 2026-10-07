@@ -17,7 +17,6 @@ find_package(KF6Wallet QUIET)
 add_library(kisel_core STATIC
     src/core/AgentHub.cpp
     src/core/ChatClient.cpp
-    src/core/ClaudeLimits.cpp
     src/core/GitHubClient.cpp
     src/core/HookInstaller.cpp
     src/core/HookServer.cpp
@@ -116,7 +115,6 @@ qt_add_qml_module(kisel
         qml/DoneChip.qml
         qml/BarPlayer.qml
         qml/BarGauges.qml
-        qml/LimitStrip.qml
         qml/BarNet.qml
         qml/LukaView.qml
         qml/NoteSign.qml

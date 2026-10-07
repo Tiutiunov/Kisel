@@ -2,7 +2,6 @@
 #include "Displays.h"
 #include "GitHubClient.h"
 #include "ChatClient.h"
-#include "ClaudeLimits.h"
 #include "HookInstaller.h"
 #include "IslandWindow.h"
 #include "Launcher.h"
@@ -143,7 +142,10 @@ int main(int argc, char *argv[])
     Launcher launcher;
     SeamWindows seams;
     GitHubClient github(&secrets);
-    ClaudeLimits limits(&secrets);
+    // (A sign-in key for reading the Claude allowance was kept here for one version; the
+    // server does not let such a key read it, so the feature is gone and so is the key.)
+    if (secrets.has(QStringLiteral("claude-signin")))
+        secrets.remove(QStringLiteral("claude-signin"));
     Media media;
     SysMon sysmon;
     Notices notices;
@@ -159,7 +161,6 @@ int main(int argc, char *argv[])
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Launcher", &launcher);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Seams", &seams);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "GitHub", &github);
-    qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Limits", &limits);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Media", &media);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Sys", &sysmon);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Notes", &notices);

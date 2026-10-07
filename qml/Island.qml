@@ -1508,11 +1508,6 @@ Item {
                     font.weight: Font.DemiBold
                     font.pixelSize: 20
                 }
-                // Claude's allowance, in the header whenever the card is Miku's (see LimitStrip)
-                LimitStrip {
-                    x: 150; y: 12
-                    visible: Limits.state !== "none" && root.view === "home" && root.stage === "miku" // (whenever the card is Miku's)
-                }
                 // the bench again, on the open card: a click swaps her in
                 Row {
                     id: headerBench
