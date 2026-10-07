@@ -86,6 +86,10 @@ Item {
     //   before music.
     //   (...or when the memory has just been cleaned: she comes to say what was freed)
     readonly property bool tetoLive: Prefs.tetoSystem && Sys.available && (Sys.strain || Sys.cleaning || Sys.justCleaned)
+    //   Luka is the connection's: she has something to show when the line is down or
+    //   slow, and for a few seconds after it comes back. That comes after Teto's troubles
+    //   and before music.
+    readonly property bool lukaLive: Prefs.lukaNet && Net.available && (Net.trouble || Net.justBack)
     //   And when a minute has passed with nothing to show while a tune plays, the stage
     //   goes to Zundamon and her player whoever was chosen (`idleTune`), until Claude
     //   works again or someone is picked by hand. With no tune the bar tucks away instead.
@@ -96,7 +100,7 @@ Item {
     property bool mikuAsked: false
     readonly property string rest: mikuAsked ? "miku" : idleTune && zundaLive ? "zunda"
         : Prefs.character !== "miku" || mikuPinned ? Prefs.character
-        : tetoLive ? "teto" : zundaLive ? "zunda" : "miku"
+        : tetoLive ? "teto" : lukaLive ? "luka" : zundaLive ? "zunda" : "miku"
     readonly property string stage: guest !== "" ? guest : rest
     function stepIn() {
         if (rest === "miku") return
@@ -678,7 +682,7 @@ Item {
     readonly property int castW: 50
     // Zundamon with Spotify playing: the bar names the track and she hums along
     readonly property bool tune: ownAct && Media.active && Media.playing
-    readonly property bool awake: tune || (tetoAct && Sys.strain)
+    readonly property bool awake: tune || (tetoAct && Sys.strain) || (lukaAct && Net.trouble)
     // ...and whenever the bar has nothing more pressing to say it is her mini player:
     // the track's name and the three buttons, without opening the card
     // (only while a tune is actually playing; and a finished task keeps the bar for its
@@ -694,7 +698,13 @@ Item {
     // Teto on stage: the bar is her gauges, and she looks the way the computer feels
     readonly property bool tetoAct: guest === "" && rest === "teto" && Prefs.tetoSystem && Sys.available
     readonly property bool miniGauges: tetoAct && Hub.pendingCount === 0 && !(doneHold && Hub.chip === "done")
-    readonly property bool barOwn: miniPlayer || miniGauges // the bar belongs to the one on stage, not to Claude's label
+    // Luka on stage: the bar is her readings of the connection
+    readonly property bool lukaAct: guest === "" && rest === "luka" && Prefs.lukaNet && Net.available
+    readonly property bool miniNet: lukaAct && Hub.pendingCount === 0 && !(doneHold && Hub.chip === "done")
+    // (she starts when the line goes, and is quietly pleased when it is back)
+    readonly property bool lineDown: Net.available && !Net.online
+    onLineDownChanged: if (stage === "luka") { if (lineDown) { mascot.play("surprised", 1100); mascot.jump(0.5, true) } else mascot.play("fond", 1600) }
+    readonly property bool barOwn: miniPlayer || miniGauges || miniNet // the bar belongs to the one on stage, not to Claude's label
     readonly property bool miniPlayer: ownAct && Media.active && Media.playing && Hub.pendingCount === 0 && !(doneHold && Hub.chip === "done")
     property bool doneHold: false
     Timer { id: doneHoldTimer; interval: 2500
@@ -758,6 +768,7 @@ Item {
         && !hover.hovered && !wake.hovered && Hub.pendingCount === 0 && Hub.chip === ""
         && (Hub.mood === "idle" || Hub.mood === "sleep") && !tune
         && !(Prefs.rinNotes && Notes.available && Notes.pending) // (Rin has something to show)
+        && !(lukaAct && (Net.trouble || Net.justBack))           // (...or Luka has)
     onCanTuckChanged: if (!canTuck) tucked = false
     onTuckedChanged: updateHit()
     Timer { interval: 60000; running: root.canTuck && !root.tucked; onTriggered: { if (root.zundaLive) root.idleTune = true; else root.tucked = true } } // (a tune playing: the player instead)
@@ -1363,6 +1374,11 @@ Item {
                     on: root.miniGauges
                     room: root.pillMax - root.labelX - 16 - root.castW
                 }
+                BarNet {
+                    anchors.verticalCenter: parent.verticalCenter
+                    on: root.miniNet
+                    room: root.pillMax - root.labelX - 16 - root.castW
+                }
             }
 
             // "Done", in the middle of the bar, glowing and throwing stars
@@ -1551,7 +1567,8 @@ Item {
                     HomeView {
                         id: homeView
                         own: root.rest === "zunda" && Prefs.zundaSpotify && Media.available ? "zunda"
-                           : root.rest === "teto" && Prefs.tetoSystem && Sys.available ? "teto" : ""
+                           : root.rest === "teto" && Prefs.tetoSystem && Sys.available ? "teto"
+                           : root.rest === "luka" && Prefs.lukaNet && Net.available ? "luka" : ""
                         age: hostHome.age
                         revealCard: assembly.revealCard
                         revealButton: assembly.revealButton
@@ -1689,7 +1706,7 @@ Item {
             // herself while Claude works: at ease, or (Teto) the way the computer feels.
             // (Sleep is Claude's too, and not for one who is busy with her own: Zundamon
             // does not doze off over a playing tune, nor Teto over a computer in trouble.)
-            readonly property string own: root.tetoAct && Sys.strain ? "sad" : "idle"
+            readonly property string own: (root.tetoAct && Sys.strain) || (root.lukaAct && Net.trouble) ? "sad" : "idle"
             mood: root.dropActive ? "wow" : root.dropHappy ? "happy" : root.walking ? "walk"
                 : root.stage !== "miku" && (root.claudeBusy || Hub.mood === "idle" || (Hub.mood === "sleep" && root.awake)) ? own : Hub.mood
             gazeOn: root.duo && root.duoLook

@@ -53,14 +53,14 @@ if(WIN32)
 endif()
 
 # ---- the app ----------------------------------------------------------------
-qt_add_executable(kisel src/app/main.cpp src/app/IslandWindow.cpp src/app/Tray.cpp src/app/Displays.cpp src/app/Sounds.cpp src/app/Launcher.cpp src/app/SeamWindows.cpp src/app/Media.cpp src/app/SysMon.cpp src/app/Notices.cpp)
+qt_add_executable(kisel src/app/main.cpp src/app/IslandWindow.cpp src/app/Tray.cpp src/app/Displays.cpp src/app/Sounds.cpp src/app/Launcher.cpp src/app/SeamWindows.cpp src/app/Media.cpp src/app/SysMon.cpp src/app/Notices.cpp src/app/NetMon.cpp)
 # Qt6::Test only feeds the development flag `kisel --drag-test` (synthetic pointer events).
 target_link_libraries(kisel PRIVATE kisel_core Qt6::Quick Qt6::QuickControls2 Qt6::Widgets Qt6::Test)
 target_compile_options(kisel PRIVATE ${KISEL_WARNINGS})
 if(WIN32)
     # No console window; started from a terminal it still prints (IslandWindow::preInit).
     set_target_properties(kisel PROPERTIES WIN32_EXECUTABLE TRUE)
-    target_link_libraries(kisel PRIVATE winmm WindowsApp pdh shell32) # PlaySound; the media session (Media.cpp)
+    target_link_libraries(kisel PRIVATE winmm WindowsApp pdh shell32 iphlpapi ws2_32) # PlaySound; the media session (Media.cpp)
 endif()
 if(LayerShellQt_FOUND)
     target_link_libraries(kisel PRIVATE LayerShellQt::Interface)
@@ -115,6 +115,8 @@ qt_add_qml_module(kisel
         qml/DoneChip.qml
         qml/BarPlayer.qml
         qml/BarGauges.qml
+        qml/BarNet.qml
+        qml/LukaView.qml
         qml/NoteSign.qml
         qml/BroomGlyph.qml
         qml/TetoView.qml

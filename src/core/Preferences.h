@@ -26,6 +26,7 @@ class Preferences : public QObject
     Q_PROPERTY(bool zundaSpotify READ zundaSpotify WRITE setZundaSpotify NOTIFY changed)
     Q_PROPERTY(bool tetoSystem READ tetoSystem WRITE setTetoSystem NOTIFY changed) // Teto watches the computer
     Q_PROPERTY(bool rinNotes READ rinNotes WRITE setRinNotes NOTIFY changed)       // Rin announces notifications
+    Q_PROPERTY(bool lukaNet READ lukaNet WRITE setLukaNet NOTIFY changed)          // Luka watches the connection
     Q_PROPERTY(QString character READ character WRITE setCharacter NOTIFY changed) // miku | rin | luka | zunda | teto
     Q_PROPERTY(bool hookSeen READ hookSeen NOTIFY changed)
     Q_PROPERTY(int alwaysCount READ alwaysCount NOTIFY changed)
@@ -70,6 +71,8 @@ public:
     void setTetoSystem(bool v) { set("tetoSystem", v); }
     bool rinNotes() const { return m_s.value("rinNotes", true).toBool(); }
     void setRinNotes(bool v) { set("rinNotes", v); }
+    bool lukaNet() const { return m_s.value("lukaNet", true).toBool(); }
+    void setLukaNet(bool v) { set("lukaNet", v); }
     void setHookSeen(bool v) { set("hookSeen", v); }
     void setFirstRunDone(bool v) { set("firstRunDone", v); }
 
