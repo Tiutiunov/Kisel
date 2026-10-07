@@ -87,12 +87,16 @@ public:
 
     // Where Kisel docks on each monitor (remembered per output name): the edge and the
     // position along it as a fraction 0..1, so it survives a change of resolution.
-    Q_INVOKABLE QString dockEdge(const QString &screen) const { return m_s.value(QStringLiteral("dock/%1/edge").arg(screen), "top").toString(); }
-    Q_INVOKABLE qreal dockFraction(const QString &screen) const { return m_s.value(QStringLiteral("dock/%1/frac").arg(screen), 0.5).toReal(); }
+    // (A monitor that has no place of its own yet, or has come back under another name,
+    // takes the place the bar had last: not the top centre it started from.)
+    Q_INVOKABLE QString dockEdge(const QString &screen) const { return m_s.value(QStringLiteral("dock/%1/edge").arg(screen), m_s.value("lastDock/edge", "top")).toString(); }
+    Q_INVOKABLE qreal dockFraction(const QString &screen) const { return m_s.value(QStringLiteral("dock/%1/frac").arg(screen), m_s.value("lastDock/frac", 0.5)).toReal(); }
     Q_INVOKABLE void setDock(const QString &screen, const QString &edge, qreal fraction)
     {
         m_s.setValue(QStringLiteral("dock/%1/edge").arg(screen), edge);
         m_s.setValue(QStringLiteral("dock/%1/frac").arg(screen), fraction);
+        m_s.setValue("lastDock/edge", edge);
+        m_s.setValue("lastDock/frac", fraction);
         m_s.sync(); // (written at once: the place must survive Kisel being stopped the next moment)
     }
 

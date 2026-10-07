@@ -152,6 +152,7 @@ signals:
     void grabbingChanged();
     void viewWideChanged();
     void pointerMoved();
+    void screenStrayed(); // the window is on another monitor than it was put on
 
 private:
     void placeOnX11();
@@ -167,6 +168,11 @@ private:
     void applyPassThrough();
     QRectF m_hit;
     bool m_passThrough = false;
+    // Where the bar is docked, as a share of its edge: the edge can change its length
+    // under us (another resolution, the taskbar), and the bar keeps its place along it.
+    qreal m_frac = 0.5;
+    int m_polls = 0;
+    void keepPlace();
     quintptr m_lastForeground = 0; // the window that had the keyboard before the island took it
 #endif
     QQuickView *m_view;

@@ -77,14 +77,22 @@ IslandWindow::IslandWindow(QQuickView *view, QObject *parent)
     connect(poll, &QTimer::timeout, this, &IslandWindow::trackPointer);
     poll->start(33);
     // the taskbar moved, grew or started hiding itself: the work area changed under us
+    // ...or the resolution did (a game, a remote session, the monitor waking up). The
+    // bar goes back to the same share of its edge, whatever the edge's length is now.
     auto follow = [this](QScreen *s) {
-        connect(s, &QScreen::availableGeometryChanged, this, [this, s] {
+        const auto again = [this, s] {
             if (s != m_view->screen() || m_grabbing)
                 return;
+            if (!m_floating)
+                m_along = clampAlong(m_edge, m_frac * edgeLength(m_edge));
             applyPlacement();
+            emit dockChanged();
             emit placementChanged();
-        });
+        };
+        connect(s, &QScreen::availableGeometryChanged, this, again);
+        connect(s, &QScreen::geometryChanged, this, again);
     };
+    connect(m_view, &QWindow::screenChanged, this, [this] { QMetaObject::invokeMethod(this, &IslandWindow::screenStrayed, Qt::QueuedConnection); });
     for (QScreen *s : QGuiApplication::screens())
         follow(s);
     connect(qApp, &QGuiApplication::screenAdded, this, follow);
@@ -201,7 +209,7 @@ void IslandWindow::setAvoidPanels(bool on)
     if (on == m_avoidPanels)
         return;
     m_avoidPanels = on;
-    m_along = clampAlong(m_edge, m_along);
+    m_along = clampAlong(m_edge, m_frac * edgeLength(m_edge));
     applyPlacement();
     emit dockChanged();
     emit placementChanged();
@@ -383,6 +391,8 @@ qreal IslandWindow::setDock(const QString &edge, qreal along)
     static const QStringList ok {"top", "bottom", "left", "right"};
     m_edge = ok.contains(edge) ? edge : QStringLiteral("top");
     m_along = clampAlong(m_edge, along);
+    const qreal len = edgeLength(m_edge);
+    m_frac = len > 0 ? m_along / len : 0.5;
     const bool wasFloating = m_floating;
     m_floating = false;
     applyPlacement();
@@ -530,10 +540,35 @@ void IslandWindow::applyPassThrough()
 
 // An input-transparent window gets no pointer events at all, so nothing would
 // tell us the pointer came back: ask where it is, 30 times a second.
+// Windows moves windows about by itself: when the resolution changes, when a monitor
+// goes to sleep and comes back, when a full-screen program takes over. Once a second
+// the bar looks at where it is and, if that is not where it was put, goes back.
+void IslandWindow::keepPlace()
+{
+    if (m_grabbing || viewWide() || !m_view->isVisible() || !m_view->screen())
+        return;
+    const QPoint want(area().left() + int(originX()), area().top() + int(originY()));
+    if (m_view->position() == want)
+        return;
+    if (!m_floating) {
+        const qreal along = clampAlong(m_edge, m_frac * edgeLength(m_edge));
+        if (!qFuzzyCompare(along + 1, m_along + 1)) {
+            m_along = along;
+            emit dockChanged();
+        }
+    }
+    applyPlacement();
+    emit placementChanged();
+}
+
 void IslandWindow::trackPointer()
 {
     if (QGuiApplication::platformName() != QLatin1String("windows"))
         return;
+    if (++m_polls >= 30) {
+        m_polls = 0;
+        keepPlace();
+    }
     const HWND self = HWND(m_view->winId());
     const HWND front = GetForegroundWindow();
     if (front && front != self)

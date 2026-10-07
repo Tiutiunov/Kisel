@@ -22,6 +22,8 @@ Displays::Displays(IslandWindow *window, Preferences *prefs, QObject *parent)
     connect(qApp, &QGuiApplication::screenAdded, this, [this] { reconcile(); });
     connect(qApp, &QGuiApplication::screenRemoved, this, [this] { reconcile(); });
     connect(qApp, &QGuiApplication::primaryScreenChanged, this, [this] { reconcile(); });
+    // (...or Windows has put the window on another monitor by itself: back it goes)
+    connect(m_window, &IslandWindow::screenStrayed, this, [this] { reconcile(); });
 }
 
 QString Displays::wanted() const { return m_prefs->screenName(); }
