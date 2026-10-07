@@ -129,11 +129,12 @@ Item {
     // and a tune is playing, now and then (between their other scenes, every eight to
     // fourteen seconds) they dance to it together: humming, they step from side to side as
     // one, hopping in turn, then all jump at once and finish with a wave down the row.
+    property bool lastDance: false
     function row() { return [mascot].concat(duo ? [buddy] : []).concat(heraldRin ? [herald] : []) }
     function hopRow(odd) { row().forEach((m, i) => { if (i % 2 === odd) m.jump(0.4, true) }) }
     readonly property bool canGroove: zundaLive && (duo || heraldRin) && !expanded && !floating && !vertical && !mfree
         && !tucked && !assembling && !greeting && !Theme.reduced
-    onCanGrooveChanged: if (!canGroove && skGroove.running) { skGroove.stop(); mainDx = 0; buddyDx = 0; heraldDx = 0 }
+    onCanGrooveChanged: if (!canGroove && (skGroove.running || skDisco.running)) { stopDances(); mainDx = 0; buddyDx = 0; heraldDx = 0 }
     Timer {
         interval: 4000
         repeat: true
@@ -144,23 +145,23 @@ Item {
             for (const k of root.skits) busy = busy || k.running
             for (const k of root.noteSkits) busy = busy || k.running
             if (busy) interval = 900 // (a scene is on: straight after it)
-            else { root.duoLook = false; skGroove.restart() }
+            else { root.duoLook = false; root.lastDance = !root.lastDance; (root.lastDance ? skDisco : skGroove).restart() } // (the two take turns)
         }
     }
     SequentialAnimation {
         id: skGroove
-        ScriptAction { script: root.row().forEach(m => { m.st.swing = 1; m.play("hum", 3600) }) }
-        ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: 8; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "buddyDx"; to: 8; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "heraldDx"; to: 8; duration: 210; easing.type: Easing.InOutSine } }
+        ScriptAction { script: root.row().forEach(m => { m.st.swing = 0.5; m.play("hum", 3600) }) }
+        ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: 4; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "buddyDx"; to: 4; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "heraldDx"; to: 4; duration: 210; easing.type: Easing.InOutSine } }
         ScriptAction { script: root.hopRow(0) }
-        ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: -8; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "buddyDx"; to: -8; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "heraldDx"; to: -8; duration: 210; easing.type: Easing.InOutSine } }
+        ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: -4; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "buddyDx"; to: -4; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "heraldDx"; to: -4; duration: 210; easing.type: Easing.InOutSine } }
         ScriptAction { script: root.hopRow(1) }
-        ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: 8; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "buddyDx"; to: 8; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "heraldDx"; to: 8; duration: 210; easing.type: Easing.InOutSine } }
+        ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: 4; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "buddyDx"; to: 4; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "heraldDx"; to: 4; duration: 210; easing.type: Easing.InOutSine } }
         ScriptAction { script: root.hopRow(0) }
-        ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: -8; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "buddyDx"; to: -8; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "heraldDx"; to: -8; duration: 210; easing.type: Easing.InOutSine } }
+        ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: -4; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "buddyDx"; to: -4; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "heraldDx"; to: -4; duration: 210; easing.type: Easing.InOutSine } }
         ScriptAction { script: root.hopRow(1) }
-        ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: 8; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "buddyDx"; to: 8; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "heraldDx"; to: 8; duration: 210; easing.type: Easing.InOutSine } }
+        ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: 4; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "buddyDx"; to: 4; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "heraldDx"; to: 4; duration: 210; easing.type: Easing.InOutSine } }
         ScriptAction { script: root.hopRow(0) }
-        ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: -8; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "buddyDx"; to: -8; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "heraldDx"; to: -8; duration: 210; easing.type: Easing.InOutSine } }
+        ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: -4; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "buddyDx"; to: -4; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "heraldDx"; to: -4; duration: 210; easing.type: Easing.InOutSine } }
         ScriptAction { script: root.hopRow(1) }
         ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: 0; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "buddyDx"; to: 0; duration: 210; easing.type: Easing.InOutSine } NumberAnimation { target: root; property: "heraldDx"; to: 0; duration: 210; easing.type: Easing.InOutSine } }
         ScriptAction { script: root.row().forEach(m => { m.jump(0.7, true); m.play("smug", 1000) }) } // (all up at once, with a spin)
@@ -171,6 +172,42 @@ Item {
         PauseAnimation { duration: 140 }
         ScriptAction { script: { root.row()[0].jump(0.35, true) } }
         PauseAnimation { duration: 300 }
+    }
+
+    // The other dance, and the plainer of the two to read as one: notes rise over their
+    // heads the whole time (`discoOn`), they lean from side to side in time, neighbours
+    // opposite ways (`lean`), hopping in turn; then each spins once, one after another
+    // down the row; a last lean each way, and they all jump.
+    property real lean: 0
+    property bool discoOn: false
+    function stopDances() { skGroove.stop(); skDisco.stop(); lean = 0; discoOn = false }
+    SequentialAnimation {
+        id: skDisco
+        ScriptAction { script: { root.discoOn = true; root.row().forEach(m => { m.st.swing = 0.5; m.play("hum", 2300) }) } }
+        NumberAnimation { target: root; property: "lean"; to: 8; duration: 230; easing.type: Easing.InOutSine }
+        ScriptAction { script: root.hopRow(0) }
+        NumberAnimation { target: root; property: "lean"; to: -8; duration: 230; easing.type: Easing.InOutSine }
+        ScriptAction { script: root.hopRow(1) }
+        NumberAnimation { target: root; property: "lean"; to: 8; duration: 230; easing.type: Easing.InOutSine }
+        ScriptAction { script: root.hopRow(0) }
+        NumberAnimation { target: root; property: "lean"; to: -8; duration: 230; easing.type: Easing.InOutSine }
+        ScriptAction { script: root.hopRow(1) }
+        NumberAnimation { target: root; property: "lean"; to: 0; duration: 230; easing.type: Easing.InOutSine }
+        ScriptAction { script: { const m = root.row()[0]; m.play("smug", 750); m.jump(0.55, true) } }
+        PauseAnimation { duration: 400 }
+        ScriptAction { script: { const m = root.row()[1]; if (m) { m.play("smug", 750); m.jump(0.55, true) } } }
+        PauseAnimation { duration: 400 }
+        ScriptAction { script: { const m = root.row()[2]; if (m) { m.play("smug", 750); m.jump(0.55, true) } } }
+        PauseAnimation { duration: 450 }
+        ScriptAction { script: root.row().forEach(m => m.play("hum", 1200)) }
+        NumberAnimation { target: root; property: "lean"; to: -8; duration: 230; easing.type: Easing.InOutSine }
+        ScriptAction { script: root.hopRow(0) }
+        NumberAnimation { target: root; property: "lean"; to: 8; duration: 230; easing.type: Easing.InOutSine }
+        ScriptAction { script: root.hopRow(1) }
+        NumberAnimation { target: root; property: "lean"; to: 0; duration: 230; easing.type: Easing.InOutSine }
+        ScriptAction { script: root.row().forEach(m => { m.jump(0.75, true); m.play("hype", 1000) }) }
+        PauseAnimation { duration: 750 }
+        ScriptAction { script: root.discoOn = false }
     }
 
     // ---- back to the bench ------------------------------------------------------------
@@ -255,7 +292,7 @@ Item {
         return all.filter(m => m !== r)
     }
     function noteScene() {
-        if (skTrade.running || sweeping || noteWave.running || skGroove.running) return
+        if (skTrade.running || sweeping || noteWave.running || skGroove.running || skDisco.running) return
         for (const k of skits) if (k.running) return
         for (const k of noteSkits) if (k.running) return
         // Rin seated after the others: mostly the scenes with her in them bodily
@@ -290,7 +327,7 @@ Item {
     property real heraldPop: 1
     readonly property real seatW: mini + 3
     readonly property var noteSkits: [nkBump, nkSwap, nkLeap, nkToss, nkHuddle, nkConga, nkPeek, nkChase]
-    function stopNoteSkits() { for (const k of noteSkits) k.stop(); noteWave.stop(); skGroove.stop(); heraldDx = 0; heraldPop = 1; nbDx = 0; farDx = 0; mainDx = 0; buddyDx = 0; tossA = 0 }
+    function stopNoteSkits() { for (const k of noteSkits) k.stop(); noteWave.stop(); stopDances(); heraldDx = 0; heraldPop = 1; nbDx = 0; farDx = 0; mainDx = 0; buddyDx = 0; tossA = 0 }
     // Rin is last in the row; `nb` is her neighbour (the partner, or with no partner the
     // one on stage) and `far` the one beyond (only while there are three). Their slides
     // go through `nbDx` and `farDx`, which pass them on to whoever that is.
@@ -436,7 +473,7 @@ Item {
     property int lastSkit: -1
     readonly property var skits: [skWave, skNod, skStartle, skHum, skQuirk, skRoll, skBump, skSwap, skFive, skLove, skPeek, skSquabble, skToss, skDoze, skDance, skCheer]
     function playSkit() {
-        if (skTrade.running || sweeping || skGroove.running) return // (nothing interrupts the sweeping, or the dance)
+        if (skTrade.running || sweeping || skGroove.running || skDisco.running) return // (nothing interrupts the sweeping, or a dance)
         for (const k of skits) if (k.running) return
         for (const k of noteSkits) if (k.running) return
         let i = Math.floor(Math.random() * skits.length)
@@ -1627,6 +1664,7 @@ Item {
             walkDir: root.walkDir
             doneBadge: Hub.chip === "done"
             character: root.stage
+            rotation: root.lean
             instant: root.duo
             music: root.tune
             // Claude's working and thinking are Miku's to act out. Anyone else on stage is
@@ -1655,6 +1693,7 @@ Item {
             x: card.x + root.miniLead + root.mini + 3 + root.buddyDx
             y: (root.atBottom ? card.y + card.height - root.pillT : card.y) + (root.pillT - height) / 2
             character: root.buddyWho
+            rotation: -root.lean
             instant: true
             mood: root.buddyWho === "miku" && root.claudeBusy ? (Hub.mood === "think" ? "think" : "work") : "idle" // (only Miku does Claude's work)
             property real pop: root.duo ? 1 : 0
@@ -1689,6 +1728,7 @@ Item {
             x: card.x + root.miniLead + root.mini + 3 + root.duoW + root.heraldDx
             y: (root.atBottom ? card.y + card.height - root.pillT : card.y) + (root.pillT - height) / 2
             character: "rin"
+            rotation: root.duo ? root.lean : -root.lean
             instant: true
             mood: "idle"
             property real pop: root.heraldRin ? 1 : 0
@@ -1798,6 +1838,36 @@ Item {
             width: sign.fullW; height: 20
             cursorShape: Qt.PointingHandCursor
             onClicked: { Hub.poke(); Sfx.play("click"); Notes.open() }
+        }
+
+        // the notes that rise over their heads while they dance (see `skDisco`)
+        Repeater {
+            model: 7
+            PlayGlyph { // (drawn, not a letter: the font has no notes)
+                id: tune
+                required property int index
+                readonly property int who: index % root.row().length
+                readonly property real barTop: root.atBottom ? card.y + card.height - root.pillT : card.y
+                property real u: 0 // 0..1 on its way up
+                z: 6
+                kind: "note"
+                size: 9 + (index % 3)
+                tint: ["#FF9EBB", "#FFE08A", "#B9DC6B", "#FFFFFF"][index % 4]
+                x: card.x + root.miniLead + root.mini / 2 + who * root.seatW - width / 2 + Math.sin(u * 6 + index) * 5 + (index % 3 - 1) * 5
+                // (up out of the bar; down out of one docked on the top edge)
+                y: root.atBottom ? barTop + 3 - height - u * 24 : barTop + root.pillT - 3 + u * 24
+                opacity: root.discoOn ? Math.sin(Math.PI * u) : 0
+                visible: opacity > 0.01
+                scale: 0.7 + 0.5 * Math.sin(Math.PI * u)
+                rotation: Math.sin(u * 5 + index) * 18
+                SequentialAnimation on u {
+                    running: root.discoOn
+                    loops: Animation.Infinite
+                    PauseAnimation { duration: tune.index * 230 }
+                    NumberAnimation { from: 0; to: 1; duration: 1250; easing.type: Easing.OutSine }
+                    PauseAnimation { duration: 1610 - tune.index * 230 }
+                }
+            }
         }
 
         // the star that passes between the two
