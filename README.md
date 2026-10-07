@@ -36,6 +36,21 @@ dist\bin\kisel.exe
 
 `dist\bin` is self-contained (Qt libraries, plugins and QML imports next to `kisel.exe`). To run or test straight from `build`, put Qt's `bin` on `PATH` first. There is no taskbar button and no console: the island and the tray icon are the whole app.
 
+### Installer and updates (Windows)
+
+The Windows releases are the ones tagged `win-v<version>` on GitHub; each carries `KiselSetup-<version>.exe`. It installs for the current user only (no administrator rights; by default into `%LOCALAPPDATA%\Programs\Kisel`), adds a Start menu shortcut and an entry under "Installed apps", and starts Kisel. `KiselSetup.exe /SILENT /DIR=<folder>` asks nothing.
+
+**Settings → Updates → Check for updates** asks GitHub for a newer release; **Update and restart** downloads its installer, checks it against the size and SHA-256 GitHub gives, and runs it. Kisel never asks by itself. While the repository is private GitHub shows its releases only to a token that can read it: save one under Settings → GitHub.
+
+To make a release: bump `VERSION` in `CMakeLists.txt`, then
+
+```powershell
+cmake --build build --target installer
+gh release create win-v<version> build\KiselSetup-<version>.exe --target windows --title "Kisel <version> for Windows"
+```
+
+The installer is the small program in `packaging/windows/setup.cpp` with the installed tree appended to it as a zip; it unpacks with the `tar.exe` Windows 10 (1803 and later) ships with. It is not code-signed, so SmartScreen warns the first time it is run by hand.
+
 What differs from Plasma: the island is a topmost frameless window; hooks go through the named pipe `\\.\pipe\kisel-<your SID>` and `%LOCALAPPDATA%\kisel\bin\kisel-hook.exe`; keys live in the Windows Credential Manager; sounds play one at a time. Files: `%LOCALAPPDATA%\kisel\kisel.conf`.
 
 ## Develop without Claude Code

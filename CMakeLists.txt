@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(Kisel VERSION 0.1.0 LANGUAGES CXX)
+project(Kisel VERSION 0.2.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -23,6 +23,7 @@ add_library(kisel_core STATIC
     src/core/Preferences.cpp
     src/core/Secrets.cpp
     src/core/SessionModel.cpp
+    src/core/Updater.cpp
 )
 target_include_directories(kisel_core PUBLIC src/core)
 target_link_libraries(kisel_core PUBLIC Qt6::Core Qt6::Gui Qt6::Network)
@@ -172,10 +173,33 @@ add_test(NAME core COMMAND test_core)
 
 install(TARGETS kisel kisel-hook RUNTIME DESTINATION bin)
 if(WIN32)
+    # The compiler's runtime DLLs go next to the app, so it starts on a machine that has
+    # never had Visual Studio or its redistributable.
+    set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION bin)
+    set(CMAKE_INSTALL_UCRT_LIBRARIES FALSE)
+    include(InstallRequiredSystemLibraries)
     # `cmake --install build --prefix dist` leaves a folder that runs anywhere:
     # the Qt libraries, plugins and QML imports next to kisel.exe.
     qt_generate_deploy_qml_app_script(TARGET kisel OUTPUT_SCRIPT KISEL_DEPLOY_SCRIPT NO_UNSUPPORTED_PLATFORM_ERROR)
     install(SCRIPT ${KISEL_DEPLOY_SCRIPT})
 else()
     install(FILES packaging/kisel.desktop DESTINATION share/applications)
+endif()
+
+# ---- the Windows installer --------------------------------------------------
+# `cmake --build build --target installer` leaves build/KiselSetup-<version>.exe: the
+# setup program below with the whole application appended to it as a zip. It is what a
+# release on GitHub carries (tag `win-v<version>`), and what Settings downloads to update.
+if(WIN32)
+    add_executable(kisel-setup WIN32 packaging/windows/setup.cpp)
+    target_compile_definitions(kisel-setup PRIVATE KISEL_VERSION="${PROJECT_VERSION}")
+    target_compile_options(kisel-setup PRIVATE ${KISEL_WARNINGS})
+    target_link_libraries(kisel-setup PRIVATE shell32 ole32 advapi32 user32 uuid)
+    # (it must run where nothing is installed yet: the runtime is linked in)
+    set_target_properties(kisel-setup PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    add_custom_target(installer
+        COMMAND ${CMAKE_COMMAND} -DBUILD_DIR=${CMAKE_BINARY_DIR} -DSTUB=$<TARGET_FILE:kisel-setup> -DVERSION=${PROJECT_VERSION} -DCONFIG=$<CONFIG>
+                -P ${CMAKE_SOURCE_DIR}/packaging/windows/make-installer.cmake
+        DEPENDS kisel kisel-hook kisel-setup
+        VERBATIM)
 endif()

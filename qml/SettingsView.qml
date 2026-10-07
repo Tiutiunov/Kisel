@@ -41,7 +41,14 @@ Item {
         }
     }
 
+    // (development: `--scroll <px>` with `--grab`, to look at what is further down)
+    Timer {
+        interval: 400
+        running: Qt.application.arguments.indexOf("--scroll") > 0
+        onTriggered: scroll.contentItem.contentY = Number(Qt.application.arguments[Qt.application.arguments.indexOf("--scroll") + 1])
+    }
     C.ScrollView {
+        id: scroll
         anchors.fill: parent
         contentWidth: availableWidth
         clip: true
@@ -284,6 +291,49 @@ Item {
                         onClicked: Prefs.theme = modelData.id
                     }
                 }
+            }
+
+            // ---- updates: asked for only here, never behind your back ----
+            Text { visible: Updates.available; text: "Updates"; color: Theme.ink; font.family: Theme.display; font.pixelSize: 16; font.weight: Font.DemiBold }
+            Row {
+                visible: Updates.available
+                spacing: Theme.space2
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: Math.min(implicitWidth, 250)
+                    wrapMode: Text.WordWrap
+                    text: Updates.state === "checking" ? "Asking GitHub..."
+                        : Updates.state === "current" ? "Kisel " + Updates.current + " is the newest"
+                        : Updates.state === "found" ? "Kisel " + Updates.latest + " is out (you have " + Updates.current + ")"
+                        : Updates.state === "downloading" ? "Downloading " + Updates.latest + "  " + Math.round(Updates.progress * 100) + "%"
+                        : Updates.state === "starting" ? "Installing. Kisel will be right back."
+                        : "Kisel " + Updates.current
+                    color: Theme.inkMuted; font.family: Theme.sans; font.pixelSize: 13; font.weight: Font.DemiBold
+                }
+                KButton {
+                    visible: Updates.state !== "found" && Updates.state !== "downloading" && Updates.state !== "starting"
+                    enabled: Updates.state !== "checking"
+                    icon: "refresh"; text: "Check for updates"
+                    onClicked: Updates.check()
+                }
+                KButton {
+                    visible: Updates.state === "found"
+                    variant: "primary"; text: "Update and restart"
+                    onClicked: Updates.update()
+                }
+            }
+            Rectangle { // the download, as it comes
+                visible: Updates.state === "downloading"
+                width: 280; height: 6; radius: 3
+                color: Theme.surface3
+                Rectangle { width: parent.width * Updates.progress; height: parent.height; radius: 3; color: Theme.kisel }
+            }
+            Text {
+                visible: Updates.available && Updates.state === "failed"
+                width: parent.width
+                wrapMode: Text.WordWrap
+                text: Updates.error
+                color: Theme.danger; font.family: Theme.sans; font.pixelSize: 12; font.weight: Font.DemiBold
             }
 
             // ---- always-allow ----

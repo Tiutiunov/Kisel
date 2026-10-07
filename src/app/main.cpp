@@ -1,6 +1,7 @@
 #include "AgentHub.h"
 #include "Displays.h"
 #include "GitHubClient.h"
+#include "Updater.h"
 #include "ChatClient.h"
 #include "HookInstaller.h"
 #include "IslandWindow.h"
@@ -101,7 +102,28 @@ int main(int argc, char *argv[])
     cli.addOption({"drag-test", "Development: pick up the mascot, carry it to <edge> and let go; prints the state.", "edge"});
     cli.addOption({"intro", "Play the first-launch animation now."});
     cli.addOption({"grab", "Save a screenshot of the island to <file> and quit (development).", "file"});
+    cli.addOption({"scroll", "Development: with --grab, scroll Settings down by <px> first.", "px"});
+    cli.addOption({"check-updates", "Ask GitHub whether a newer version is out, print the answer and quit."});
+    cli.addOption({"remove-hooks", "Take Kisel's hooks out of Claude Code's settings and quit (the uninstaller does this)."});
     cli.process(app);
+
+    if (cli.isSet("remove-hooks")) { // (through HookInstaller, as Settings does it: dated backup, atomic write)
+        HookInstaller hooks;
+        return hooks.apply(false) ? 0 : 1;
+    }
+
+    if (cli.isSet("check-updates")) {
+        Secrets secrets;
+        Updater up(&secrets);
+        QObject::connect(&up, &Updater::changed, &app, [&] {
+            if (up.state() == QLatin1String("checking"))
+                return;
+            qInfo("Kisel %s: %s %s%s", qPrintable(up.current()), qPrintable(up.state()), qPrintable(up.latest()), qPrintable(up.error()));
+            app.exit(up.state() == QLatin1String("failed") ? 1 : 0);
+        });
+        up.check();
+        return app.exec();
+    }
 
     // One instance: if somebody already answers on the socket, that is Kisel.
     if (!cli.isSet("grab")) {
@@ -142,6 +164,7 @@ int main(int argc, char *argv[])
     Launcher launcher;
     SeamWindows seams;
     GitHubClient github(&secrets);
+    Updater updater(&secrets);
     // (A sign-in key for reading the Claude allowance was kept here for one version; the
     // server does not let such a key read it, so the feature is gone and so is the key.)
     if (secrets.has(QStringLiteral("claude-signin")))
@@ -161,6 +184,7 @@ int main(int argc, char *argv[])
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Launcher", &launcher);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Seams", &seams);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "GitHub", &github);
+    qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Updates", &updater);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Media", &media);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Sys", &sysmon);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Notes", &notices);

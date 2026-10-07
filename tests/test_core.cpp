@@ -4,10 +4,14 @@
 #include "AgentHub.h"
 #include "ChatClient.h"
 #include "GitHubClient.h"
+#include "Updater.h"
 #include "HookInstaller.h"
 #include "HookServer.h"
 
+#include <QCryptographicHash>
 #include <QJsonArray>
+#include <QTcpServer>
+#include <QTcpSocket>
 #include <QJsonDocument>
 #include <QLocalSocket>
 #include <QSignalSpy>
@@ -129,6 +133,97 @@ private slots:
         QVERIFY(r.rows[1].toMap()["draft"].toBool());
     }
 
+    void updaterPicksTheNewestWindowsRelease()
+    {
+        const auto asset = [](const QString &name, int n, int size, const QString &digest = {}) {
+            QJsonObject a {{"name", name}, {"url", QStringLiteral("https://api.github.com/x/%1").arg(n)}, {"size", size}};
+            if (!digest.isEmpty())
+                a["digest"] = digest;
+            return a;
+        };
+        const auto release = [](const QString &tag, bool draft, const QJsonArray &assets) {
+            return QJsonObject {{"tag_name", tag}, {"draft", draft}, {"assets", assets}};
+        };
+        const QByteArray body = QJsonDocument(QJsonArray {
+            release("v9.0.0", false, {asset("kisel.tar.gz", 1, 5)}),
+            release("win-v0.9.3", false, {asset("KiselSetup-0.9.3.exe", 2, 10)}),
+            release("win-v0.10.0", false, {asset("notes.txt", 3, 1), asset("KiselSetup-0.10.0.exe", 4, 20, "sha256:ABCDEF")}),
+            release("win-v0.11.0", true, {asset("KiselSetup-0.11.0.exe", 5, 30)}),
+            release("win-v0.12.0", false, {}),
+        }).toJson();
+        Updater::Release r;
+        QString err;
+        QVERIFY(Updater::pick(body, &r, &err));
+        QCOMPARE(r.version, QStringLiteral("0.10.0"));
+        QCOMPARE(r.asset, QUrl(QStringLiteral("https://api.github.com/x/4")));
+        QCOMPARE(r.size, 20);
+        QCOMPARE(r.sha256, QByteArray("abcdef"));
+        QVERIFY(Updater::compare(QStringLiteral("0.10.0"), QStringLiteral("0.9.3")) > 0);
+        QVERIFY(Updater::compare(QStringLiteral("0.2"), QStringLiteral("0.2.0")) == 0);
+        QVERIFY(!Updater::pick(QJsonDocument(QJsonObject {{"message", "Not Found"}}).toJson(), &r, &err));
+        QCOMPARE(err, QStringLiteral("Not Found"));
+        QVERIFY(!Updater::pick("[]", &r, &err));
+    }
+    // The whole way, against a little server that answers as GitHub does: the list of
+    // releases, the redirect from the API to where the file is, the file. The installer is
+    // not started: what would have been started is looked at instead.
+    void updaterDownloadsChecksAndHandsOver()
+    {
+        const QByteArray file = QByteArray(300000, 'k') + "the end";
+        const QByteArray sum = QCryptographicHash::hash(file, QCryptographicHash::Sha256).toHex();
+        for (const bool honest : {true, false}) {
+            QTcpServer server;
+            QVERIFY(server.listen(QHostAddress::LocalHost));
+            const QString base = QStringLiteral("http://127.0.0.1:%1").arg(server.serverPort());
+            QStringList asked;
+            connect(&server, &QTcpServer::newConnection, &server, [&] {
+                QTcpSocket *s = server.nextPendingConnection();
+                connect(s, &QTcpSocket::readyRead, s, [&, s] {
+                    if (!s->canReadLine())
+                        return;
+                    const QString path = QString::fromLatin1(s->readLine()).section(' ', 1, 1);
+                    asked << path;
+                    QByteArray body, head = "HTTP/1.1 200 OK\r\n";
+                    if (path == "/releases") {
+                        body = QJsonDocument(QJsonArray {QJsonObject {{"tag_name", "win-v9.9.9"}, {"draft", false}, {"assets", QJsonArray {QJsonObject {
+                            {"name", "KiselSetup-9.9.9.exe"}, {"url", base + "/asset"}, {"size", file.size()},
+                            {"digest", "sha256:" + QString::fromLatin1(honest ? sum : QByteArray(64, '0'))}}}}}}).toJson();
+                    } else if (path == "/asset") {
+                        head = "HTTP/1.1 302 Found\r\nLocation: " + base.toLatin1() + "/file\r\n";
+                    } else {
+                        body = file;
+                    }
+                    s->write(head + "Content-Length: " + QByteArray::number(body.size()) + "\r\nConnection: close\r\n\r\n" + body);
+                    s->disconnectFromHost();
+                });
+            });
+            qputenv("KISEL_VERSION_AS", "0.0.1");
+            Updater up(nullptr);
+            up.setApi(QUrl(base + "/releases"));
+            QString started;
+            QStringList args;
+            up.setLauncher([&](const QString &p, const QStringList &a) { started = p; args = a; return true; });
+            up.check();
+            QTRY_COMPARE(up.state(), QStringLiteral("found"));
+            QCOMPARE(up.latest(), QStringLiteral("9.9.9"));
+            up.update();
+            QTRY_VERIFY(up.state() == QLatin1String("starting") || up.state() == QLatin1String("failed"));
+            QCOMPARE(asked, (QStringList {"/releases", "/asset", "/file"}));
+            if (honest) {
+                QCOMPARE(up.state(), QStringLiteral("starting"));
+                QVERIFY(args.contains(QStringLiteral("/SILENT")));
+                QFile got(started);
+                QVERIFY(got.open(QIODevice::ReadOnly));
+                QCOMPARE(got.readAll(), file);
+                got.remove();
+            } else { // (the sum does not match what the release says: nothing is started, nothing is kept)
+                QCOMPARE(up.state(), QStringLiteral("failed"));
+                QVERIFY(started.isEmpty());
+                QVERIFY(!QFile::exists(QDir::tempPath() + "/KiselSetup-9.9.9.exe"));
+            }
+            qunsetenv("KISEL_VERSION_AS");
+        }
+    }
     void githubErrorsAreReadable()
     {
         GitHubClient::Result r;
