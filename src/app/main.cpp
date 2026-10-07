@@ -22,7 +22,6 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QLocalSocket>
-#include <QLocale>
 #include <QQmlContext>
 #include <QQuickItem>
 #include <QQuickStyle>
@@ -200,10 +199,7 @@ int main(int argc, char *argv[])
     shell.show();
 
     Tray tray;
-    const auto trayLanguage = [&] {
-        const QString l = prefs.language();
-        tray.setRussian(l == QLatin1String("ru") || (l != QLatin1String("en") && QLocale::system().language() == QLocale::Russian));
-    };
+    const auto trayLanguage = [&] { tray.setRussian(prefs.language() == QLatin1String("ru")); };
     trayLanguage();
     QObject::connect(&prefs, &Preferences::changed, &tray, trayLanguage);
 

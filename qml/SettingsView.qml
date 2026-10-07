@@ -305,10 +305,10 @@ Item {
                     color: Theme.inkMuted; font.family: Theme.sans; font.pixelSize: 13; font.weight: Font.DemiBold
                 }
                 Repeater {
-                    model: [{ id: "system", name: Tr.t("System") }, { id: "en", name: "English" }, { id: "ru", name: "\u0420\u0443\u0441\u0441\u043a\u0438\u0439" }]
+                    model: [{ id: "en", name: "English" }, { id: "ru", name: "\u0420\u0443\u0441\u0441\u043a\u0438\u0439" }]
                     KButton {
                         required property var modelData
-                        primary: Prefs.language === modelData.id
+                        primary: Tr.lang === modelData.id
                         text: modelData.name
                         onClicked: Prefs.language = modelData.id
                     }

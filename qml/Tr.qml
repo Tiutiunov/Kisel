@@ -7,15 +7,14 @@
 //            an error from GitHub): a known whole phrase, or a known beginning with the
 //            rest left as it is
 //
-// Which language: Settings, "Language" (Prefs.language: system | en | ru). "System" is
-// Russian on a Russian Windows and English everywhere else.
+// Which language: Settings, "Language" (Prefs.language: en | ru). It is English unless
+// Russian has been picked there, whatever the system's own language.
 pragma Singleton
 import QtQuick
 import Kisel.Core
 
 QtObject {
-    readonly property string lang: Prefs.language === "ru" || Prefs.language === "en" ? Prefs.language
-        : Qt.locale().name.substring(0, 2) === "ru" ? "ru" : "en"
+    readonly property string lang: Prefs.language === "ru" ? "ru" : "en"
     readonly property bool russian: lang === "ru"
 
     function t(s) {

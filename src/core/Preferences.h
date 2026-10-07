@@ -14,7 +14,7 @@ class Preferences : public QObject
     Q_PROPERTY(bool soundOn READ soundOn WRITE setSoundOn NOTIFY changed)
     Q_PROPERTY(bool reduceMotion READ reduceMotion WRITE setReduceMotion NOTIFY changed)
     Q_PROPERTY(QString theme READ theme WRITE setTheme NOTIFY changed) // system | dark | light
-    Q_PROPERTY(QString language READ language WRITE setLanguage NOTIFY changed) // system | en | ru
+    Q_PROPERTY(QString language READ language WRITE setLanguage NOTIFY changed) // en | ru (English unless Russian is picked)
     Q_PROPERTY(bool updateCheck READ updateCheck WRITE setUpdateCheck NOTIFY changed) // ask GitHub for a newer version at start and once a day
     Q_PROPERTY(QString updateSeen READ updateSeen WRITE setUpdateSeen NOTIFY changed) // the version Rin has already been clicked about
     Q_PROPERTY(QString model READ model WRITE setModel NOTIFY changed)
@@ -61,7 +61,7 @@ public:
     void setSoundOn(bool v) { set("soundOn", v); }
     void setReduceMotion(bool v) { set("reduceMotion", v); }
     void setTheme(const QString &v) { set("theme", v); }
-    QString language() const { return m_s.value("language", "system").toString(); }
+    QString language() const { return m_s.value("language", "en").toString(); }
     void setLanguage(const QString &v) { set("language", v); }
     bool updateCheck() const { return m_s.value("updateCheck", true).toBool(); }
     void setUpdateCheck(bool v) { set("updateCheck", v); }
