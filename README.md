@@ -40,7 +40,7 @@ dist\bin\kisel.exe
 
 The Windows releases are the ones tagged `win-v<version>` on GitHub; each carries `KiselSetup-<version>.exe`. It installs for the current user only (no administrator rights; by default into `%LOCALAPPDATA%\Programs\Kisel`), adds a Start menu shortcut and an entry under "Installed apps", and starts Kisel. `KiselSetup.exe /SILENT /DIR=<folder>` asks nothing.
 
-**Settings → Updates → Check for updates** asks GitHub for a newer release; **Update and restart** downloads its installer, checks it against the size and SHA-256 GitHub gives, and runs it. Kisel never asks by itself. While the repository is private GitHub shows its releases only to a token that can read it: save one under Settings → GitHub.
+**Settings → Updates → Check for updates** asks GitHub for a newer release; **Update and restart** downloads its installer, checks it against the size and SHA-256 GitHub gives, and runs it. Kisel never asks by itself. The releases are those of `Tiutiunov/Kisel`.
 
 To make a release: bump `VERSION` in `CMakeLists.txt`, then
 

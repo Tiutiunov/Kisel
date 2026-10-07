@@ -20,8 +20,9 @@ namespace kisel {
 // pressed in Settings, and downloads and starts the installer only when "Update" is.
 // The Windows releases are the ones tagged `win-v<version>`; each carries one
 // `KiselSetup-<version>.exe`. The download is checked against the size and the SHA-256
-// GitHub gives for it before it is started. If a GitHub token is saved (the GitHub
-// widget's) it is sent along, which is what lets a private repository be read.
+// GitHub gives for it before it is started. The repository (Tiutiunov/Kisel) is public,
+// so no token is needed; if one is saved (the GitHub widget's) it is sent to the API along
+// with the question, never to where the file itself is kept.
 //
 // The installer is started with `/SILENT /DIR=<where this copy is>`, and Kisel quits;
 // the installer puts the new files in place and starts Kisel again.

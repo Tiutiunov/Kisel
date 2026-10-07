@@ -14,7 +14,7 @@
 namespace kisel {
 
 namespace {
-const QUrl kReleases(QStringLiteral("https://api.github.com/repos/HAZZABROI/Kisel/releases?per_page=30"));
+const QUrl kReleases(QStringLiteral("https://api.github.com/repos/Tiutiunov/Kisel/releases?per_page=30"));
 const QLatin1String kTagPrefix("win-v");
 constexpr qint64 kMaxInstaller = 400ll * 1024 * 1024; // nothing of ours is near this
 } // namespace
@@ -133,7 +133,7 @@ void Updater::check()
             return;
         }
         if (status == 404 || status == 403) {
-            set(QStringLiteral("failed"), QStringLiteral("GitHub does not show the releases. The repository is private: save a GitHub token that can read it."));
+            set(QStringLiteral("failed"), QStringLiteral("GitHub does not show the releases just now. Try again in a while."));
             return;
         }
         if (status != 200) {
