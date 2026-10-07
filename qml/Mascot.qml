@@ -284,6 +284,7 @@ Item {
         tsun:        { eyes: "slit",  mouth: "flat",  hands: "hips", blush: 1, away: true },                // Teto: hmph
         // the idle habits
         hum:         { eyes: "happy", mouth: "sing",  hands: "rest",  fx: "note", sway: true },
+        sing:        { eyes: "happy", mouth: "sing",  hands: "rest" },                                     // singing along in a dance: no swaying, the dance moves her
         hype:        { eyes: "big",   mouth: "grin",  hands: "cheer" },
         cool:        { eyes: "closed", mouth: "soft", hands: "hips" },
         stretch:     { eyes: "happy", mouth: "open",  hands: "cheer", stretch: true },
