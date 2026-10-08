@@ -1,14 +1,124 @@
-# Kisel
+<p align="center">
+  <img src="docs/img/hero.png" alt="Kisel" width="900">
+</p>
 
-[Русская версия](README.md)
+<p align="center">
+  <a href="https://github.com/Tiutiunov/Kisel/releases/latest"><img src="https://img.shields.io/github/v/release/Tiutiunov/Kisel?label=release&color=39C5BB" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/Windows-10%20%2F%2011-E0405A" alt="Windows 10 and 11">
+  <img src="https://img.shields.io/badge/Qt%206-QML%20%2B%20C%2B%2B20-B9DC6B" alt="Qt 6">
+  <a href="README.md"><img src="https://img.shields.io/badge/README-%D0%A0%D1%83%D1%81%D1%81%D0%BA%D0%B8%D0%B9-F5A3C0" alt="Russian"></a>
+</p>
 
-A desktop companion for KDE Plasma. A small raspberry-jelly creature lives in a dark island at the top of your screen, watches Claude Code, asks permission on its behalf and chats with Claude. Look, tokens and motion follow the Kisel design system; see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/ROADMAP.md](docs/ROADMAP.md).
+<h3 align="center">
+  <a href="https://github.com/Tiutiunov/Kisel/releases/latest">Download for Windows</a>
+</h3>
 
-Qt 6 · QML · C++20 · Wayland layer-shell · KWallet.
+Kisel is a small dark bar at the edge of your screen with five mochi living in it. It started out with one job: show what [Claude Code](https://claude.com/claude-code) is up to without switching to the terminal, and let me answer its "may I run this?" with one click. Then a music player moved in, then notifications, a hardware monitor and a speed test, and now I just never close it.
 
-## Build (Gentoo, Plasma 6)
+There isn't a single image file inside. The characters, the icons, the sparkles and even the sounds are all made in code.
 
-Needs `dev-qt/qtbase`, `qtdeclarative`, `qtsvg`, `qtwayland`, `kde-plasma/layer-shell-qt`, `kde-frameworks/kwallet`, `kde-frameworks/kstatusnotifieritem`, `cmake`.
+(A couple of the pictures below have Russian captions, sorry about that. The app itself is in English.)
+
+## Who lives there
+
+<p align="center">
+  <img src="docs/img/cast.png" alt="Miku, Rin, Luka, Zundamon and Teto" width="900">
+</p>
+
+| | Her job | What she's like |
+| --- | --- | --- |
+| **Miku** | Claude Code: sessions, permissions, questions, chat | Earnest, hums to herself. Slap her and she sulks |
+| **Rin** | Windows notifications: waves a sign with the app's name | Loud. Blows up when slapped |
+| **Luka** | The connection: ping, speed, downloads, the speed test | Calm. A slap gets you a "really?" look |
+| **Zundamon** | Music from Spotify | A show-off who panics first |
+| **Teto** | CPU, GPU, memory | Smug, right up until you're nice to her |
+
+You pick the main one by clicking the bench on the right. The others don't go anywhere: they sit there, blink, and pull faces now and then.
+
+## The bar
+
+288 by 32 pixels, on any edge. What it shows depends on what's going on.
+
+<p align="center">
+  <img src="docs/img/bar.png" alt="The bar in different states" width="900">
+</p>
+
+A few things that took longer than they should have:
+
+- They somersault over the whole bar to get to the bench and back. Just vanishing would have been boring.
+- While Claude works, Miku sits on the left and someone keeps her company. They shove each other, toss a star around, play hide and seek. There are thirty-odd of these little scenes.
+- If music is playing and there are at least two of them, a dance breaks out every so often.
+- A minute of nothing and the bar slides off the edge. With music on it stays as a mini player, and you can scrub the track along its edge.
+- Under a full-screen game it drops to the very bottom of the screen instead of hanging in the middle of the picture.
+- To move it, hit the arrows button in the card's header and drag it wherever you like.
+
+## The cards
+
+Click the main character and the card opens. Each has her own.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/img/card-miku.png" alt="Miku's card"><br><b>Miku.</b> How many sessions are open and what the latest one is doing. The ring spins while Claude thinks.</td>
+    <td width="50%"><img src="docs/img/card-permission.png" alt="Permission"><br><b>Permissions.</b> Claude wants to run or edit something and the card opens by itself. Kisel never answers for you. Only your click does.</td>
+  </tr>
+  <tr>
+    <td><img src="docs/img/card-question.png" alt="Question"><br><b>Questions.</b> The options as buttons; your answer goes back to Claude Code.</td>
+    <td><img src="docs/img/card-done.png" alt="Done"><br><b>Done.</b> Miku celebrates with leeks flying around. Everyone has a favourite food.</td>
+  </tr>
+  <tr>
+    <td><img src="docs/img/card-zunda.png" alt="Player"><br><b>Zundamon.</b> Cover, title, buttons, seeking. It reads the system media session, so Spotify itself is left alone.</td>
+    <td><img src="docs/img/card-teto.png" alt="Monitor"><br><b>Teto.</b> The last minute of load and a button that cleans memory. She'll tell you how much she freed, and not modestly.</td>
+  </tr>
+  <tr>
+    <td><img src="docs/img/card-luka.png" alt="Network"><br><b>Luka.</b> Ping and current speed. The Test button measures the line without opening a speed test site. The faster it is, the happier she gets; a slow one upsets her.</td>
+    <td><img src="docs/img/card-rin.png" alt="Notifications"><br><b>Rin.</b> Holds up a sign with the app's name until you look. Click her and that app opens. She's also the one who tells you about a new Kisel version.</td>
+  </tr>
+</table>
+
+You can play with all the animations and scenes separately: open [`design/miku-editor.html`](design/miku-editor.html) in a browser. It has sliders for how each of them looks, too.
+
+## Installing
+
+Grab `KiselSetup` from the [releases page](https://github.com/Tiutiunov/Kisel/releases/latest) and run it. It installs into your user profile, no admin rights needed. Windows 10 (1803+) or 11.
+
+The installer isn't code-signed (certificates cost money), so SmartScreen will complain: "More info", then "Run anyway".
+
+It updates itself. Once a day it asks GitHub whether anything new is out, and if so Rin holds up a sign with the version number. After that it's one button in Settings: download, checksum, install, restart. You can turn the check off there as well.
+
+Uninstall from "Installed apps" in Windows settings. That also takes Kisel's hooks out of Claude Code's settings; your own settings stay.
+
+The interface is English by default. Russian is in Settings if you want it.
+
+## Hooking it up to Claude Code
+
+Card → gear → **Connect Claude Code**. Kisel shows exactly what it will add to `~/.claude/settings.json` and doesn't touch the file until you click. It makes a backup first.
+
+After that Claude Code calls a tiny `kisel-hook` on every event, which passes it on to Kisel. If Kisel isn't running, the hook exits quietly and Claude Code never notices.
+
+## Your data
+
+Keys (Anthropic for the chat, a GitHub token for the widget) live in the Windows Credential Manager and are never written to files.
+
+No telemetry. Kisel goes online for the chat with Claude, for the GitHub widget, to ping `1.1.1.1` for Luka, to check for updates once a day, and to measure speed through Cloudflare when you press the button. Everything but the ping can be switched off or never starts by itself.
+
+From notifications it reads the app's name and how many there are. Never the text.
+
+Settings are in `%LOCALAPPDATA%\kisel\kisel.conf`, a plain text file.
+
+## Building it yourself
+
+**Windows.** Visual Studio 2022 with C++, CMake, Ninja and Qt 6.5+ for MSVC. From an "x64 Native Tools" prompt:
+
+```powershell
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=C:\Qt\6.10.3\msvc2022_64
+cmake --build build
+cmake --install build --prefix dist
+dist\bin\kisel.exe
+```
+
+The installer: `cmake --build build --target installer`. A release is that file attached to a tag named `win-v<version>`.
+
+**Linux (KDE Plasma 6).** This is where Kisel began, and the code for it is still here, but this branch has only been run on Windows lately. It needs `qtbase`, `qtdeclarative`, `qtsvg`, `qtwayland`, `layer-shell-qt`, `kwallet` and `kstatusnotifieritem`:
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -16,91 +126,44 @@ cmake --build build -j"$(nproc)"
 ctest --test-dir build --output-on-failure
 ```
 
-```bash
-./build/kisel
-```
-
-First launch plays the cover-assembly intro and opens the island for a few seconds. Hold the mascot for a moment (a ring fills) to pick it up: pull it out of the pill to let it roam the desktop, or carry it to any edge of any monitor and let go there to dock it. Settings has a monitor picker, a GitHub token field (Home → GitHub) and the hook installer. Open **Settings → Connect Claude Code** to see the exact diff of what will change in `~/.claude/settings.json`; nothing is written until you click, and a dated backup is taken first.
-
-## Build (Windows 10/11)
-
-Needs Visual Studio 2022 (or its Build Tools) with "Desktop development with C++", CMake, Ninja and Qt 6.5+ for MSVC (`qtbase`, `qtdeclarative`, `qtsvg`). From an "x64 Native Tools" prompt:
-
-```powershell
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=C:\Qt\6.10.3\msvc2022_64
-cmake --build build
-cmake --install build --prefix dist
-```
-
-```powershell
-dist\bin\kisel.exe
-```
-
-`dist\bin` is self-contained (Qt libraries, plugins and QML imports next to `kisel.exe`). To run or test straight from `build`, put Qt's `bin` on `PATH` first. There is no taskbar button and no console: the island and the tray icon are the whole app.
-
-### Installer and updates (Windows)
-
-The Windows releases are the ones tagged `win-v<version>` on GitHub; each carries `KiselSetup-<version>.exe`. It installs for the current user only (no administrator rights; by default into `%LOCALAPPDATA%\Programs\Kisel`), adds a Start menu shortcut and an entry under "Installed apps", and starts Kisel. `KiselSetup.exe /SILENT /DIR=<folder>` asks nothing.
-
-**Settings → Updates → Check for updates** asks GitHub for a newer release; **Update and restart** downloads its installer, checks it against the size and SHA-256 GitHub gives, and runs it. Kisel never asks by itself. The releases are those of `Tiutiunov/Kisel`.
-
-To make a release: bump `VERSION` in `CMakeLists.txt`, then
-
-```powershell
-cmake --build build --target installer
-gh release create win-v<version> build\KiselSetup-<version>.exe --target windows --title "Kisel <version> for Windows"
-```
-
-The installer is the small program in `packaging/windows/setup.cpp` with the installed tree appended to it as a zip; it unpacks with the `tar.exe` Windows 10 (1803 and later) ships with. It is not code-signed, so SmartScreen warns the first time it is run by hand.
-
-What differs from Plasma: the island is a topmost frameless window; hooks go through the named pipe `\\.\pipe\kisel-<your SID>` and `%LOCALAPPDATA%\kisel\bin\kisel-hook.exe`; keys live in the Windows Credential Manager; sounds play one at a time. Files: `%LOCALAPPDATA%\kisel\kisel.conf`.
-
-## Develop without Claude Code
+Handy while working on it:
 
 ```bash
-./build/kisel --demo                      # replays a fake session and a permission request
-./build/kisel --demo --open permission    # open a view directly
-./build/kisel --intro                     # play the first-launch animation
-./build/kisel --dock-edge left:0.3        # start docked on an edge (top, bottom, left, right) at 30 % along it
-./build/kisel --drag-test bottom          # synthetic pointer: hold, carry to the edge, let go (prints the state)
-./build/kisel --grab-test                 # check the full-output drag surface works on your compositor
-KISEL_DEBUG=1 ./build/kisel               # print every hook event it receives
-KISEL_DEMO_ASK=1 ./build/kisel --demo     # demo with a question card instead of a command
-KISEL_LAYER_SHELL=0 ./build/kisel         # plain window instead of layer-shell
-QT_QPA_PLATFORM=offscreen ./build/kisel --grab out.png --open home   # render one frame to a PNG
+kisel --demo                 # act out a fake Claude Code session with a permission request
+kisel --demo --open settings # open straight on a view
+kisel --intro                # play the first-launch animation
+kisel --speed-test           # measure the connection, print the result, quit
+kisel --check-updates        # ask GitHub for a newer version, print the answer, quit
+KISEL_DEBUG=1 kisel          # print every hook event that arrives
 ```
 
-Regenerate the sounds with `python3 scripts/gen_sounds.py`.
+Sounds are regenerated with `python scripts/gen_sounds.py`. How it all fits together is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-## Where things are
-
-| Path | What |
+| Path | What's there |
 | --- | --- |
-| `src/core` | Hub, hook socket, installer, chat, secrets, preferences (no UI dependency, unit-tested) |
-| `src/app` | Window (layer-shell), tray, `main.cpp` |
-| `hook/main.cpp` | `kisel-hook`, the relay Claude Code runs on every event |
-| `qml/` | Theme (tokens), Mascot, Island, views |
-| `resources/` | Fonts (Latin subsets), logo, generated sounds |
-| `tests/` | Core tests, including the socket protocol |
+| `src/core` | The hub, the hook socket, the hook installer, chat, secrets, preferences, updater, speed test. No UI, unit-tested |
+| `src/app` | The window, tray, monitors, and the Windows-side watchers (media, notifications, system, network) |
+| `hook/` | `kisel-hook`, the relay Claude Code runs on every event |
+| `qml/` | The mascots, the island, the views, the Russian strings (`Tr.qml`) |
+| `packaging/windows` | The installer |
+| `tests/` | Core tests |
 
-Files: config `~/.config/kisel/kisel.conf`, relay copy `~/.local/share/kisel/bin/kisel-hook`, socket `$XDG_RUNTIME_DIR/kisel.sock`.
+## Where it came from
 
-## Rules
+Kisel was started by Anton Kuklin as a companion for KDE Plasma. This branch is the Windows version, which has grown all the rest since. The characters' shape was borrowed from Coucou's Mochi.
 
-Never block Claude Code. Never approve without an explicit click. Never overwrite `settings.json` blindly. Keys only in KWallet. No telemetry.
+## Licences and rights
 
-## Authorship and licences
+The code is [MIT](LICENSE). That covers the code only.
 
-**Kisel's code** is under the [MIT licence](LICENSE). It covers the code only, not the characters or the third-party components.
+The characters aren't mine. Kisel is a non-commercial fan project, not affiliated with or endorsed by their rights holders. Everything is drawn by Kisel's own code in its own style; nobody's artwork, voice or music is included.
 
-**Characters.** Kisel is a non-commercial fan work. It is not affiliated with or endorsed by the characters' rights holders. The characters are drawn by Kisel's own code in a simplified style of its own; nobody's artwork, voice or music is included.
-
-- Hatsune Miku, Kagamine Rin, Megurine Luka © Crypton Future Media, INC. [www.piapro.net](https://www.piapro.net), used under the [Piapro Character License](https://piapro.jp/license/pcl/summary) (non-commercial derivative works).
+- Hatsune Miku, Kagamine Rin, Megurine Luka © Crypton Future Media, INC. [www.piapro.net](https://www.piapro.net), under the [Piapro Character License](https://piapro.jp/license/pcl/summary).
 - Kasane Teto © TWINDRILL, under the [character usage terms](https://kasaneteto.jp/guidelines/character.html).
-- Zundamon © SSS LLC., under the [character usage guidelines](https://zunko.jp/guideline.html).
+- Zundamon © SSS LLC., under the [project's guidelines](https://zunko.jp/guideline.html).
 
-**Claude.** Kisel is an unofficial third-party project. It is not affiliated with or endorsed by Anthropic. Claude and Claude Code are trademarks of Anthropic.
+> この作品はピアプロ・キャラクター・ライセンスに基づいてクリプトン・フューチャー・メディア株式会社のキャラクター「初音ミク」「鏡音リン」「巡音ルカ」を描いたものです。
 
-**Qt.** Kisel uses [Qt 6](https://www.qt.io) under the GNU LGPL v3, linked dynamically: Qt's unmodified libraries sit next to `kisel.exe` and can be replaced with another build of the same version. Qt's source: [download.qt.io](https://download.qt.io/official_releases/qt/). The licence texts are in the `licenses` folder next to the program.
+Kisel has nothing to do with Anthropic. Claude and Claude Code are their trademarks.
 
-Fonts (Fredoka, Nunito, JetBrains Mono: SIL Open Font License 1.1) and everything else are listed in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+It's built on [Qt 6](https://www.qt.io) under the LGPL v3, linked dynamically: the libraries sit next to `kisel.exe` untouched and you can swap in your own build. Qt's source is at [download.qt.io](https://download.qt.io/official_releases/qt/). The licence texts are installed into the `licenses` folder, and everything else is listed in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
