@@ -35,6 +35,10 @@ class Preferences : public QObject
     // What Kisel does when Claude Code's hooks are missing or broken: ask | auto | off
     Q_PROPERTY(QString hookWatch READ hookWatch WRITE setHookWatch NOTIFY changed)
     Q_PROPERTY(int alwaysCount READ alwaysCount NOTIFY changed)
+    // Discord (see DiscordPresence): off unless asked for; the Application ID is public, not a secret
+    Q_PROPERTY(bool discordOn READ discordOn WRITE setDiscordOn NOTIFY changed)
+    Q_PROPERTY(bool discordProject READ discordProject WRITE setDiscordProject NOTIFY changed) // the session's name too
+    Q_PROPERTY(QString discordAppId READ discordAppId WRITE setDiscordAppId NOTIFY changed)
 
 public:
     explicit Preferences(QObject *parent = nullptr);
@@ -85,6 +89,13 @@ public:
     bool lukaNet() const { return m_s.value("lukaNet", true).toBool(); }
     void setLukaNet(bool v) { set("lukaNet", v); }
     void setHookSeen(bool v) { set("hookSeen", v); }
+    bool discordOn() const { return m_s.value("discordOn", false).toBool(); }
+    void setDiscordOn(bool v) { set("discordOn", v); }
+    bool discordProject() const { return m_s.value("discordProject", false).toBool(); }
+    void setDiscordProject(bool v) { set("discordProject", v); }
+    // (Kisel's own Discord application, unless the user would rather show it under another)
+    QString discordAppId() const { return m_s.value("discordAppId", QStringLiteral("1557865408432701450")).toString(); }
+    void setDiscordAppId(const QString &v) { set("discordAppId", v.trimmed().left(22)); }
     // ask: tell the user and let them confirm the change (default). auto: repair hooks that
     // were already connected and have gone stale, still with a dated backup; never add new
     // ones. off: only the Connect button.

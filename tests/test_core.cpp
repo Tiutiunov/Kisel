@@ -7,6 +7,7 @@
 #include "Updater.h"
 #include "Preferences.h"
 #include "PromptRelay.h"
+#include "DiscordPresence.h"
 #include "HookInstaller.h"
 #include "HookServer.h"
 #include "ModInstaller.h"
@@ -120,6 +121,41 @@ private slots:
         QCOMPARE(took.count(), 1);
         QCOMPARE(QDir(relay.folder(id)).entryList({"*.prompt", "*.taken"}).size(), 0);
         QVERIFY(relay.waiting().isEmpty());
+    }
+
+    void discordShowsTheStateAndNothingElse()
+    {
+        QVERIFY(DiscordPresence::activity("", "repo", 5, false).isEmpty()); // no session: nothing
+        const QJsonObject work = DiscordPresence::activity("work", "", 1700000000, false);
+        QCOMPARE(work.value("details").toString(), QString("Working with Claude Code"));
+        QVERIFY(!work.contains("state")); // the project's name only when asked for
+        QCOMPARE(work.value("timestamps").toObject().value("start").toDouble(), 1700000000.0);
+        QCOMPARE(DiscordPresence::activity("think", "", 1, false).value("details"), work.value("details"));
+        QCOMPARE(DiscordPresence::activity("alert", "", 1, false).value("details").toString(), QString("Claude is waiting for an answer"));
+        QCOMPARE(DiscordPresence::activity("done", "invoice-app", 1, false).value("state").toString(), QString("invoice-app"));
+        QVERIFY(!DiscordPresence::activity("work", "x", 1, false).contains("state")); // (too short for Discord)
+        QVERIFY(DiscordPresence::activity("work", "", 1, true).value("details").toString() != work.value("details").toString());
+
+        QVERIFY(DiscordPresence::validId("1234567890123456789"));
+        QVERIFY(!DiscordPresence::validId(""));
+        QVERIFY(!DiscordPresence::validId("12345"));
+        QVERIFY(!DiscordPresence::validId("12345678901234567x"));
+
+        // frames: op, length, json; a frame cut short waits for the rest
+        QByteArray wire = DiscordPresence::frame(1, QJsonObject {{"evt", "READY"}}) + DiscordPresence::frame(3, QJsonObject {});
+        QByteArray part = wire.left(10);
+        int op = -1;
+        QJsonObject body;
+        QVERIFY(!DiscordPresence::unframe(part, op, body));
+        QVERIFY(DiscordPresence::unframe(wire, op, body));
+        QCOMPARE(op, 1);
+        QCOMPARE(body.value("evt").toString(), QString("READY"));
+        QVERIFY(DiscordPresence::unframe(wire, op, body));
+        QCOMPARE(op, 3);
+        QVERIFY(wire.isEmpty());
+        QByteArray junk(12, char(0xff));
+        QVERIFY(!DiscordPresence::unframe(junk, op, body));
+        QVERIFY(junk.isEmpty());
     }
 
     void modsAreCountedFromClaudesOwnList()

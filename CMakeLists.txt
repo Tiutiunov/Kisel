@@ -23,6 +23,7 @@ add_library(kisel_core STATIC
     src/core/ModInstaller.cpp
     src/core/Preferences.cpp
     src/core/PromptRelay.cpp
+    src/core/DiscordPresence.cpp
     src/core/Secrets.cpp
     src/core/SessionModel.cpp
     src/core/SpeedTest.cpp

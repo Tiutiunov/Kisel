@@ -185,6 +185,16 @@ QtObject {
         "GitHub does not show the releases just now. Try again in a while.": "GitHub сейчас не показывает релизы. Попробуй чуть позже.",
         "The release does not look right": "С релизом что-то не так", "Could not write to the temporary folder": "Не удалось записать во временную папку",
         "The download does not match the release. Nothing was installed.": "Скачанный файл не совпадает с релизом. Ничего не установлено.",
-        "Could not start the installer": "Не удалось запустить установщик"
+        "Could not start the installer": "Не удалось запустить установщик",
+        "Services": "Сервисы", "Characters": "Персонажи", "Theme": "Тема",
+        "Show in Discord that I work with Claude Code": "Показывать в Discord, что я работаю с Claude Code",
+        "Show the session's name too": "Показывать и название сессии",
+        "Discord Application ID": "Application ID из Discord",
+        "Connected to Discord": "Подключено к Discord",
+        "Needs an Application ID": "Нужен Application ID",
+        "Discord did not take this Application ID": "Discord не принял этот Application ID",
+        "Discord is not running": "Discord не запущен",
+        "An Application ID is a long number": "Application ID — это длинное число",
+        "Discord shows an activity under the name of a Discord application. Make one called Kisel at discord.com/developers/applications, copy its Application ID here, and add a picture named kisel under Rich Presence, Art Assets if you want one. The ID is a public number, not a password.": "Discord показывает активность под именем Discord-приложения. Создай приложение с названием Kisel на discord.com/developers/applications, скопируй сюда его Application ID и, если хочешь картинку, добавь её под именем kisel в Rich Presence, Art Assets. ID — открытый номер, не пароль."
     })
 }

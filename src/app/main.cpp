@@ -3,6 +3,7 @@
 #include "GitHubClient.h"
 #include "ModInstaller.h"
 #include "PromptRelay.h"
+#include "DiscordPresence.h"
 #include "SpeedTest.h"
 #include "Updater.h"
 #include "ChatClient.h"
@@ -108,6 +109,7 @@ int main(int argc, char *argv[])
     cli.addOption({"intro", "Play the first-launch animation now."});
     cli.addOption({"grab", "Save a screenshot of the island to <file> and quit (development).", "file"});
     cli.addOption({"scroll", "Development: with --grab, scroll Settings down by <px> first.", "px"});
+    cli.addOption({"tab", "Development: with --grab, show this tab of Settings (claude, services, cast, look, place, kisel).", "id"});
     cli.addOption({"speed-test", "Measure the connection (ping, down, up), print the result and quit."});
     cli.addOption({"check-updates", "Ask GitHub whether a newer version is out, print the answer and quit."});
     cli.addOption({"remove-hooks", "Take Kisel's hooks out of Claude Code's settings and quit (the uninstaller does this)."});
@@ -210,6 +212,7 @@ int main(int argc, char *argv[])
                                         : paths::dataDir() + QStringLiteral("/inbox"));
     // (installed: <prefix>/bin/kisel.exe and <prefix>/mods; from a build tree there are none beside it)
     ModInstaller mods(QCoreApplication::applicationDirPath() + QStringLiteral("/../mods"));
+    DiscordPresence discord(&prefs, &hub, !cli.isSet("grab")); // (off unless switched on in Settings)
     Media media;
     SysMon sysmon;
     Notices notices;
@@ -229,6 +232,7 @@ int main(int argc, char *argv[])
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Speed", &speed);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Relay", &relay);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Mods", &mods);
+    qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Discord", &discord);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Ticker", &ticker);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Media", &media);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Sys", &sysmon);
