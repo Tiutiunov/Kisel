@@ -20,7 +20,7 @@ Row {
     }
 
     height: 24
-    spacing: 8
+    spacing: 6
     opacity: on ? 1 : 0
     visible: opacity > 0.01
     Behavior on opacity { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
@@ -106,6 +106,46 @@ Row {
         }
     }
 
+    // (The key itself stands at the bar's far end, before the bench, so it does not move as the readings change: see Island.qml.)
+    // The Test key, as on her card: measures the line without opening it; again to stop.
+    // (Pink with two arrows; while the test runs it is dark and shows a stop. How far the test has got is the bar's to show: it fills.)
+    component TestKey: Item {
+        id: key
+        width: 20; height: 20
+        opacity: Net.online ? 1 : 0.4
+        Rectangle {
+            id: face
+            anchors.fill: parent
+            radius: 6
+            color: Speed.running ? Theme.surface3 : keyArea.containsMouse ? "#FFB7D0" : "#F5A3C0"
+            border.width: 1.5; border.color: "#FFFFFF"
+            Behavior on color { ColorAnimation { duration: 160 } }
+            Rectangle { visible: Speed.running; anchors.centerIn: parent; width: 7; height: 7; radius: 1.5; color: Theme.ink }
+            Canvas { // two arrows, down and up
+                visible: !Speed.running
+                anchors.centerIn: parent
+                width: 13; height: 11
+                onPaint: {
+                    const g = getContext("2d")
+                    g.reset(); g.strokeStyle = "#4a1730"; g.lineWidth = 1.8; g.lineCap = "round"; g.lineJoin = "round"
+                    g.beginPath(); g.moveTo(3.5, 1.5); g.lineTo(3.5, 9.5); g.stroke()
+                    g.beginPath(); g.moveTo(1, 6.5); g.lineTo(3.5, 9.5); g.lineTo(6, 6.5); g.stroke()
+                    g.beginPath(); g.moveTo(9.5, 9.5); g.lineTo(9.5, 1.5); g.stroke()
+                    g.beginPath(); g.moveTo(7, 4.5); g.lineTo(9.5, 1.5); g.lineTo(12, 4.5); g.stroke()
+                }
+            }
+        }
+        scale: keyArea.pressed ? 0.9 : 1
+        MouseArea {
+            id: keyArea
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            // (a MouseArea, so the click stays here and does not open the card)
+            onClicked: { Hub.poke(); if (!Net.online) return; Sfx.play("click"); if (Speed.running) Speed.stop(); else Speed.start() }
+        }
+    }
+
     // an arrow and a speed
     component Reading: Row {
         id: reading
@@ -126,7 +166,8 @@ Row {
         }
         Text {
             anchors.verticalCenter: parent.verticalCenter
-            width: 50 // (steady: the figures change, the bar does not jiggle)
+            width: 40 // (steady: the figures change, the bar does not jiggle; a long figure is set a little smaller)
+            fontSizeMode: Text.HorizontalFit; minimumPixelSize: 8
             text: root.speed(reading.value)
             color: Theme.ink
             font.family: Theme.sans; font.pixelSize: 10; font.weight: Font.ExtraBold

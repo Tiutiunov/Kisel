@@ -132,7 +132,18 @@ Item {
     readonly property string m: dizzyOverride ? "dizzy" : mood
     property string emote: ""
     Timer { id: emoteTimer; onTriggered: root.emote = "" }
+    // Some feelings are one character's alone. Asked for by another, a habit becomes her
+    // own habit, a huff her own huff, and what needs the owner's thing (Teto's broom,
+    // Miku's leek for a baton, Rin's voice, Luka's tuna) is not played at all.
+    readonly property var owner: ({ smug: "teto", tsun: "teto", sweep: "teto", threat: "teto", annoyed: "miku", baton: "miku",
+                                    angry: "rin", shout: "rin", cool: "luka", unimpressed: "luka", treat: "luka", proud: "zunda" })
     function play(name, ms) {
+        const o = owner[name]
+        if (o && o !== character) {
+            if (name === "smug" || name === "cool" || name === "proud") name = who.quirk
+            else if (name === "tsun" || name === "annoyed" || name === "angry" || name === "unimpressed") name = who.slap
+            else return
+        }
         emote = name; emoteTimer.interval = ms; emoteTimer.restart()
         if (name !== "hello" && name !== "unimpressed" && name !== "cool") st.sqv -= 2.5
     }
@@ -189,31 +200,27 @@ Item {
         running: root.hovered && root.detail > 0.5 && !root.dragging && !root.still
         onTriggered: if (root.emote === "" && (root.m === "idle" || root.m === "walk")) { root.play(root.who.rest, 2400); Sfx.play("hover") }
     }
-    // On the bench nobody watches the pointer; they pass the time. Every few seconds one of
-    // them shows a feeling for a moment (and now and then hops with it). Each has a clock
-    // of her own, so they never move as one.
-    readonly property var benchEmotes: ["laugh", "hello", "love", "surprised", "hum", "smug", "cool", "hype", "unimpressed", "annoyed"]
+    // On the bench nobody watches the pointer, and nobody puts on a show either: a feeling
+    // is an answer to something, and nothing is happening to them. They blink, each on a
+    // clock of her own, and once in a long while one falls into her own habit for a moment.
     Timer {
         interval: 1500 + Math.random() * 5000
         running: root.bench && !root.still && !root.paused && root.visible && !Theme.reduced
         repeat: true
         onTriggered: {
-            interval = 3000 + Math.random() * 6000 / root.who.energy
+            interval = 4000 + Math.random() * 7000 / root.who.energy
             if (root.emote !== "") return
-            const r = Math.random()
-            if (r < 0.15) { root.st.blink = 1; root.st.blinks = 1 }
-            else if (r < 0.3) root.play(root.who.quirk, 1800)
-            else root.play(root.benchEmotes[Math.floor(Math.random() * root.benchEmotes.length)], 1300 + Math.random() * 900)
-            if (Math.random() < 0.3) root.jump(0.3, false)
+            if (Math.random() < 0.08) root.play(root.who.quirk, 1600)
+            else { root.st.blink = 1; root.st.blinks = Math.random() < 0.3 ? 1 : 0 }
         }
     }
     // left alone and idle, each falls into a habit of her own now and then
     Timer {
-        interval: 9000 + Math.random() * 12000
+        interval: 25000 + Math.random() * 25000
         running: !root.still && !root.bench && !root.paused && root.visible && root.m === "idle" && root.emote === "" && !root.dragging && !Theme.reduced
         repeat: true
         onTriggered: {
-            interval = 9000 + Math.random() * 12000
+            interval = 25000 + Math.random() * 25000
             root.play(root.who.quirk, 2200)
             if (root.who.quirk === "hype") root.jump(1, true)
         }
@@ -292,7 +299,13 @@ Item {
         // bad news (a speed test that came out slow): she droops
         upset:       { eyes: "tired", mouth: "wavy",  hands: "droop", fx: "sweat" },
         // the memory is being cleaned: she takes a broom to it
-        sweep:       { eyes: "happy", mouth: "open",  hands: "sweep", fx: "dust", sway: true }
+        sweep:       { eyes: "happy", mouth: "open",  hands: "sweep", fx: "dust", sway: true },
+        // what they do to each other (the scenes of their own, in Island.qml)
+        scared:      { eyes: "dots",  mouth: "wavy",  hands: "cower", fx: "sweat" },
+        threat:      { eyes: "slit",  mouth: "open",  hands: "threat", color: "#F4505E", blush: 1 },        // Teto, her broom up over her head
+        treat:       { eyes: "happy", mouth: "open",  hands: "raise" },                                     // holding up her favourite thing
+        baton:       { eyes: "happy", mouth: "sing",  hands: "baton", fx: "note" },                         // Miku conducting with her leek
+        shout:       { eyes: "slit",  mouth: "open",  hands: "megaphone", blush: 1 }                        // Rin, at the top of her voice
     })
     function look() {
         const a = looks[m] || looks.idle, e = emotes[emote] || (music && m === "idle" ? emotes.hum : null)
@@ -300,6 +313,18 @@ Item {
         L.tinted = !!L.color // a mood with a colour of its own (idle has none)
         if (!L.color) L.color = hair
         if (!L.mouth) L.mouth = who.mouth
+        // (Miku at Claude's work has Claude's little one in her arms: see paintPal)
+        // (He stays with her through any feeling of her own: while her hands are busy with it he rides on her head.)
+        // (And when the work is done she holds him up over her head: it is his doing too.)
+        if (character === "miku" && (m === "work" || m === "think" || m === "happy")) L.pal = true
+        if (!e && L.pal) {
+            L.hands = "hug"
+            const k = st.palK || "" // (and her face for what she is doing with him)
+            if (k === "squeeze" || k === "pat") { L.eyes = "happy"; L.blush = 1 }
+            else if (k === "lift" || k === "toss") { L.look = [0, -0.9]; L.mouth = "open" }
+            else if (k === "show") { L.eyes = "happy"; L.mouth = "open" }
+            else if (k === "guard") { L.eyes = "slit"; L.mouth = "flat"; L.look = [-(st.palDir || 1) * 0.8, 0] }
+        }
         return L
     }
 
@@ -308,6 +333,43 @@ Item {
     function broomLine(t) {
         const sx = Math.sin(t * 7) * 0.45
         return { ax: 0.55 + sx * 0.6, ay: -0.5, bx: -0.45 + sx * 1.3, by: 0.78 }
+    }
+
+    // The broom held up to strike, shaking with how cross she is: the same line as above.
+    function threatLine(t) {
+        const k = Math.sin(t * 22) * 0.06
+        return { ax: 0.98, ay: 0.3, bx: 0.42 + k, by: -1.18 + Math.abs(k) }
+    }
+    // where the thing in her raised hand is, and how it is turned (the leek goes to and fro as a baton does)
+    function heldAt(t, baton) {
+        return baton ? { x: 1.12 + Math.sin(t * 6) * 0.2, y: -0.72 - Math.abs(Math.cos(t * 6)) * 0.12, a: Math.sin(t * 6) * 0.55 }
+                     : { x: 1.12, y: -0.74 + Math.sin(t * 3) * 0.05, a: 0.18 }
+    }
+
+    // ---- Miku and Claude's little one ---------------------------------------------------
+    // He is hers. Mostly she just holds him while she works; now and then she does
+    // something with him (`palDo`): squeezes him, lifts him up to look at, throws him up
+    // and catches him, pats him; and with a neighbour, holds him out to show, or turns
+    // him away from a hand that wants him (`dir`: which side the neighbour is on).
+    // `palAt` is where he is and how he is squashed, and where her hands are for it.
+    function palDo(kind, ms, dir) {
+        if (character !== "miku" || Theme.reduced) return
+        st.palK = kind; st.palU = 0; st.palDur = Math.max(0.2, ms / 1000); st.palDir = dir || 1
+    }
+    function palAt() {
+        const s = st, k = s.palK || "", u = s.palU || 0, e = Math.sin(Math.PI * u), d = s.palDir || 1
+        const o = { x: 0, y: 0.66, sx: 1, sy: 1, a: 0, hx: 0.6, hy: 0.66, free: false, pat: false }
+        if (k === "squeeze") { const q = e * (0.8 + 0.2 * Math.sin(u * 44)); o.sx = 1 - 0.2 * q; o.sy = 1 + 0.18 * q; o.hx = 0.6 - 0.16 * q }
+        else if (k === "lift") { const h = Math.min(1, e * 1.7); o.y = 0.66 - 1.9 * h; o.hy = o.y + 0.08; o.hx = 0.56; o.a = Math.sin(u * 16) * 0.1 * h }
+        else if (k === "toss") { o.y = 0.66 - 2.6 * e; o.a = u * Math.PI * 2; o.free = e > 0.12; o.hy = 0.42; o.hx = 0.62; if (u > 0.9) { o.sy = 0.86; o.sx = 1.1 } }
+        else if (k === "pat") { o.sy = 1 - 0.14 * Math.abs(Math.sin(u * Math.PI * 5)) * Math.min(1, e * 3); o.pat = true }
+        else if (k === "show") { const h = Math.min(1, e * 1.9); o.x = d * 0.95 * h; o.y = 0.66 - 0.3 * h; o.hy = o.y; o.hx = 0.5; o.a = d * 0.12 * h }
+        else if (k === "guard") { const h = Math.min(1, e * 2.2); o.x = -d * 0.45 * h; o.hx = 0.6 - 0.14 * h; o.sx = 1 - 0.12 * h; o.sy = 1 + 0.1 * h }
+        const up = s.palRise || 0 // (held up for "done": `palRise` follows the mood)
+        if (up > 0.01) { o.y = 0.66 - (1.95 + Math.sin(s.t * 7) * 0.07) * up; o.hy = o.y + 0.08; o.hx = 0.56; o.a = Math.sin(s.t * 5) * 0.14 * up; o.pat = false }
+        const hd = s.palHead || 0 // (on her head while her hands are busy: `palHead` follows whether a feeling is playing)
+        if (hd > 0.01) { o.x *= 1 - hd; o.y += (-1.14 - o.y) * hd; o.sx += (1 - o.sx) * hd; o.sy += (1 - o.sy) * hd; o.a = o.a * (1 - hd) + Math.sin(s.t * 3) * 0.06 * hd }
+        return o
     }
 
     // the hands' poses, in body radii from the body's centre: [left, right]
@@ -321,10 +383,20 @@ Item {
         tucked: t => [{ x: -0.45, y: 0.86 }, { x: 0.45, y: 0.86 }],
         flail:  t => [{ x: -1.25 + Math.cos(t * 9) * 0.2, y: -0.2 + Math.sin(t * 9) * 0.4 }, { x: 1.25 + Math.cos(t * 9 + 2) * 0.2, y: -0.2 + Math.sin(t * 9 + 2) * 0.4 }],
         heart:  t => [{ x: -0.2, y: 0.82 }, { x: 0.2, y: 0.82 }],
+        hug:    t => { // (round what she holds, squeezing a little; and wherever he goes)
+            const o = palAt(), q = Math.sin(t * 2.4) * 0.03
+            if (o.pat) return [{ x: -0.6, y: 0.66 }, { x: 0.12 + Math.sin(t * 9) * 0.08, y: 0.3 + Math.abs(Math.sin(t * 9)) * 0.12 }]
+            return [{ x: o.x - o.hx + q, y: o.hy }, { x: o.x + o.hx - q, y: o.hy }]
+        },
         wide:   t => [{ x: -1.45, y: -0.15 }, { x: 1.45, y: -0.15 }],
         hips:   t => [{ x: -1.02, y: 0.6 }, { x: 1.02, y: 0.6 }],
         hello:  t => [{ x: -1.38, y: 0.52 }, { x: 1.5 + Math.sin(t * 12) * 0.16, y: -0.6 + Math.cos(t * 12) * 0.05 }],
         sweep:  t => { const b = broomLine(t); return [{ x: b.ax + (b.bx - b.ax) * 0.72, y: b.ay + (b.by - b.ay) * 0.72 }, { x: b.ax + (b.bx - b.ax) * 0.42, y: b.ay + (b.by - b.ay) * 0.42 }] }, // both on the stick
+        cower:  t => [{ x: -0.72 + Math.sin(t * 31) * 0.03, y: -0.08 }, { x: 0.72 + Math.sin(t * 31 + 2) * 0.03, y: -0.08 }], // up by her face, trembling
+        threat: t => { const b = threatLine(t); return [{ x: b.ax + (b.bx - b.ax) * 0.42, y: b.ay + (b.by - b.ay) * 0.42 }, { x: b.ax + (b.bx - b.ax) * 0.12, y: b.ay + (b.by - b.ay) * 0.12 }] },
+        raise:  t => { const h = heldAt(t, false); return [{ x: -1.38, y: 0.52 }, { x: h.x, y: h.y + 0.3 }] },
+        baton:  t => { const h = heldAt(t, true); return [{ x: -1.2, y: 0.1 + Math.sin(t * 6) * 0.1 }, { x: h.x, y: h.y + 0.3 }] },
+        megaphone: t => [{ x: -0.5, y: 0.42 }, { x: 0.5, y: 0.42 }],
         cling:  t => [{ x: -0.6, y: -1.02 }, { x: 0.6, y: -1.02 }]
     })
 
@@ -447,6 +519,9 @@ Item {
         if (s.jump < 0 || s.jumpV < 0) { s.jumpV += 38 * dt; s.jump += s.jumpV * dt; if (s.jump >= 0) { s.jump = 0; s.jumpV = 0; s.sqv += 5 } }
         if (s.rollT < 1) s.rollT = Math.min(1, s.rollT + dt * 1000 / s.rollMs)
         s.shake = Math.max(0, s.shake - dt * 2.2)
+        s.palHead = (s.palHead || 0) + ((emote !== "" ? 1 : 0) - (s.palHead || 0)) * (1 - Math.exp(-dt * 12))
+        s.palRise = (s.palRise || 0) + ((m === "happy" && emote === "" ? 1 : 0) - (s.palRise || 0)) * (1 - Math.exp(-dt * 9))
+        if (s.palK) { s.palU += dt / s.palDur; if (s.palU >= 1) { s.palK = ""; s.palU = 0; s.sqv += 3 } }
         s.swing = Math.max(0, s.swing - dt * 1.2)
         const carried = dragging ? clampv(dragVx / 40, -14, 14) * Math.PI / 180 : 0
         const want = carried + (L.wobble ? Math.sin(s.t * 3.1) * 0.12 : 0) + (L.sway ? Math.sin(s.t * (m === "walk" ? 6 : 4)) * 0.07 * (m === "walk" ? walkDir : 1) : 0)
@@ -571,7 +646,13 @@ Item {
             g.fillStyle = mk.tieBand; g.fillRect(-R * 0.2, -R * 0.03, R * 0.4, R * 0.06); g.restore()
         }
 
-        if (L.hands === "sweep" && !dragging) paintBroom(g, P) // (at any size: in the bar the broom is what shows she is sweeping)
+        if (L.hands === "sweep" && !dragging) paintBroom(g, P, broomLine(s.t)) // (at any size: in the bar the broom is what shows she is sweeping)
+        if (L.pal && !dragging) paintPal(g, P)                 // (...and so is the one she works with)
+        if (!dragging) { // (and what they hold or do in the scenes between them: these have to read in the bar too)
+            if (L.hands === "threat") paintBroom(g, P, threatLine(s.t))
+            if (L.hands === "raise" || L.hands === "baton") paintHeld(g, P, L.hands === "baton")
+            if (L.hands === "megaphone") paintShout(g, P)
+        }
         if (detail > 0.25) { g.globalAlpha = clampv((detail - 0.25) / 0.4, 0, 1); paintHands(g, P, L); g.globalAlpha = 1 }
         paintParts(g)
         const badge = L.badge || (doneBadge ? "done" : "")
@@ -780,9 +861,23 @@ Item {
         }
     }
 
+    // The one Miku works with, held in front of her: Claude Code's little terminal
+    // creature, as its own blocks draw it (a body with two eyes, an arm out to each side,
+    // four legs). Each block is twice as tall as it is wide, as in a terminal.
+    readonly property var palRows: [[[3, 14]], [[3, 4], [6, 11], [13, 14]], [[1, 16]], [[3, 14]], [[4, 4], [6, 6], [11, 11], [13, 13]]]
+    function paintPal(g, P) {
+        const R = cR, u = R * 0.066, o = palAt(), c = toWorld(P, o.x, o.y + Math.sin(st.t * 2.4) * 0.015)
+        g.save(); g.translate(c.x, c.y); g.rotate(P.angle + o.a + Math.sin(st.t * 1.7) * 0.05); g.scale(o.sx, o.sy)
+        g.fillStyle = "#3a2218"; g.fillRect(-4 * u, -3 * u, 8 * u, 2 * u) // (behind the eyes)
+        g.fillStyle = "#D97757"
+        for (let r = 0; r < palRows.length; r++)
+            for (const run of palRows[r]) g.fillRect((run[0] - 9) * u - 0.2, (r * 2 - 5) * u - 0.2, (run[1] - run[0] + 1) * u + 0.4, 2 * u + 0.4)
+        g.restore()
+    }
+
     // the broom: a wooden stick, a red band, straw bristles that flare toward the floor
-    function paintBroom(g, P) {
-        const R = cR, b = broomLine(st.t), A = toWorld(P, b.ax, b.ay), B = toWorld(P, b.bx, b.by)
+    function paintBroom(g, P, b) {
+        const R = cR, A = toWorld(P, b.ax, b.ay), B = toWorld(P, b.bx, b.by)
         const len = Math.hypot(B.x - A.x, B.y - A.y) || 1, dx = (B.x - A.x) / len, dy = (B.y - A.y) / len, nx = -dy, ny = dx
         g.lineCap = "round"; g.lineJoin = "round"
         g.strokeStyle = "#B07A3C"; g.lineWidth = R * 0.1
@@ -795,6 +890,25 @@ Item {
         g.closePath(); g.fill(); g.stroke()
         g.strokeStyle = "#E0405A"; g.lineWidth = R * 0.08
         g.beginPath(); g.moveTo(B.x - nx * R * 0.14, B.y - ny * R * 0.14); g.lineTo(B.x + nx * R * 0.14, B.y + ny * R * 0.14); g.stroke()
+    }
+
+    // her favourite thing, held up in her right hand
+    function paintHeld(g, P, baton) {
+        const R = cR, h = heldAt(st.t, baton), c = toWorld(P, h.x, h.y)
+        g.save(); g.translate(c.x, c.y); g.rotate(P.angle + h.a)
+        paintFav(g, R * (who.fav === "leek" ? 0.5 : 0.36))
+        g.restore()
+    }
+    // a shout: strokes flying out of her to both sides, one burst after another
+    function paintShout(g, P) {
+        const R = cR, u = (st.t * 3.2) % 1
+        g.save(); g.lineCap = "round"; g.strokeStyle = "#FFE08A"; g.lineWidth = R * 0.1; g.globalAlpha = 1 - u * u
+        for (const d of [-1, 1]) for (const a of [-0.55, 0, 0.55]) {
+            const r0 = 1.2 + u * 0.45, r1 = r0 + 0.3
+            const A = toWorld(P, d * Math.cos(a) * r0, 0.15 + Math.sin(a) * r0), B = toWorld(P, d * Math.cos(a) * r1, 0.15 + Math.sin(a) * r1)
+            g.beginPath(); g.moveTo(A.x, A.y); g.lineTo(B.x, B.y); g.stroke()
+        }
+        g.restore()
     }
 
     // the favourite thing of each, about `s` across, drawn around the origin

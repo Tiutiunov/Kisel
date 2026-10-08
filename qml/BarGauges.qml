@@ -27,7 +27,7 @@ Row {
     readonly property bool said: Sys.justCleaned
     property real told: said ? 1 : 0
     Behavior on told { NumberAnimation { duration: Theme.reduced ? 0 : 460; easing.type: Easing.InOutCubic } }
-    readonly property real keyW: Sys.canClean ? 18 + spacing : 0
+    readonly property real keyW: Sys.canClean ? 20 + spacing : 0
     Item {
         width: root.room - root.keyW; height: 24
         Row { // the gauges
@@ -63,10 +63,10 @@ Row {
     Item { // the Clean key: a red key with a broom on it
         visible: Sys.canClean
         anchors.verticalCenter: parent.verticalCenter
-        width: 18; height: 22
+        width: 20; height: 20
         Rectangle {
             anchors.fill: parent
-            radius: 7
+            radius: 6
             color: Sys.cleaning ? Theme.surface3 : cleanArea.containsMouse ? "#F0566E" : "#E0405A"
             border.width: 1.5; border.color: "#FFFFFF"
         }

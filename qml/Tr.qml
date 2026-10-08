@@ -122,7 +122,15 @@ QtObject {
 
         // ---- Settings ----
         "Connected": "Подключён", "Removed": "Убрано", "Couldn't write settings.json": "Не удалось записать settings.json",
-        "Remove hooks": "Убрать хуки", "Nothing to change in ": "Нечего менять в ",
+        "Remove hooks": "Убрать хуки",
+        "Needs repair": "Нужна починка", "Repair hooks": "Починить хуки", "settings.json is not valid JSON": "settings.json — не валидный JSON",
+        "If hooks break": "Если хуки сломались", "Ask me": "Спросить", "Repair": "Чинить сама", "Do nothing": "Ничего",
+        "Claude Code hooks need repair. Open Settings.": "Хуки Claude Code сломались. Открой настройки.",
+        "Claude Code is not connected. Open Settings.": "Claude Code не подключён. Открой настройки.",
+        "Claude Code hooks repaired": "Хуки Claude Code починены",
+        "Hooks that were connected and went stale are repaired by themselves, with a dated backup. New hooks are never added without your click.": "Хуки, которые уже были подключены и устарели, чинятся сами, с резервной копией. Новые без твоего клика не добавляются.",
+        "Kisel tells you when the hooks are missing or stale. The change is made only after you confirm it here.": "Kisel скажет, если хуков нет или они устарели. Менять файл он будет только после твоего подтверждения здесь.",
+        "Kisel does not check the hooks.": "Kisel не проверяет хуки.", "Nothing to change in ": "Нечего менять в ",
         "This is the exact change to ": "Вот точное изменение в ", ". A backup is saved first as ": ". Сначала сохраняется копия: ",
         "Write change": "Записать", "Cancel": "Отмена", "Key saved in ": "Ключ сохранён: ", "Anthropic API key": "Ключ Anthropic API", "Save": "Сохранить",
         "Token saved in ": "Токен сохранён: ", "Personal access token (read-only)": "Личный токен (только чтение)", "Remove": "Убрать",

@@ -4,7 +4,12 @@
 #include <QObject>
 #include <QVariantList>
 
+class QFileSystemWatcher;
+class QTimer;
+
 namespace kisel {
+
+class Preferences;
 
 // Installs and removes Kisel's entries in Claude Code's settings.json.
 //
@@ -20,12 +25,17 @@ class HookInstaller : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(bool installed READ installed NOTIFY changed)
+    // none: no hooks of ours. ok: all of them, pointing at a relay that exists.
+    // stale: some, or a wrong path (an update moved the relay, an event is missing).
+    // unreadable: settings.json is not valid JSON; Kisel never touches such a file.
+    Q_PROPERTY(QString health READ health NOTIFY changed)
     Q_PROPERTY(QString settingsPath READ settingsPath CONSTANT)
 
 public:
     explicit HookInstaller(QObject *parent = nullptr);
 
     bool installed() const;
+    QString health() const;
     QString settingsPath() const;
 
     // {ok, error, backup, diff: [{kind: add|del|ctx, text}], changed}
@@ -36,14 +46,30 @@ public:
     // never points into a build tree. Returns false if it cannot.
     bool ensureRelay(const QString &bundledPath) const;
 
+    // Keeps an eye on settings.json (on a change, and every few minutes) and acts on
+    // Preferences::hookWatch. Nothing is ever written here without either the user's click
+    // or, in "auto" mode, hooks that were there before and only need repairing.
+    void watch(Preferences *prefs, const QString &bundledRelay);
+
     // Pure functions, unit-tested.
+    static QString health(const QJsonObject &settings, const QString &command);
     static QJsonObject merge(const QJsonObject &settings, const QString &command, bool install);
     static QVariantList lineDiff(const QString &before, const QString &after);
 
 signals:
     void changed();
+    // The hooks need the user: state is "none" or "stale". Shown once per state per run.
+    void attention(const QString &state);
+    // "auto" mode repaired stale hooks (a backup was taken first).
+    void repaired();
 
 private:
+    void rewatch();
+    void recheck();
+    QFileSystemWatcher *m_watcher = nullptr;
+    QTimer *m_debounce = nullptr;
+    Preferences *m_prefs = nullptr;
+    QString m_bundled, m_notified;
     struct Plan {
         bool ok = false;
         QString error, before, after;

@@ -74,6 +74,14 @@ Item {
             radius: 1.5
             color: "#C98A3A"
         }
+        Rectangle { // her paw on the stick, at the end she holds it by (in the bar she is too small for hands of her own)
+            x: 2.5; y: root.flip ? 0 : parent.height - height
+            width: 8; height: 8; radius: 4
+            gradient: Gradient {
+                GradientStop { position: 0; color: "#FFFAF5" }
+                GradientStop { position: 1; color: "#DDCCBF" }
+            }
+        }
         Item { // the placard, with its glow
             id: plate
             y: root.flip ? parent.height - height - 2 : 2

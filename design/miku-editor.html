@@ -8,9 +8,9 @@
   :root { --bg:#0e0c0d; --card:#1a1718; --card2:#242021; --ink:#f4efe9; --mut:#9a918c; --line:#322d2e; --acc:#39C5BB; }
   * { box-sizing: border-box; }
   body { margin:0; background:var(--bg); color:var(--ink); font:13px/1.4 system-ui, "Segoe UI", sans-serif; }
-  .wrap { display:grid; grid-template-columns: minmax(380px, 1fr) 420px; gap:16px; padding:16px; height:100vh; }
-  .stage { display:flex; flex-direction:column; gap:12px; min-width:0; overflow:auto; }
-  .view { background:radial-gradient(circle at 50% 45%, #1d1a1c, #0b090a); border:1px solid var(--line); border-radius:18px; display:flex; align-items:center; justify-content:center; flex:1 0 auto; height:420px; min-height:320px; position:relative; overflow:hidden; }
+  .wrap { display:grid; grid-template-columns: minmax(380px, 1.15fr) minmax(360px, 1fr); gap:16px; padding:16px; height:100vh; }
+  .stage { display:flex; flex-direction:column; gap:12px; min-width:0; min-height:0; }
+  .view { background:radial-gradient(circle at 50% 45%, #1d1a1c, #0b090a); border:1px solid var(--line); border-radius:18px; display:flex; align-items:center; justify-content:center; flex:1 1 0; min-height:160px; position:relative; overflow:hidden; }
   .view.light { background:#e9e6e2; }
   #big { height:min(100%, 576px); max-width:100%; aspect-ratio:1; cursor:pointer; }
   .minis { display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
@@ -20,8 +20,16 @@
   .row { display:flex; flex-wrap:wrap; gap:6px; }
   button { background:var(--card2); color:var(--ink); border:1px solid var(--line); border-radius:10px; padding:5px 10px; font:inherit; cursor:pointer; }
   button:hover { border-color:#5a5253; }
+  button[hidden] { display:none; }
   button.on, button.strong { background:var(--acc); color:#06281a; border-color:var(--acc); font-weight:700; }
-  .panel { overflow:auto; padding-right:6px; }
+  .panel { display:flex; flex-direction:column; min-height:0; }
+  .panel .top { flex:none; padding-bottom:10px; border-bottom:1px solid var(--line); margin-bottom:6px; }
+  .tabs { display:flex; gap:6px; margin-top:10px; align-items:center; }
+  .tabs button { border-radius:999px; padding:6px 14px; font-weight:700; }
+  .tabs input { flex:1; min-width:90px; background:var(--card2); color:var(--ink); border:1px solid var(--line); border-radius:999px; padding:6px 12px; font:inherit; }
+  .tab { overflow:auto; flex:1 1 0; min-height:0; padding-right:6px; }
+  .tab[hidden] { display:none; }
+  .scenes { flex:none; }
   fieldset { border:1px solid var(--line); border-radius:14px; margin:0 0 12px; padding:8px 12px 10px; background:var(--card); }
   legend { padding:0 6px; color:var(--mut); font-weight:700; text-transform:uppercase; font-size:11px; letter-spacing:.06em; }
   label.p { display:grid; grid-template-columns:160px 1fr 44px; align-items:center; gap:8px; padding:2px 0; }
@@ -37,7 +45,7 @@
   .scbar label { display:flex; gap:6px; align-items:center; color:var(--mut); }
   select { background:var(--card2); color:var(--ink); border:1px solid var(--line); border-radius:10px; padding:4px 8px; font:inherit; }
   #scNow { color:var(--acc); font-weight:700; }
-  @media (max-width: 860px) { .wrap { grid-template-columns:1fr; height:auto; } }
+  @media (max-width: 860px) { .wrap { grid-template-columns:1fr; height:auto; } .view { min-height:300px; } .tab { overflow:visible; } }
 </style>
 </head>
 <body>
@@ -47,57 +55,65 @@
     <div class="minis">
       <div class="pill"><canvas id="mini1" width="64" height="64"></canvas><span id="pname">Miku</span></div>
       <div class="pill x3"><canvas id="mini2" width="192" height="192"></canvas></div>
+      <button id="bLight">Светлый фон</button>
+      <button id="bPause">Пауза</button>
     </div>
-    <div>
-      <h4>Состояние</h4><div class="row" id="moods"></div>
-      <h4>Эмоция (разово)</h4><div class="row" id="emotes"></div>
-      <h4>У каждой по-своему, и движения</h4><div class="row" id="own"></div>
-      <h4>Вид</h4>
-      <div class="row">
-        <button id="bLight">Светлый фон</button>
-        <button id="bPause">Пауза</button>
-        <button id="bMusic">Играет музыка (в покое напевает)</button>
-      </div>
-      <p class="hint">Глаза следят за мышью. Клик по ней — шлепок, три подряд — головокружение. Двойной клик по ползунку возвращает его значение.</p>
-    </div>
-
     <div class="scenes">
-      <h4 style="margin-top:2px">Сценки между собой — как в таблетке</h4>
       <canvas id="scene" width="904" height="360"></canvas>
       <div class="scbar">
         <label>Главная <select id="scMain"></select></label>
         <label>Напарница <select id="scBuddy"></select></label>
-        <label><input type="checkbox" id="scRin"> уведомление (Рин с табличкой)</label>
+        <label><input type="checkbox" id="scRin"> Рин с табличкой</label>
         <button class="strong" id="scAll">Показать все подряд</button>
         <button id="scStop">Стоп</button>
         <span>Сейчас: <span id="scNow">—</span></span>
       </div>
-      <h4>Вдвоём, пока Claude работает</h4><div class="row sc" id="scDuo"></div>
-      <h4>С Рин и её табличкой: лицами</h4><div class="row sc" id="scNote"></div>
-      <h4>С Рин и её табличкой: всем телом</h4><div class="row sc" id="scSkit"></div>
-      <h4>Танцы под музыку</h4><div class="row sc" id="scDance"></div>
-      <h4>Скамейка: кувырком туда и обратно</h4><div class="row sc" id="scBench"></div>
-      <p class="hint">Сценки идут в размере таблетки, как в приложении, только увеличенно. Те, кто на скамейке справа, сами время от времени что-нибудь изображают. Смена главной, напарницы или галочки уведомления сама запускает перелёт.</p>
     </div>
   </div>
 
   <div class="panel">
-    <fieldset>
-      <legend>Персонаж</legend>
+    <div class="top">
       <div class="row" id="cast"></div>
-      <div class="row" style="margin-top:8px"><button id="bShare">Тело, лицо и руки этой — всем</button></div>
-    </fieldset>
-    <div id="controls"></div>
-    <fieldset>
-      <legend>Значения</legend>
-      <div class="row" style="margin-bottom:8px">
-        <button class="strong" id="bCopy">Скопировать</button>
-        <button id="bApply">Применить из поля</button>
-        <button id="bReset">Сбросить эту</button>
+      <div class="tabs">
+        <button data-tab="tOne" class="on">Одна</button>
+        <button data-tab="tScenes">Сценки</button>
+        <button data-tab="tLook">Внешность</button>
+        <input id="find" type="search" placeholder="Найти по названию" autocomplete="off">
       </div>
-      <textarea id="json" spellcheck="false"></textarea>
-      <p class="hint">Всё сохраняется в этом браузере само. Чтобы перенести в приложение — «Скопировать» и вставить в чат.</p>
-    </fieldset>
+    </div>
+    <div class="tab" id="tOne">
+      <h4>Состояние</h4><div class="row" id="moods"></div>
+      <h4>Эмоция (разово)</h4><div class="row" id="emotes"></div>
+      <div id="toyBox"><h4>Мику и её игрушка (пока Claude работает)</h4><div class="row" id="toy"></div></div>
+      <h4>У каждой по-своему, и движения</h4><div class="row" id="own"></div>
+      <h4>Вид</h4>
+      <div class="row"><button id="bMusic">Играет музыка (в покое напевает)</button></div>
+      <p class="hint">Показывается слева, на большой и в таблетке. Глаза следят за мышью. Клик по большой — шлепок, три подряд — головокружение. Эмоции, которые есть только у одной, видны только когда выбрана она.</p>
+    </div>
+    <div class="tab" id="tScenes" hidden>
+      <h4>Вдвоём, пока Claude работает</h4><div class="row sc" id="scDuo"></div>
+      <h4>У каждой своя сценка с соседкой</h4><div class="row sc" id="scOwn"></div>
+      <h4>Мику, её игрушка и соседка</h4><div class="row sc" id="scToy"></div>
+      <h4>С Рин и её табличкой: лицами</h4><div class="row sc" id="scNote"></div>
+      <h4>С Рин и её табличкой: всем телом</h4><div class="row sc" id="scSkit"></div>
+      <h4>Танцы под музыку</h4><div class="row sc" id="scDance"></div>
+      <h4>Скамейка: кувырком туда и обратно</h4><div class="row sc" id="scBench"></div>
+      <p class="hint">Сценки идут слева внизу, в размере таблетки, только увеличенно. Нужных для сценки персонажей страница сажает сама.</p>
+    </div>
+    <div class="tab" id="tLook" hidden>
+      <div class="row" style="margin-bottom:10px"><button id="bShare">Тело, лицо и руки этой — всем</button></div>
+      <div id="controls"></div>
+      <fieldset>
+        <legend>Значения</legend>
+        <div class="row" style="margin-bottom:8px">
+          <button class="strong" id="bCopy">Скопировать</button>
+          <button id="bApply">Применить из поля</button>
+          <button id="bReset">Сбросить эту</button>
+        </div>
+        <textarea id="json" spellcheck="false"></textarea>
+        <p class="hint">Всё сохраняется в этом браузере само. Двойной клик по ползунку возвращает его значение. Чтобы перенести в приложение — «Скопировать» и вставить в чат.</p>
+      </fieldset>
+    </div>
   </div>
 </div>
 
@@ -188,8 +204,20 @@ const emotes = {
   stretch:     { eyes: "happy", mouth: "open", hands: "cheer", stretch: true },
   smug:        { eyes: "smug", mouth: "smug", hands: "hips", spin: true },
   upset:       { eyes: "tired", mouth: "wavy", hands: "droop", fx: "sweat" },
-  sweep:       { eyes: "happy", mouth: "open", hands: "sweep", fx: "dust", sway: true }
+  sweep:       { eyes: "happy", mouth: "open", hands: "sweep", fx: "dust", sway: true },
+  scared:      { eyes: "dots", mouth: "wavy", hands: "cower", fx: "sweat" },
+  threat:      { eyes: "slit", mouth: "open", hands: "threat", color: "#F4505E", blush: 1 },
+  treat:       { eyes: "happy", mouth: "open", hands: "raise" },
+  baton:       { eyes: "happy", mouth: "sing", hands: "baton", fx: "note" },
+  shout:       { eyes: "slit", mouth: "open", hands: "megaphone", blush: 1 }
 };
+const OWNER = { smug: "teto", tsun: "teto", sweep: "teto", threat: "teto", annoyed: "miku", baton: "miku", angry: "rin", shout: "rin", cool: "luka", unimpressed: "luka", treat: "luka", proud: "zunda" };
+function threatLine(t) { const k = Math.sin(t * 22) * 0.06; return { ax: 0.98, ay: 0.3, bx: 0.42 + k, by: -1.18 + Math.abs(k) }; }
+function heldAt(t, baton) {
+  return baton ? { x: 1.12 + Math.sin(t * 6) * 0.2, y: -0.72 - Math.abs(Math.cos(t * 6)) * 0.12, a: Math.sin(t * 6) * 0.55 }
+               : { x: 1.12, y: -0.74 + Math.sin(t * 3) * 0.05, a: 0.18 };
+}
+const PAL_ROWS = [[[3, 14]], [[3, 4], [6, 11], [13, 14]], [[1, 16]], [[3, 14]], [[4, 4], [6, 6], [11, 11], [13, 13]]];
 function broomLine(t) { const sx = Math.sin(t * 7) * 0.45; return { ax: 0.55 + sx * 0.6, ay: -0.5, bx: -0.45 + sx * 1.3, by: 0.78 }; }
 const poses = {
   rest:   t => [{ x: -1.38, y: 0.52 + Math.sin(t * 2) * 0.03 }, { x: 1.38, y: 0.52 + Math.sin(t * 2 + 1) * 0.03 }],
@@ -201,6 +229,12 @@ const poses = {
   tucked: t => [{ x: -0.45, y: 0.86 }, { x: 0.45, y: 0.86 }],
   flail:  t => [{ x: -1.25 + Math.cos(t * 9) * 0.2, y: -0.2 + Math.sin(t * 9) * 0.4 }, { x: 1.25 + Math.cos(t * 9 + 2) * 0.2, y: -0.2 + Math.sin(t * 9 + 2) * 0.4 }],
   heart:  t => [{ x: -0.2, y: 0.82 }, { x: 0.2, y: 0.82 }],
+  hug:    (t, o) => { const q = Math.sin(t * 2.4) * 0.03; if (o.pat) return [{ x: -0.6, y: 0.66 }, { x: 0.12 + Math.sin(t * 9) * 0.08, y: 0.3 + Math.abs(Math.sin(t * 9)) * 0.12 }]; return [{ x: o.x - o.hx + q, y: o.hy }, { x: o.x + o.hx - q, y: o.hy }]; },
+  cower:  t => [{ x: -0.72 + Math.sin(t * 31) * 0.03, y: -0.08 }, { x: 0.72 + Math.sin(t * 31 + 2) * 0.03, y: -0.08 }],
+  threat: t => { const b = threatLine(t); return [{ x: b.ax + (b.bx - b.ax) * 0.42, y: b.ay + (b.by - b.ay) * 0.42 }, { x: b.ax + (b.bx - b.ax) * 0.12, y: b.ay + (b.by - b.ay) * 0.12 }]; },
+  raise:  t => { const h = heldAt(t, false); return [{ x: -1.38, y: 0.52 }, { x: h.x, y: h.y + 0.3 }]; },
+  baton:  t => { const h = heldAt(t, true); return [{ x: -1.2, y: 0.1 + Math.sin(t * 6) * 0.1 }, { x: h.x, y: h.y + 0.3 }]; },
+  megaphone: t => [{ x: -0.5, y: 0.42 }, { x: 0.5, y: 0.42 }],
   wide:   t => [{ x: -1.45, y: -0.15 }, { x: 1.45, y: -0.15 }],
   hips:   t => [{ x: -1.02, y: 0.6 }, { x: 1.02, y: 0.6 }],
   hello:  t => [{ x: -1.38, y: 0.52 }, { x: 1.5 + Math.sin(t * 12) * 0.16, y: -0.6 + Math.cos(t * 12) * 0.05 }],
@@ -234,7 +268,14 @@ class Bot {
   get who() { return CAST[this.key]; }
   get m() { return this.dizzyLeft > 0 ? "dizzy" : this.follow ? world.mood : this.mood; }
   // ---- what the island asks of her ----
-  play(name, ms) { this.emote = name; this.emoteLeft = ms / 1000; if (name !== "hello" && name !== "unimpressed" && name !== "cool") this.st.sqv -= 2.5; }
+  play(name, ms) {
+    const o = OWNER[name];
+    if (o && o !== this.key) {
+      if (name === "smug" || name === "cool" || name === "proud") name = this.who.quirk;
+      else if (name === "tsun" || name === "annoyed" || name === "angry" || name === "unimpressed") name = this.who.slap;
+      else return;
+    }
+    this.emote = name; this.emoteLeft = ms / 1000; if (name !== "hello" && name !== "unimpressed" && name !== "cool") this.st.sqv -= 2.5; }
   jump(power, force) { if (!force && this.st.jump < 0) return; this.st.jumpV = -9 * Math.sqrt(Math.max(0.1, power * this.who.bounce)); }
   roll(turns, ms) { this.st.rollT = 0; this.st.rollTurns = turns; this.st.rollMs = ms / this.who.energy; }
   celebrate(power) { this.jump(power); this.celebLeft = 1.5; }
@@ -261,6 +302,14 @@ class Bot {
     const m = this.m, a = looks[m] || looks.idle, e = emotes[this.emote] || (this.music && m === "idle" ? emotes.hum : null);
     const L = e ? Object.assign({}, a, e) : Object.assign({}, a);
     L.tinted = !!L.color; if (!L.color) L.color = this.T.hair; if (!L.mouth) L.mouth = this.who.mouth;
+    if (this.key === "miku" && (m === "work" || m === "think" || m === "happy")) L.pal = true; // (Claude's little one, through any feeling of hers)
+    if (!e && L.pal) {
+      L.hands = "hug"; const k = this.st.palK || "";
+      if (k === "squeeze" || k === "pat") { L.eyes = "happy"; L.blush = 1; }
+      else if (k === "lift" || k === "toss") { L.look = [0, -0.9]; L.mouth = "open"; }
+      else if (k === "show") { L.eyes = "happy"; L.mouth = "open"; }
+      else if (k === "guard") { L.eyes = "slit"; L.mouth = "flat"; L.look = [-(this.st.palDir || 1) * 0.8, 0]; }
+    }
     return L;
   }
   pose() {
@@ -284,11 +333,10 @@ class Bot {
     if (this.bench) {
       this.benchClock -= dt;
       if (this.benchClock <= 0) {
-        this.benchClock = 3 + Math.random() * 6 / w.energy;
+        this.benchClock = 4 + Math.random() * 7 / w.energy;
         if (this.emote === "") {
-          const r = Math.random(), pool = ["laugh", "hello", "love", "surprised", "hum", "smug", "cool", "hype", "unimpressed", "annoyed"];
-          if (r < 0.15) { s.blink = 1; s.blinks = 1; } else if (r < 0.3) this.play(w.quirk, 1800); else this.play(pool[Math.floor(Math.random() * pool.length)], 1300 + Math.random() * 900);
-          if (Math.random() < 0.3) this.jump(0.3, false);
+          const r = Math.random();
+          if (r < 0.08) this.play(w.quirk, 1600); else { s.blink = 1; s.blinks = Math.random() < 0.3 ? 1 : 0; }
         }
       }
     }
@@ -309,13 +357,16 @@ class Bot {
     if (s.jump < 0 || s.jumpV < 0) { s.jumpV += 38 * dt; s.jump += s.jumpV * dt; if (s.jump >= 0) { s.jump = 0; s.jumpV = 0; s.sqv += 5; } }
     if (s.rollT < 1) s.rollT = Math.min(1, s.rollT + dt * 1000 / s.rollMs);
     s.shake = Math.max(0, s.shake - dt * 2.2);
+    s.palHead = (s.palHead || 0) + ((this.emote !== "" ? 1 : 0) - (s.palHead || 0)) * (1 - Math.exp(-dt * 12));
+    s.palRise = (s.palRise || 0) + ((this.m === "happy" && this.emote === "" ? 1 : 0) - (s.palRise || 0)) * (1 - Math.exp(-dt * 9));
+    if (s.palK) { s.palU += dt / s.palDur; if (s.palU >= 1) { s.palK = ""; s.palU = 0; s.sqv += 3; } }
     s.swing = Math.max(0, s.swing - dt * 1.2);
     const want = (L.wobble ? Math.sin(s.t * 3.1) * 0.12 : 0) + (L.sway ? Math.sin(s.t * (m === "walk" ? 6 : 4)) * 0.07 : 0) + (m === "think" ? 0.1 : 0)
                + (this.emote === "cool" || this.emote === "tsun" ? -0.08 : 0) + Math.sin(s.t * 7) * s.swing * 0.25;
     s.lean += (want - s.lean) * (1 - Math.exp(-dt * 8));
     const hov = this.follow && world.hovered;
     s.blush += (((L.blush || 0.4) + (hov ? 0.15 : 0)) - s.blush) * (1 - Math.exp(-dt * 6));
-    const p = (poses[L.hands || "rest"] || poses.rest)(s.t), hk = 1 - Math.exp(-dt * 14 * w.energy);
+    const p = (poses[L.hands || "rest"] || poses.rest)(s.t, this.palAt()), hk = 1 - Math.exp(-dt * 14 * w.energy);
     for (let i = 0; i < 2; i++) { s.hand[i].x += (p[i].x - s.hand[i].x) * hk; s.hand[i].y += (p[i].y - s.hand[i].y) * hk; }
     this.simTails(dt);
     this.spawn(dt, L);
@@ -391,7 +442,11 @@ class Bot {
       g.fillStyle = T.tie; rr(g, -R * 0.2, -R * 0.14, R * 0.4, R * 0.28, R * 0.06); g.fill();
       g.fillStyle = T.tieBand; g.fillRect(-R * 0.2, -R * 0.03, R * 0.4, R * 0.06); g.restore();
     }
-    if (L.hands === "sweep") this.paintBroom(g, P);
+    if (L.hands === "sweep") this.paintBroom(g, P, broomLine(s.t));
+    if (L.pal) this.paintPal(g, P);
+    if (L.hands === "threat") this.paintBroom(g, P, threatLine(s.t));
+    if (L.hands === "raise" || L.hands === "baton") this.paintHeld(g, P, L.hands === "baton");
+    if (L.hands === "megaphone") this.paintShout(g, P);
     if (detail > 0.25) { g.globalAlpha = clampv((detail - 0.25) / 0.4, 0, 1); this.paintHands(g, P, L); g.globalAlpha = 1; }
     this.paintParts(g);
     if (L.badge) this.paintBadge(g, P, L.badge, col);
@@ -562,8 +617,46 @@ class Bot {
     if (L.hands === "heart") { const c = this.toWorld(P, 0, 0.8); heartShape(g, c.x, c.y - R * 0.08, R * (0.2 + Math.sin(s.t * 8) * 0.02), "#FF4D6D"); }
   }
   // the broom: a wooden stick, a red band, straw bristles that flare toward the floor
-  paintBroom(g, P) {
-    const b = broomLine(this.st.t), A = this.toWorld(P, b.ax, b.ay), B = this.toWorld(P, b.bx, b.by);
+  palDo(kind, ms, dir) { if (this.key !== "miku") return; const s = this.st; s.palK = kind; s.palU = 0; s.palDur = Math.max(0.2, ms / 1000); s.palDir = dir || 1; }
+  palAt() {
+    const s = this.st, k = s.palK || "", u = s.palU || 0, e = Math.sin(Math.PI * u), d = s.palDir || 1;
+    const o = { x: 0, y: 0.66, sx: 1, sy: 1, a: 0, hx: 0.6, hy: 0.66, pat: false };
+    if (k === "squeeze") { const q = e * (0.8 + 0.2 * Math.sin(u * 44)); o.sx = 1 - 0.2 * q; o.sy = 1 + 0.18 * q; o.hx = 0.6 - 0.16 * q; }
+    else if (k === "lift") { const h = Math.min(1, e * 1.7); o.y = 0.66 - 1.9 * h; o.hy = o.y + 0.08; o.hx = 0.56; o.a = Math.sin(u * 16) * 0.1 * h; }
+    else if (k === "toss") { o.y = 0.66 - 2.6 * e; o.a = u * Math.PI * 2; o.hy = 0.42; o.hx = 0.62; if (u > 0.9) { o.sy = 0.86; o.sx = 1.1; } }
+    else if (k === "pat") { o.sy = 1 - 0.14 * Math.abs(Math.sin(u * Math.PI * 5)) * Math.min(1, e * 3); o.pat = true; }
+    else if (k === "show") { const h = Math.min(1, e * 1.9); o.x = d * 0.95 * h; o.y = 0.66 - 0.3 * h; o.hy = o.y; o.hx = 0.5; o.a = d * 0.12 * h; }
+    else if (k === "guard") { const h = Math.min(1, e * 2.2); o.x = -d * 0.45 * h; o.hx = 0.6 - 0.14 * h; o.sx = 1 - 0.12 * h; o.sy = 1 + 0.1 * h; }
+    const up = s.palRise || 0;
+    if (up > 0.01) { o.y = 0.66 - (1.95 + Math.sin(s.t * 7) * 0.07) * up; o.hy = o.y + 0.08; o.hx = 0.56; o.a = Math.sin(s.t * 5) * 0.14 * up; o.pat = false; }
+    const hd = s.palHead || 0; // (on her head while her hands are busy)
+    if (hd > 0.01) { o.x *= 1 - hd; o.y += (-1.14 - o.y) * hd; o.sx += (1 - o.sx) * hd; o.sy += (1 - o.sy) * hd; o.a = o.a * (1 - hd) + Math.sin(s.t * 3) * 0.06 * hd; }
+    return o;
+  }
+  paintPal(g, P) {
+    const u = R * 0.066, o = this.palAt(), c = this.toWorld(P, o.x, o.y + Math.sin(this.st.t * 2.4) * 0.015);
+    g.save(); g.translate(c.x, c.y); g.rotate(P.angle + o.a + Math.sin(this.st.t * 1.7) * 0.05); g.scale(o.sx, o.sy);
+    g.fillStyle = "#3a2218"; g.fillRect(-4 * u, -3 * u, 8 * u, 2 * u);
+    g.fillStyle = "#D97757";
+    for (let r = 0; r < PAL_ROWS.length; r++) for (const run of PAL_ROWS[r]) g.fillRect((run[0] - 9) * u - 0.2, (r * 2 - 5) * u - 0.2, (run[1] - run[0] + 1) * u + 0.4, 2 * u + 0.4);
+    g.restore();
+  }
+  paintHeld(g, P, baton) {
+    const h = heldAt(this.st.t, baton), c = this.toWorld(P, h.x, h.y);
+    g.save(); g.translate(c.x, c.y); g.rotate(P.angle + h.a); this.paintFav(g, R * (this.who.fav === "leek" ? 0.5 : 0.36)); g.restore();
+  }
+  paintShout(g, P) {
+    const u = (this.st.t * 3.2) % 1;
+    g.save(); g.lineCap = "round"; g.strokeStyle = "#FFE08A"; g.lineWidth = R * 0.1; g.globalAlpha = 1 - u * u;
+    for (const d of [-1, 1]) for (const a of [-0.55, 0, 0.55]) {
+      const r0 = 1.2 + u * 0.45, r1 = r0 + 0.3;
+      const A = this.toWorld(P, d * Math.cos(a) * r0, 0.15 + Math.sin(a) * r0), B = this.toWorld(P, d * Math.cos(a) * r1, 0.15 + Math.sin(a) * r1);
+      g.beginPath(); g.moveTo(A.x, A.y); g.lineTo(B.x, B.y); g.stroke();
+    }
+    g.restore();
+  }
+  paintBroom(g, P, b) {
+    const A = this.toWorld(P, b.ax, b.ay), B = this.toWorld(P, b.bx, b.by);
     const len = Math.hypot(B.x - A.x, B.y - A.y) || 1, dx = (B.x - A.x) / len, dy = (B.y - A.y) / len, nx = -dy, ny = dx;
     g.lineCap = "round"; g.lineJoin = "round";
     g.strokeStyle = "#B07A3C"; g.lineWidth = R * 0.1; g.beginPath(); g.moveTo(A.x, A.y); g.lineTo(B.x, B.y); g.stroke();
@@ -699,6 +792,11 @@ async function run(name, need, fn) {
   if (need.includes("duo") && !duo()) { SC.duo = true; if (SC.buddy === SC.main) SC.buddy = SC.main === "miku" ? "zunda" : "miku"; castChanged(); }
   if (need.includes("rin") && !heraldOn()) { if (SC.main === "rin") SC.main = "miku"; if (SC.buddy === "rin") SC.buddy = SC.main === "miku" ? "zunda" : "miku"; SC.rin = true; castChanged(); }
   if (need.includes("solo") && duo()) { SC.duo = false; castChanged(); }
+  const own = need.find(n => n.startsWith("own:"));
+  if (own) { // (she has to be one of the two)
+    const c = own.slice(4);
+    if (SC.main !== c && SC.buddy !== c) { SC.buddy = c; castChanged(); }
+  }
   syncCastUi();
   const mine = gen;
   setPlaying(name);
@@ -811,6 +909,7 @@ function noteGlyph(g, x, y, s, rot, tint, a) { g.save(); g.globalAlpha = a; g.tr
 function drawSign(g, x, y, t) {
   g.save(); g.translate(x, y + 22); g.rotate(Math.sin(t * 6) * 0.1);
   g.strokeStyle = "#B07A3C"; g.lineWidth = 2; g.lineCap = "round"; g.beginPath(); g.moveTo(0, 0); g.lineTo(0, -14); g.stroke();
+  { const pg = g.createLinearGradient(0, -5, 0, 3); pg.addColorStop(0, "#FFFAF5"); pg.addColorStop(1, "#DDCCBF"); g.fillStyle = pg; g.beginPath(); g.arc(0, -1, 4, 0, TAU, false); g.fill(); } // her paw on the stick
   g.fillStyle = "#FFD24A"; g.strokeStyle = "#FFFFFF"; g.lineWidth = 1.5; rr(g, -4, -27, 46, 14, 5); g.fill(); g.stroke();
   g.fillStyle = "#3d2c00"; g.font = "800 7.5px system-ui, sans-serif"; g.textBaseline = "middle"; g.textAlign = "left"; g.fillText("Telegram", 1, -19.6);
   g.fillStyle = "#E0405A"; g.beginPath(); g.arc(41, -27, 4.5, 0, TAU, false); g.fill(); g.strokeStyle = "#FFFFFF"; g.lineWidth = 1; g.stroke();
@@ -885,10 +984,13 @@ function btn(host, text, fn, data) { const b = document.createElement("button");
 const moodNames = { idle: "покой", think: "думает", work: "работает", alert: "ждёт ответа", wow: "удивлена", happy: "готово", sad: "ошибка", sleep: "спит", dizzy: "кружится", walk: "идёт" };
 for (const m in moodNames) btn("moods", moodNames[m], () => setMood(m), { m });
 const emoteNames = { hello: "привет", surprised: "ой", love: "сердечки", fond: "нежность", flustered: "смущена", annoyed: "дуется", angry: "злится", unimpressed: "серьёзно?", laugh: "смеётся", proud: "гордится",
-                     tsun: "хмф", hum: "напевает", sing: "поёт в танце", hype: "в восторге", cool: "невозмутима", stretch: "потягивается", smug: "довольна собой", upset: "расстроена", sweep: "подметает" };
-for (const e in emoteNames) btn("emotes", emoteNames[e], () => play(e, e === "sweep" ? 4300 : 2400));
+                     tsun: "хмф", hum: "напевает", sing: "поёт в танце", hype: "в восторге", cool: "невозмутима", stretch: "потягивается", smug: "довольна собой", upset: "расстроена", sweep: "подметает",
+                     scared: "испугалась", threat: "замахнулась метлой", treat: "показывает любимое", baton: "дирижирует", shout: "кричит" };
+for (const e in emoteNames) btn("emotes", emoteNames[e], () => play(e, e === "sweep" ? 4300 : 2400), { o: OWNER[e] || "" });
 setMood("idle");
 // what each does in her own way
+const toyNames = { squeeze: ["тискает", 1500], lift: ["поднимает и разглядывает", 2200], toss: ["подбрасывает и ловит", 900], pat: ["гладит", 1500], show: ["протягивает показать", 2300], guard: ["прячет от чужой руки", 2000] };
+for (const k in toyNames) btn("toy", toyNames[k][0], () => { if (world.mood !== "work" && world.mood !== "think") setMood("work"); for (const b of [big, mini]) { b.emote = ""; b.palDo(k, toyNames[k][1], 1); } });
 btn("own", "шлепок (у каждой свой ответ)", () => { big.poke(); mini.poke(); });
 btn("own", "три шлепка: головокружение", () => { for (const b of [big, mini]) { b.dizzyLeft = 3.3; b.moodChanged("dizzy"); } });
 btn("own", "навели мышь и замерли", () => play(big.who.rest, 2400));
@@ -925,6 +1027,28 @@ for (const [n, fn] of DUO) sceneBtn("scDuo", n, ["duo"], fn);
 sceneBtn("scDuo", "смена ведущей: прыжком меняются местами", ["duo"], trade);
 for (const [n, fn] of NOTE) sceneBtn("scNote", n, ["rin"], fn);
 for (const [n, fn] of SKIT) sceneBtn("scSkit", n, ["rin"], fn);
+// (A: the one whose scene it is; O: the other one)
+const ownPair = c => SC.main === c ? [M, B] : [B, M];
+const OWN = [
+  ["Тето: над ней смеются, она замахивается метлой", "teto", async () => { const [A, O] = ownPair("teto"); O.play("laugh", 1300); O.jump(0.3, false); await pause(600); A.play("tsun", 700); await pause(650); A.play("threat", 1900); A.jump(0.5, true); await pause(260); O.play("scared", 1700); O.st.shake = 1; O.st.sqv += 7; await pause(700); O.st.shake = 0.8; await pause(950); A.play("smug", 1300); O.play("upset", 1200); await pause(1300); }],
+  ["Мику: дирижирует луком, соседка подпевает", "miku", async () => { const [A, O] = ownPair("miku"); A.play("baton", 2600); A.jump(0.3, false); await pause(500); O.play("sing", 2000); O.st.swing = 1; await pause(900); O.jump(0.3, false); O.st.swing = 1; await pause(1200); A.play("laugh", 1000); O.play("hype", 1000); O.jump(0.5, false); await pause(1100); }],
+  ["Рин: орёт, соседку сносит", "rin", async () => { const [A, O] = ownPair("rin"); A.st.sqv += 6; await pause(380); A.play("shout", 1300); A.jump(0.4, true); await pause(140); O.play("scared", 1300); O.st.shake = 1; O.st.sqv += 9; await pause(1250); A.play("laugh", 1200); O.play(O.who.slap, 1500); await pause(1500); }],
+  ["Лука: показывает тунца и убирает", "luka", async () => { const [A, O] = ownPair("luka"); A.play("treat", 2300); await pause(450); O.play("love", 1700); O.jump(0.5, true); await pause(700); O.jump(0.6, true); await pause(1100); A.play("cool", 1400); O.play("upset", 1500); await pause(1500); }],
+  ["Зундамон: хвастается, его пугают", "zunda", async () => { const [A, O] = ownPair("zunda"); A.play("proud", 1300); A.roll(1, 800); await pause(900); O.play(O.who.slap, 700); await pause(650); O.play("hype", 700); O.jump(0.8, true); await pause(160); A.play("scared", 1500); A.st.shake = 1; A.jump(0.6, true); await pause(1300); O.play("laugh", 1200); A.play("flustered", 1200); await pause(1300); }]
+];
+for (const [n, c, fn] of OWN) sceneBtn("scOwn", n, ["duo", "own:" + c], fn);
+// (Miku has him only while she works: the scene puts her to work and lets her go after)
+const toyScene = fn => async () => { const [A, O] = ownPair("miku"); A.emote = ""; A.setMood("work"); try { await fn(A, O, O === B ? 1 : -1); } finally { A.setMood("idle"); } };
+const TOY = [
+  ["показывает игрушку, соседка умиляется", toyScene(async (A, O, d) => { A.palDo("show", 2300, d); await pause(450); O.play("love", 1600); O.jump(0.4, true); await pause(1900); A.palDo("squeeze", 1200, 1); await pause(1300); })],
+  ["соседка тянется за игрушкой, Мику не даёт", toyScene(async (A, O, d) => { O.play("hype", 900); O.jump(0.5, true); await pause(300); A.palDo("guard", 2000, d); A.st.sqv += 5; await pause(700); O.play("upset", 1500); await pause(1400); A.palDo("pat", 1400, 1); await pause(1500); })],
+  ["соседка тычет в игрушку, та подлетает", toyScene(async (A, O, d) => { O.jump(0.35, true); O.st.sqv += 4; await pause(220); A.palDo("toss", 950, 1); A.st.shake = 0.5; await pause(300); O.play("laugh", 1300); await pause(700); A.palDo("squeeze", 1500, 1); await pause(1600); })],
+  ["одна: тискает", toyScene(async A => { A.palDo("squeeze", 1500, 1); await pause(1700); })],
+  ["одна: поднимает и разглядывает", toyScene(async A => { A.palDo("lift", 2200, 1); await pause(2400); })],
+  ["одна: подбрасывает и ловит", toyScene(async A => { A.palDo("toss", 900, 1); A.st.sqv += 5; await pause(1300); })],
+  ["одна: гладит", toyScene(async A => { A.palDo("pat", 1500, 1); await pause(1700); })]
+];
+for (const [n, fn] of TOY) sceneBtn("scToy", n, ["duo", "own:miku"], fn);
 sceneBtn("scDance", "танец: шаги в такт и прыжок", ["duo"], groove);
 sceneBtn("scDance", "танец: ноты, наклоны и вращения", ["duo"], disco);
 // the flights are what a change of the cast does; these do one for you
@@ -965,9 +1089,35 @@ function build() {
 function pick(c) {
   cur = c; T = ALL[c]; build(); save(); document.getElementById("pname").textContent = CAST[c].name;
   document.querySelectorAll("#cast button").forEach(x => x.classList.toggle("on", x.dataset.c === c));
+  // (the feelings that are one character's alone show only for her)
+  document.querySelectorAll("#emotes button").forEach(x => x.style.display = !x.dataset.o || x.dataset.o === c ? "" : "none");
+  document.getElementById("toyBox").hidden = c !== "miku";
 }
 for (const c in CAST) { const b = document.createElement("button"); b.textContent = CAST[c].name; b.dataset.c = c; b.onclick = () => pick(c); document.getElementById("cast").appendChild(b); }
 pick("miku");
+const tabs = [...document.querySelectorAll(".tabs button")];
+function showTab(id) {
+  for (const b of tabs) { b.classList.toggle("on", b.dataset.tab === id); document.getElementById(b.dataset.tab).hidden = b.dataset.tab !== id; }
+  try { localStorage.setItem("kisel-viewer-tab", id); } catch (e) {}
+}
+for (const b of tabs) b.onclick = () => { document.getElementById("find").value = ""; filter(""); showTab(b.dataset.tab); };
+// (the search looks through the buttons of the first two tabs at once, and hides the headings that end up empty)
+function filter(q) {
+  q = q.trim().toLowerCase();
+  for (const id of ["tOne", "tScenes"]) {
+    const tab = document.getElementById(id);
+    if (q) tab.hidden = false;
+    for (const row of tab.querySelectorAll(".row")) {
+      let any = false;
+      for (const b of row.querySelectorAll("button")) { const hit = !q || b.textContent.toLowerCase().includes(q); b.hidden = !hit; any = any || hit; }
+      const h = row.previousElementSibling; if (h && h.tagName === "H4") h.hidden = !any;
+    }
+  }
+  if (q) document.getElementById("tLook").hidden = true;
+  else showTab((tabs.find(b => b.classList.contains("on")) || tabs[0]).dataset.tab);
+}
+document.getElementById("find").oninput = e => filter(e.target.value);
+try { const t = localStorage.getItem("kisel-viewer-tab"); if (t && document.getElementById(t)) showTab(t); } catch (e) {}
 document.getElementById("bShare").onclick = e => { for (const c in CAST) for (const k of SHARED) ALL[c][k] = T[k]; save(); e.target.textContent = "Готово"; setTimeout(() => e.target.textContent = "Тело, лицо и руки этой — всем", 1200); };
 document.getElementById("bReset").onclick = () => { ALL[cur] = T = Object.assign({}, DEF, CAST[cur].over); build(); save(); };
 document.getElementById("bApply").onclick = () => { try { const sv = JSON.parse(document.getElementById("json").value); for (const c in CAST) if (sv[c]) ALL[c] = Object.assign({}, DEF, CAST[c].over, sv[c]); T = ALL[cur]; build(); save(); } catch (e) { alert("Не разобрать: " + e.message); } };

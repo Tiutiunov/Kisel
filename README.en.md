@@ -164,6 +164,6 @@ The characters aren't mine. Kisel is a non-commercial fan project, not affiliate
 
 > この作品はピアプロ・キャラクター・ライセンスに基づいてクリプトン・フューチャー・メディア株式会社のキャラクター「初音ミク」「鏡音リン」「巡音ルカ」を描いたものです。
 
-Kisel has nothing to do with Anthropic. Claude and Claude Code are their trademarks.
+Kisel has nothing to do with Anthropic. Claude and Claude Code are their trademarks, and the little orange creature Miku hugs while she works is their Claude Code character too.
 
 It's built on [Qt 6](https://www.qt.io) under the LGPL v3, linked dynamically: the libraries sit next to `kisel.exe` untouched and you can swap in your own build. Qt's source is at [download.qt.io](https://download.qt.io/official_releases/qt/). The licence texts are installed into the `licenses` folder, and everything else is listed in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

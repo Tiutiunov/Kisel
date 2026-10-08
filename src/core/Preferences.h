@@ -32,6 +32,8 @@ class Preferences : public QObject
     Q_PROPERTY(bool lukaNet READ lukaNet WRITE setLukaNet NOTIFY changed)          // Luka watches the connection
     Q_PROPERTY(QString character READ character WRITE setCharacter NOTIFY changed) // miku | rin | luka | zunda | teto
     Q_PROPERTY(bool hookSeen READ hookSeen NOTIFY changed)
+    // What Kisel does when Claude Code's hooks are missing or broken: ask | auto | off
+    Q_PROPERTY(QString hookWatch READ hookWatch WRITE setHookWatch NOTIFY changed)
     Q_PROPERTY(int alwaysCount READ alwaysCount NOTIFY changed)
 
 public:
@@ -83,6 +85,18 @@ public:
     bool lukaNet() const { return m_s.value("lukaNet", true).toBool(); }
     void setLukaNet(bool v) { set("lukaNet", v); }
     void setHookSeen(bool v) { set("hookSeen", v); }
+    // ask: tell the user and let them confirm the change (default). auto: repair hooks that
+    // were already connected and have gone stale, still with a dated backup; never add new
+    // ones. off: only the Connect button.
+    QString hookWatch() const
+    {
+        const QString v = m_s.value("hookWatch", "ask").toString();
+        return v == QLatin1String("auto") || v == QLatin1String("off") ? v : QStringLiteral("ask");
+    }
+    void setHookWatch(const QString &v) { set("hookWatch", v); }
+    // The user took the hooks out on purpose: do not nag about them being gone.
+    bool hookRemoved() const { return m_s.value("hookRemoved", false).toBool(); }
+    void setHookRemoved(bool v) { set("hookRemoved", v); }
     void setFirstRunDone(bool v) { set("firstRunDone", v); }
 
     // Where Kisel docks on each monitor (remembered per output name): the edge and the

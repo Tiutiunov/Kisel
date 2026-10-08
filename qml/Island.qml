@@ -110,7 +110,19 @@ Item {
     readonly property string rest: mikuAsked ? "miku" : idleTune && zundaLive ? "zunda"
         : Prefs.character !== "miku" || mikuPinned ? Prefs.character
         : tetoLive ? "teto" : lukaLive ? "luka" : zundaLive ? "zunda" : lukaBusy ? "luka" : "miku"
-    readonly property string stage: guest !== "" ? guest : rest
+    // (When Kisel starts it is Miku who comes out to say hello, whoever was chosen: she
+    // is its face. Once she is in the bar the chosen one takes over from her as after any
+    // visit of hers. `opened` is false until then.)
+    property bool opened: false
+    readonly property bool opening: greeting || assembling
+    function openedNow() {
+        if (opened) return
+        if (rest !== "miku") { guest = "miku"; guestTimer.restart() }
+        opened = true
+    }
+    onOpeningChanged: if (!opening) openedNow()
+    Timer { interval: 2500; running: true; onTriggered: if (!root.opening) root.openedNow() } // (started without a greeting)
+    readonly property string stage: !opened ? "miku" : guest !== "" ? guest : rest
     function stepIn() {
         if (rest === "miku") return
         guest = "miku"
@@ -125,15 +137,17 @@ Item {
         if (who === "miku") stepIn() // (with music on the stage is Zundamon's: Miku at least comes out to say hello)
     }
     Timer { id: guestTimer; interval: 3000
-        // (she also stays for as long as her "Done" is up: it is her news)
-        onTriggered: { if (Hub.pendingCount > 0 || (root.doneHold && Hub.chip === "done")) restart(); else root.guest = "" } }
+        // (she also stays for as long as her "Done" is up: it is her news; and for as long as
+        // Claude works: the bar and the card are hers then, whoever was chosen, and the
+        // chosen one keeps her company. Picking someone from the bench by hand still wins.)
+        onTriggered: { if (Hub.pendingCount > 0 || (root.doneHold && Hub.chip === "done") || root.claudeBusy) restart(); else root.guest = "" } }
     readonly property string sessionId: Hub.session.id || ""
     onSessionIdChanged: if (sessionId !== "") stepIn()
     readonly property bool claudeBusy: Hub.mood === "work" || Hub.mood === "think"
     onClaudeBusyChanged: if (claudeBusy) { idleTune = false; stepIn() }
     // The chosen one with a service of her own (Zundamon with Spotify) minds that service:
     // Claude's working is Miku's news, not hers.
-    readonly property bool ownAct: guest === "" && rest === "zunda" && Prefs.zundaSpotify && Media.available
+    readonly property bool ownAct: opened && guest === "" && rest === "zunda" && Prefs.zundaSpotify && Media.available
     readonly property var benchAfter: cast.filter(c => c !== stage && !(duo && c === buddyWho) && !(heraldRin && c === "rin"))
     readonly property var bench: benchAfter.filter(c => !flying.includes(c)) // (whoever is in the air has not sat down yet)
 
@@ -149,11 +163,11 @@ Item {
         && !tucked && !assembling && !greeting && !Theme.reduced
     onCanGrooveChanged: if (!canGroove && (skGroove.running || skDisco.running)) { stopDances(); mainDx = 0; buddyDx = 0; heraldDx = 0 }
     Timer {
-        interval: 4000
+        interval: 12000
         repeat: true
         running: root.canGroove
         onTriggered: {
-            interval = 8000 + Math.random() * 6000
+            interval = 25000 + Math.random() * 20000
             let busy = skTrade.running || sweeping || noteWave.running || flying.length > 0 || arriving.length > 0
             for (const k of root.skits) busy = busy || k.running
             for (const k of root.noteSkits) busy = busy || k.running
@@ -290,6 +304,7 @@ Item {
         return m
     }
     onHeadChanged: {
+        stopOwn() // (whoever was in a scene of her own may be leaving)
         for (const c of headWas) if (!head.includes(c)) launch(c, headX[c] !== undefined ? farEnd() + headX[c] : alongOf(mascot))
         for (const c of head) if (!headWas.includes(c)) launchIn(c, c === stage ? "main" : duo && c === buddyWho ? "buddy" : "herald")
         headWas = head
@@ -341,9 +356,11 @@ Item {
         return all.filter(m => m !== r)
     }
     function noteScene() {
-        if (skTrade.running || sweeping || noteWave.running || skGroove.running || skDisco.running) return
+        if (skTrade.running || sweeping || noteWave.running || skGroove.running || skDisco.running || ownRunning()) return
         for (const k of skits) if (k.running) return
         for (const k of noteSkits) if (k.running) return
+        if (Math.random() < 0.2 && playToy()) return
+        if (Math.random() < 0.3 && playOwn()) return
         // Rin seated after the others: mostly the scenes with her in them bodily
         if (rinNow === herald && herald.pop > 0.9 && Math.random() < 0.75) {
             let n = Math.floor(Math.random() * noteSkits.length)
@@ -489,10 +506,10 @@ Item {
     }
     onNoteChanged: { updateHit(); if (note) { rinNow.jump(0.8, true); if (stage !== "rin") mascot.play("surprised", 900) } else { stopNoteSkits(); mainDx = 0; buddyDx = 0; tossA = 0 } }
     Timer {
-        interval: 4000
+        interval: 9000
         repeat: true
         running: root.note && !Theme.reduced && !root.tucked
-        onTriggered: { interval = 3500 + Math.random() * 3500; root.noteScene() }
+        onTriggered: { interval = 14000 + Math.random() * 12000; root.noteScene() }
     }
 
     // ---- two at work ----------------------------------------------------------------
@@ -523,7 +540,7 @@ Item {
     // What they do between them. Each scene is a short sequence: emotes, hops and squashes
     // on either of them, the two sliding toward or past each other (`mainDx`, `buddyDx`),
     // the partner ducking (`buddyPop`), and a star that passes between them (`tossU`,
-    // `tossA`). One plays every four to seven seconds, never the same twice in a row.
+    // `tossA`). One plays every quarter to half a minute (they are company, not a show), never the same twice in a row.
     property real mainDx: 0
     property real buddyDx: 0
     property real buddyPop: 1
@@ -531,10 +548,164 @@ Item {
     property real tossA: 0
     property int lastSkit: -1
     readonly property var skits: [skWave, skNod, skStartle, skHum, skQuirk, skRoll, skBump, skSwap, skFive, skLove, skPeek, skSquabble, skToss, skDoze, skDance, skCheer]
+    // ---- the scenes of their own ----------------------------------------------------------
+    // Each of the five has one that is hers, with whoever sits next to her (`ownA` does it
+    // to `ownB`). Teto is laughed at, takes her broom and raises it, and the other one
+    // cowers. Miku conducts with her leek and the other sings along. Rin shouts and the
+    // other is blown flat. Luka holds up her tuna, lets the other want it, and puts it
+    // away. Zundamon shows off, is given a start, and panics. They move no one from her
+    // seat, so they play the same in a pair, in a row of three, lying or standing.
+    property Item ownA: null
+    property Item ownB: null
+    function seated(name) {
+        return stage === name ? mascot : duo && buddyWho === name ? buddy : heraldRin && name === "rin" ? herald : null
+    }
+    readonly property var ownSkits: ({ teto: ownTeto, miku: ownMiku, rin: ownRin, luka: ownLuka, zunda: ownZunda })
+    function ownRunning() { for (const k in ownSkits) if (ownSkits[k].running) return true; for (const k of toySkits) if (k.running) return true; return false }
+    function stopOwn() { for (const k in ownSkits) ownSkits[k].stop(); for (const k of toySkits) k.stop() }
+    // ...and Miku's with Claude's little one, while she has him (that is, while Claude
+    // works). By herself, every so often, she squeezes him, lifts him up, throws him up
+    // and catches him, or pats him. With a neighbour (`ownB`): she holds him out to show
+    // and the neighbour is charmed; the neighbour reaches for him and Miku turns him away;
+    // the neighbour gives him a poke, up he goes, and Miku catches him and holds him tight.
+    // Miku plays no feeling of her own in these: one would take him out of her arms.
+    readonly property var toySkits: [toyShow, toyGrab, toyPoke]
+    readonly property var toyAlone: ["squeeze", "lift", "toss", "pat"]
+    property int lastToy: -1
+    function toyDir() { // which side of Miku the neighbour is on
+        if (!ownA || !ownB) return 1
+        return vertical ? inward : (ownB.x >= ownA.x ? 1 : -1)
+    }
+    function playToy() {
+        const mk = seated("miku")
+        if (!mk || !claudeBusy || mk.emote !== "" || arriving.includes("miku")) return false
+        const others = head.filter(c => c !== "miku" && seated(c) !== null && !arriving.includes(c))
+        if (others.length === 0) return false
+        ownA = mk; ownB = seated(others[Math.floor(Math.random() * others.length)])
+        let i = Math.floor(Math.random() * toySkits.length)
+        if (i === lastToy) i = (i + 1) % toySkits.length
+        lastToy = i
+        duoLook = true; duoLookOff.restart()
+        toySkits[i].restart()
+        return true
+    }
+    Timer { // by herself
+        interval: 12000
+        repeat: true
+        running: root.claudeBusy && !Theme.reduced && !root.tucked && root.seated("miku") !== null
+        onTriggered: {
+            interval = 18000 + Math.random() * 16000
+            const mk = root.seated("miku")
+            if (!mk || mk.emote !== "" || root.ownRunning() || (mk.st.palK || "") !== "") return
+            const k = root.toyAlone[Math.floor(Math.random() * root.toyAlone.length)]
+            mk.palDo(k, k === "toss" ? 900 : k === "lift" ? 2200 : 1500, 1)
+            if (k === "toss") mk.st.sqv += 5
+        }
+    }
+    SequentialAnimation {
+        id: toyShow
+        ScriptAction { script: { root.ownA.palDo("show", 2300, root.toyDir()) } }
+        PauseAnimation { duration: 450 }
+        ScriptAction { script: { root.ownB.play("love", 1600); root.ownB.jump(0.4, true) } }
+        PauseAnimation { duration: 1900 }
+        ScriptAction { script: { root.ownA.palDo("squeeze", 1200, 1) } }
+    }
+    SequentialAnimation {
+        id: toyGrab
+        ScriptAction { script: { root.ownB.play("hype", 900); root.ownB.jump(0.5, true) } }
+        PauseAnimation { duration: 300 }
+        ScriptAction { script: { root.ownA.palDo("guard", 2000, root.toyDir()); root.ownA.st.sqv += 5 } }
+        PauseAnimation { duration: 700 }
+        ScriptAction { script: { root.ownB.play("upset", 1500) } }
+        PauseAnimation { duration: 1400 }
+        ScriptAction { script: { root.ownA.palDo("pat", 1400, 1) } }
+    }
+    SequentialAnimation {
+        id: toyPoke
+        ScriptAction { script: { root.ownB.jump(0.35, true); root.ownB.st.sqv += 4 } }
+        PauseAnimation { duration: 220 }
+        ScriptAction { script: { root.ownA.palDo("toss", 950, 1); root.ownA.st.shake = 0.5 } }
+        PauseAnimation { duration: 300 }
+        ScriptAction { script: { root.ownB.play("laugh", 1300) } }
+        PauseAnimation { duration: 700 }
+        ScriptAction { script: { root.ownA.palDo("squeeze", 1500, 1) } }
+    }
+    property string lastOwn: ""
+    function playOwn() {
+        const there = head.filter(c => seated(c) !== null && !arriving.includes(c))
+        if (there.length < 2) return false
+        let who = there[Math.floor(Math.random() * there.length)]
+        if (who === lastOwn) who = there[(there.indexOf(who) + 1) % there.length]
+        const others = there.filter(c => c !== who)
+        lastOwn = who
+        ownA = seated(who); ownB = seated(others[Math.floor(Math.random() * others.length)])
+        duoLook = true; duoLookOff.restart()
+        ownSkits[who].restart()
+        return true
+    }
+    SequentialAnimation {
+        id: ownTeto
+        ScriptAction { script: { root.ownB.play("laugh", 1300); root.ownB.jump(0.3, false) } }
+        PauseAnimation { duration: 600 }
+        ScriptAction { script: { root.ownA.play("tsun", 700) } }
+        PauseAnimation { duration: 650 }
+        ScriptAction { script: { root.ownA.play("threat", 1900); root.ownA.jump(0.5, true) } }
+        PauseAnimation { duration: 260 }
+        ScriptAction { script: { root.ownB.play("scared", 1700); root.ownB.st.shake = 1; root.ownB.st.sqv += 7 } }
+        PauseAnimation { duration: 700 }
+        ScriptAction { script: { root.ownB.st.shake = 0.8 } }
+        PauseAnimation { duration: 950 }
+        ScriptAction { script: { root.ownA.play("smug", 1300); root.ownB.play("upset", 1200) } }
+    }
+    SequentialAnimation {
+        id: ownMiku
+        ScriptAction { script: { root.ownA.play("baton", 2600); root.ownA.jump(0.3, false) } }
+        PauseAnimation { duration: 500 }
+        ScriptAction { script: { root.ownB.play("sing", 2000); root.ownB.st.swing = 1 } }
+        PauseAnimation { duration: 900 }
+        ScriptAction { script: { root.ownB.jump(0.3, false); root.ownB.st.swing = 1 } }
+        PauseAnimation { duration: 1200 }
+        ScriptAction { script: { root.ownA.play("laugh", 1000); root.ownB.play("hype", 1000); root.ownB.jump(0.5, false) } }
+    }
+    SequentialAnimation {
+        id: ownRin
+        ScriptAction { script: { root.ownA.st.sqv += 6 } } // (a breath in)
+        PauseAnimation { duration: 380 }
+        ScriptAction { script: { root.ownA.play("shout", 1300); root.ownA.jump(0.4, true) } }
+        PauseAnimation { duration: 140 }
+        ScriptAction { script: { root.ownB.play("scared", 1300); root.ownB.st.shake = 1; root.ownB.st.sqv += 9 } }
+        PauseAnimation { duration: 1250 }
+        ScriptAction { script: { root.ownA.play("laugh", 1200); root.ownB.play(root.ownB.who.slap, 1500) } }
+    }
+    SequentialAnimation {
+        id: ownLuka
+        ScriptAction { script: { root.ownA.play("treat", 2300) } }
+        PauseAnimation { duration: 450 }
+        ScriptAction { script: { root.ownB.play("love", 1700); root.ownB.jump(0.5, true) } }
+        PauseAnimation { duration: 700 }
+        ScriptAction { script: { root.ownB.jump(0.6, true) } }
+        PauseAnimation { duration: 1100 }
+        ScriptAction { script: { root.ownA.play("cool", 1400); root.ownB.play("upset", 1500) } }
+    }
+    SequentialAnimation {
+        id: ownZunda
+        ScriptAction { script: { root.ownA.play("proud", 1300); root.ownA.roll(1, 800) } }
+        PauseAnimation { duration: 900 }
+        ScriptAction { script: { root.ownB.play(root.ownB.who.slap, 700) } }
+        PauseAnimation { duration: 650 }
+        ScriptAction { script: { root.ownB.play("hype", 700); root.ownB.jump(0.8, true) } }
+        PauseAnimation { duration: 160 }
+        ScriptAction { script: { root.ownA.play("scared", 1500); root.ownA.st.shake = 1; root.ownA.jump(0.6, true) } }
+        PauseAnimation { duration: 1300 }
+        ScriptAction { script: { root.ownB.play("laugh", 1200); root.ownA.play("flustered", 1200) } }
+    }
+
     function playSkit() {
-        if (skTrade.running || sweeping || skGroove.running || skDisco.running) return // (nothing interrupts the sweeping, or a dance)
+        if (skTrade.running || sweeping || skGroove.running || skDisco.running || ownRunning()) return // (nothing interrupts the sweeping, or a dance)
         for (const k of skits) if (k.running) return
         for (const k of noteSkits) if (k.running) return
+        if (Math.random() < 0.25 && playToy()) return
+        if (Math.random() < 0.35 && playOwn()) return
         let i = Math.floor(Math.random() * skits.length)
         if (i === lastSkit) i = (i + 1) % skits.length
         lastSkit = i
@@ -570,10 +741,10 @@ Item {
     }
     Timer {
         id: duoTimer
-        interval: 3000
+        interval: 8000
         repeat: true
         running: root.duo && !Theme.reduced && !root.tucked
-        onTriggered: { interval = 3500 + Math.random() * 4000; root.playSkit() }
+        onTriggered: { interval = 14000 + Math.random() * 12000; root.playSkit() }
     }
     // one hops, the other follows
     SequentialAnimation {
@@ -736,10 +907,10 @@ Item {
         else { mascot.play("smug", 1600); mascot.jump(0.6, true) }
     }
     // Teto on stage: the bar is her gauges, and she looks the way the computer feels
-    readonly property bool tetoAct: guest === "" && rest === "teto" && Prefs.tetoSystem && Sys.available
+    readonly property bool tetoAct: opened && guest === "" && rest === "teto" && Prefs.tetoSystem && Sys.available
     readonly property bool miniGauges: tetoAct && Hub.pendingCount === 0 && !(doneHold && Hub.chip === "done")
     // Luka on stage: the bar is her readings of the connection
-    readonly property bool lukaAct: guest === "" && rest === "luka" && Prefs.lukaNet && Net.available
+    readonly property bool lukaAct: opened && guest === "" && rest === "luka" && Prefs.lukaNet && Net.available
     readonly property bool miniNet: lukaAct && Hub.pendingCount === 0 && !(doneHold && Hub.chip === "done")
     // (she starts when the line goes, and is quietly pleased when it is back)
     // (...and is pleased with a download that has come in whole)
@@ -781,6 +952,13 @@ Item {
     readonly property bool barOwn: miniPlayer || miniGauges || miniNet // the bar belongs to the one on stage, not to Claude's label
     readonly property bool miniPlayer: ownAct && Media.active && Media.playing && Hub.pendingCount === 0 && !(doneHold && Hub.chip === "done")
     property bool doneHold: false
+    // "Done" is news, and news that has been looked at is over: once the card has been opened
+    // by hand the bar's "Done" does not come back for that task.
+    property bool doneSeen: false
+    readonly property bool doneLooked: expanded && !autoOpened && Hub.chip === "done"
+    onDoneLookedChanged: if (doneLooked) doneSeen = true
+    readonly property string chipNow: Hub.chip
+    onChipNowChanged: doneSeen = false
     Timer { id: doneHoldTimer; interval: 2500
         onTriggered: { root.doneHold = false; if (Hub.pendingCount === 0) { guestTimer.stop(); root.guest = "" } } } // "Done" is over: Miku goes, and the one who rests is back
     readonly property real pillContentW: labelX + pillRow.implicitWidth + 16
@@ -1534,6 +1712,80 @@ Item {
                 border.color: Theme.line
             }
 
+            // Luka's speed test: the bar fills with pink like a glass being filled. Along a
+            // lying bar the liquid runs in from the left, its front leaning forward along the
+            // floor and rippling; a standing bar fills from the bottom with a level surface.
+            // The front is on a spring, so it surges and settles when the test moves on in
+            // steps, and the ripples are bigger the faster it runs; bubbles rise behind it.
+            // When the test is done the bar is full for a moment and the liquid fades.
+            // (Teto's bar fills the same way, in her red, while she cleans the memory: that
+            // has no measure of its own, so it fills over the time her sweeping takes.)
+            Item {
+                id: testFill
+                readonly property bool shown: !root.expanded && !root.floating && !root.mfree
+                readonly property bool net: shown && root.miniNet && Speed.running
+                readonly property bool mem: shown && root.miniGauges && Sys.cleaning
+                readonly property bool on: net || mem
+                property bool red: false // (kept while it fades)
+                onMemChanged: { if (mem) { red = true; sweepFill.restart() } else sweepFill.stop() }
+                onNetChanged: if (net) red = false
+                property real swept: 0
+                NumberAnimation { id: sweepFill; target: testFill; property: "swept"; from: 0; to: 0.96; duration: 4200; easing.type: Easing.InOutSine }
+                property real u: net ? Speed.progress : mem ? swept : (red ? Sys.justCleaned : Speed.justDone) ? 1 : 0
+                Behavior on u { enabled: !Theme.reduced && !testFill.mem; SpringAnimation { spring: 1.5; damping: 0.26; epsilon: 0.0005 } } // (the sweep's own run is smooth already: a spring would only trail behind it)
+                x: root.shapeX + 1; y: root.shapeY + 1
+                width: root.shapeW - 2; height: root.shapeH - 2
+                opacity: on ? 1 : 0
+                visible: opacity > 0.01
+                Behavior on opacity { NumberAnimation { duration: testFill.on ? 260 : 900; easing.type: Easing.InOutSine } }
+                Timer { interval: 33; repeat: true; running: testFill.visible; onTriggered: pool.requestPaint() }
+                Canvas {
+                    id: pool
+                    anchors.fill: parent
+                    property real was: 0   // where the front was a frame ago
+                    property real rush: 0  // how fast it is going, smoothed
+                    onPaint: {
+                        const g = getContext("2d"), w = width, h = height, r = Math.max(0, root.radius - 1)
+                        const t = Date.now() / 1000, u = Math.max(0, Math.min(1.02, testFill.u)), up = root.vertical
+                        rush += (Math.min(1, Math.abs(u - was) * 60) - rush) * 0.2; was = u
+                        const amp = Theme.reduced ? 0 : 1 + rush * 3.5
+                        const ca = testFill.red ? "224,64,90" : "245,163,192", cb = testFill.red ? "255,120,140" : "255,183,208"
+                        g.reset()
+                        // (inside the bar's own outline)
+                        g.beginPath(); g.moveTo(r, 0); g.lineTo(w - r, 0); g.quadraticCurveTo(w, 0, w, r); g.lineTo(w, h - r); g.quadraticCurveTo(w, h, w - r, h)
+                        g.lineTo(r, h); g.quadraticCurveTo(0, h, 0, h - r); g.lineTo(0, r); g.quadraticCurveTo(0, 0, r, 0); g.closePath(); g.clip()
+                        const edge = []
+                        if (up) { // a level surface, rising
+                            const level = h * (1 - u)
+                            for (let x = 0; x <= w; x += 2) edge.push([x, level + Math.sin(x * 0.22 + t * 5) * amp * 0.7 + Math.sin(x * 0.4 - t * 7.5) * amp * 0.3])
+                            g.beginPath(); g.moveTo(0, h); for (const q of edge) g.lineTo(q[0], q[1]); g.lineTo(w, h); g.closePath()
+                            const gr = g.createLinearGradient(0, h, 0, level); gr.addColorStop(0, "rgba(" + ca + ",0.25)"); gr.addColorStop(1, "rgba(" + cb + ",0.6)")
+                            g.fillStyle = gr; g.fill()
+                        } else { // a front running along the floor: the bottom of it leads
+                            const front = w * u, lean = 9 + rush * 10
+                            for (let y = 0; y <= h; y += 2) {
+                                const k = y / h
+                                edge.push([front + (k * k - 0.45) * lean + Math.sin(y * 0.16 + t * 5) * amp + Math.sin(y * 0.3 - t * 7.5) * amp * 0.4, y])
+                            }
+                            g.beginPath(); g.moveTo(0, 0); for (const q of edge) g.lineTo(q[0], q[1]); g.lineTo(0, h); g.closePath()
+                            const gr = g.createLinearGradient(0, 0, Math.max(1, front), 0); gr.addColorStop(0, "rgba(" + ca + ",0.22)"); gr.addColorStop(0.75, "rgba(" + ca + ",0.4)"); gr.addColorStop(1, "rgba(" + cb + ",0.7)")
+                            g.fillStyle = gr; g.fill()
+                        }
+                        // the light on its surface
+                        g.beginPath(); edge.forEach((q, n) => n ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]))
+                        g.strokeStyle = "rgba(255,255,255,0.55)"; g.lineWidth = 1.5; g.lineJoin = "round"; g.stroke()
+                        // bubbles rising behind the front
+                        if (!Theme.reduced) for (let n = 0; n < 6; n++) {
+                            const life = (t * (0.5 + n * 0.07) + n * 0.37) % 1
+                            const bx = up ? (n * 0.19 % 1) * w * 0.8 + w * 0.1 : w * u * (0.25 + (n * 0.137 % 0.7))
+                            const by = up ? h - (h * u) * life : h - 3 - (h - 8) * life
+                            g.beginPath(); g.arc(bx + Math.sin(t * 3 + n) * 1.5, by, 1 + (n % 3) * 0.5, 0, Math.PI * 2, false)
+                            g.fillStyle = "rgba(255,255,255," + (0.35 * (1 - life)) + ")"; g.fill()
+                        }
+                    }
+                }
+            }
+
             // behind everything: quiet drifting shapes, or the night sky
             HomeBackdrop {
                 anchors.fill: parent
@@ -1588,7 +1840,7 @@ Item {
                 BarGauges {
                     anchors.verticalCenter: parent.verticalCenter
                     on: root.miniGauges
-                    room: root.pillMax - root.labelX - 16 - root.castW
+                    room: root.pillMax - root.labelX - 16 - root.castW + 10 // (the gauges take the gap before the bench as well)
                 }
                 BarNet {
                     anchors.verticalCenter: parent.verticalCenter
@@ -1597,11 +1849,20 @@ Item {
                 }
             }
 
+            // Luka's Test key, at the far end before the bench: it stays put while her readings change
+            BarNet.TestKey {
+                x: root.pillW - 8 - 40 - 6 - width
+                y: (root.pillT - height) / 2
+                opacity: root.miniNet && !root.expanded && !root.floating && !root.vertical && !root.mfree ? (Net.online || Speed.running ? 1 : 0.4) : 0
+                visible: opacity > 0
+                Behavior on opacity { NumberAnimation { duration: 160 } }
+            }
+
             // "Done", in the middle of the bar, glowing and throwing stars
             DoneChip {
                 x: (root.pillW - width) / 2
                 y: (root.pillT - height) / 2
-                on: Hub.chip === "done" && !root.barOwn && !root.expanded && !root.floating && !root.vertical && !root.mfree
+                on: Hub.chip === "done" && !root.doneSeen && !root.barOwn && !root.expanded && !root.floating && !root.vertical && !root.mfree
             }
 
             // the tune's progress: a hairline along the side of the bar that lies on the
@@ -1707,7 +1968,7 @@ Item {
                 y: root.miniLead + root.mini + 8 + Math.round(root.duoW + root.heraldW)
                 height: root.sideH - (root.miniLead + root.mini + 8) - root.sideBenchH - 6
                 on: root.vertical && !root.expanded
-                chip: Hub.chip !== "" ? Hub.chip : Hub.mood === "work" ? "work" : Hub.mood === "think" ? "think" : ""
+                chip: Hub.chip !== "" && !(Hub.chip === "done" && root.doneSeen) ? Hub.chip : Hub.mood === "work" ? "work" : Hub.mood === "think" ? "think" : ""
                 label: pillRow.label
                 faint: Hub.mood === "sleep"
                 player: root.miniPlayer
@@ -2032,7 +2293,6 @@ Item {
             Behavior on opacity { NumberAnimation { duration: 120 } }
             skin: root.expanded && root.view === "github" ? "github" : ""
             walkDir: root.walkDir
-            doneBadge: Hub.chip === "done"
             character: root.stage
             rotation: root.lean
             instant: root.duo

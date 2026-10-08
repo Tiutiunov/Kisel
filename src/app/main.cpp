@@ -159,7 +159,10 @@ int main(int argc, char *argv[])
     ChatClient chat(&prefs, &secrets);
 
     // The relay ships next to the app; hooks point at a stable copy in the data dir.
-    hooks.ensureRelay(QCoreApplication::applicationDirPath() + QLatin1Char('/') + paths::hookFileName());
+    const QString bundledRelay = QCoreApplication::applicationDirPath() + QLatin1Char('/') + paths::hookFileName();
+    hooks.ensureRelay(bundledRelay);
+    if (!cli.isSet("grab")) // a grab run must not watch (or touch) the real settings
+        hooks.watch(&prefs, bundledRelay);
 
     // A grab run must never take over the real socket.
     const QString socket = cli.isSet("grab") ? paths::scratchSocketPath(QCoreApplication::applicationPid()) : paths::socketPath();

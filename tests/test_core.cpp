@@ -81,6 +81,33 @@ private slots:
         QVERIFY(!HookInstaller::merge(installed, "kisel-hook", false).contains("hooks"));
     }
 
+    void healthTellsMissingFromStaleFromWhole()
+    {
+        const QString cmd = "/home/u/.local/share/kisel/bin/kisel-hook";
+        const QJsonObject user {{"model", "x"}};
+        QCOMPARE(HookInstaller::health(user, cmd), QString("none"));
+
+        const QJsonObject whole = HookInstaller::merge(user, cmd, true);
+        QCOMPARE(HookInstaller::health(whole, cmd), QString("ok"));
+
+        // the relay moved (an update, a new install folder): same file name, other path
+        QCOMPARE(HookInstaller::health(whole, "/elsewhere/kisel-hook"), QString("stale"));
+
+        // an event lost its entry
+        QJsonObject partial = whole;
+        QJsonObject hooks = partial["hooks"].toObject();
+        hooks.remove("Stop");
+        partial["hooks"] = hooks;
+        QCOMPARE(HookInstaller::health(partial, cmd), QString("stale"));
+
+        // the user's own hooks alone are not ours
+        const QJsonObject userHook {{"matcher", "Bash"}, {"hooks", QJsonArray {QJsonObject {{"type", "command"}, {"command", "/usr/bin/my-linter"}}}}};
+        QCOMPARE(HookInstaller::health({{"hooks", QJsonObject {{"PreToolUse", QJsonArray {userHook}}}}}, cmd), QString("none"));
+
+        // repairing a stale file is what install does, and it leaves a whole one
+        QCOMPARE(HookInstaller::health(HookInstaller::merge(partial, cmd, true), cmd), QString("ok"));
+    }
+
     void lineDiffMarksOnlyChanges()
     {
         const QVariantList d = HookInstaller::lineDiff("a\nb\nc\nd\ne\nf\ng", "a\nb\nc\nX\ne\nf\ng");

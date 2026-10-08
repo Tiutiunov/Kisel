@@ -65,19 +65,55 @@ Item {
             Text { text: "Claude Code"; color: Theme.ink; font.family: Theme.display; font.pixelSize: 16; font.weight: Font.DemiBold }
             Row {
                 spacing: Theme.space2
-                Icon { name: Hooks.installed ? "check" : "cross"; size: 16
-                    color: Hooks.installed ? Theme.mint : Theme.inkMuted; anchors.verticalCenter: parent.verticalCenter }
+                Icon { name: Hooks.health === "ok" ? "check" : "cross"; size: 16
+                    color: Hooks.health === "ok" ? Theme.mint : Hooks.health === "stale" ? Theme.danger : Theme.inkMuted; anchors.verticalCenter: parent.verticalCenter }
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: root.note !== "" ? root.note : Hooks.installed ? Tr.t("Connected") : Tr.t("Not connected")
+                    text: root.note !== "" ? root.note
+                        : Hooks.health === "ok" ? Tr.t("Connected")
+                        : Hooks.health === "stale" ? Tr.t("Needs repair")
+                        : Hooks.health === "unreadable" ? Tr.t("settings.json is not valid JSON")
+                        : Tr.t("Not connected")
                     color: Theme.ink; font.family: Theme.sans; font.pixelSize: 13; font.weight: Font.DemiBold
                 }
                 KButton {
-                    visible: !root.plan
-                    primary: !Hooks.installed
-                    text: Hooks.installed ? Tr.t("Remove hooks") : Tr.t("Connect Claude Code")
-                    onClicked: root.startPlan(!Hooks.installed)
+                    visible: !root.plan && Hooks.health !== "unreadable"
+                    primary: Hooks.health !== "ok"
+                    text: Hooks.health === "stale" ? Tr.t("Repair hooks") : Hooks.installed ? Tr.t("Remove hooks") : Tr.t("Connect Claude Code")
+                    onClicked: root.startPlan(Hooks.health === "stale" || !Hooks.installed)
                 }
+                KButton {
+                    visible: !root.plan && Hooks.health === "stale"
+                    variant: "ghost"
+                    text: Tr.t("Remove hooks")
+                    onClicked: root.startPlan(false)
+                }
+            }
+            // what Kisel does when the hooks are missing or broken (it never answers a permission for you)
+            Row {
+                spacing: Theme.space2
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: Tr.t("If hooks break")
+                    color: Theme.inkMuted; font.family: Theme.sans; font.pixelSize: 13; font.weight: Font.DemiBold
+                }
+                Repeater {
+                    model: [{ id: "ask", name: Tr.t("Ask me") }, { id: "auto", name: Tr.t("Repair") }, { id: "off", name: Tr.t("Do nothing") }]
+                    KButton {
+                        required property var modelData
+                        primary: Prefs.hookWatch === modelData.id
+                        text: modelData.name
+                        onClicked: Prefs.hookWatch = modelData.id
+                    }
+                }
+            }
+            Text {
+                width: parent.width
+                wrapMode: Text.Wrap
+                color: Theme.inkFaint; font.family: Theme.sans; font.pixelSize: 11
+                text: Prefs.hookWatch === "auto" ? Tr.t("Hooks that were connected and went stale are repaired by themselves, with a dated backup. New hooks are never added without your click.")
+                    : Prefs.hookWatch === "ask" ? Tr.t("Kisel tells you when the hooks are missing or stale. The change is made only after you confirm it here.")
+                    : Tr.t("Kisel does not check the hooks.")
             }
             Column {
                 visible: !!root.plan

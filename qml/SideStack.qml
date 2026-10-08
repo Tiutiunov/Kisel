@@ -110,11 +110,11 @@ Item {
         Item {
             visible: Sys.canClean
             anchors.horizontalCenter: parent.horizontalCenter
-            width: 18; height: 24
+            width: 20; height: 24
             Rectangle {
-                y: 2
-                width: 18; height: 22
-                radius: 7
+                y: 3
+                width: 20; height: 20
+                radius: 6
                 color: Sys.cleaning ? Theme.surface3 : cleanArea.containsMouse ? "#F0566E" : "#E0405A"
                 border.width: 1.5; border.color: "#FFFFFF"
                 scale: cleanArea.pressed ? 0.9 : 1
@@ -164,6 +164,7 @@ Item {
         }
         Reading { downward: true; text: line.test ? line.mbps(Speed.down) : line.speed(Net.down) }
         Reading { downward: false; text: line.test ? line.mbps(Speed.up) : line.speed(Net.up) }
+        BarNet.TestKey { anchors.horizontalCenter: parent.horizontalCenter; visible: Net.online || Speed.running }
     }
 
     // a figure that never grows wider than the bar

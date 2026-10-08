@@ -1,15 +1,18 @@
 #include "HookInstaller.h"
 
 #include "Paths.h"
+#include "Preferences.h"
 
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QFileSystemWatcher>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QLibraryInfo>
 #include <QSaveFile>
+#include <QTimer>
 
 namespace kisel {
 
@@ -46,6 +49,54 @@ bool HookInstaller::installed() const
             if (isOurs(g.toObject()))
                 return true;
     return false;
+}
+
+QString HookInstaller::health(const QJsonObject &settings, const QString &command)
+{
+    const QJsonObject hooks = settings.value("hooks").toObject();
+    int ours = 0;
+    bool whole = true;
+    for (const QString &ev : kEvents) {
+        int here = 0;
+        for (const QJsonValue &g : hooks.value(ev).toArray()) {
+            if (!isOurs(g.toObject()))
+                continue;
+            ++here;
+            for (const QJsonValue &h : g.toObject().value("hooks").toArray())
+                if (h.toObject().value("command").toString().contains(QStringLiteral(KISEL_HOOK_BASENAME))
+                    && h.toObject().value("command").toString() != command)
+                    whole = false; // an old path
+        }
+        ours += here;
+        if (here != 1)
+            whole = false; // an event without us, or twice
+    }
+    // (an entry under an event we do not use is still ours: it is stale, not absent)
+    for (const QString &ev : hooks.keys())
+        if (!kEvents.contains(ev))
+            for (const QJsonValue &g : hooks.value(ev).toArray())
+                if (isOurs(g.toObject())) {
+                    ++ours;
+                    whole = false;
+                }
+    if (ours == 0)
+        return QStringLiteral("none");
+    return whole ? QStringLiteral("ok") : QStringLiteral("stale");
+}
+
+QString HookInstaller::health() const
+{
+    QFile f(settingsPath());
+    if (!f.exists())
+        return QStringLiteral("none");
+    if (!f.open(QIODevice::ReadOnly))
+        return QStringLiteral("unreadable");
+    QJsonParseError err;
+    const QJsonDocument doc = QJsonDocument::fromJson(f.readAll(), &err);
+    if (err.error != QJsonParseError::NoError || !doc.isObject())
+        return QStringLiteral("unreadable");
+    const QString h = health(doc.object(), quoted(paths::hookBinary()));
+    return h == QLatin1String("ok") && !QFile::exists(paths::hookBinary()) ? QStringLiteral("stale") : h;
 }
 
 QJsonObject HookInstaller::merge(const QJsonObject &settings, const QString &command, bool install)
@@ -143,8 +194,70 @@ bool HookInstaller::apply(bool install)
     out.write(p.after.toUtf8());
     if (!out.commit())
         return false;
+    if (m_prefs)
+        m_prefs->setHookRemoved(!install);
     emit changed();
     return true;
+}
+
+void HookInstaller::watch(Preferences *prefs, const QString &bundledRelay)
+{
+    m_prefs = prefs;
+    m_bundled = bundledRelay;
+    m_watcher = new QFileSystemWatcher(this);
+    m_debounce = new QTimer(this);
+    m_debounce->setSingleShot(true);
+    m_debounce->setInterval(1500); // editors write a file in several steps
+    connect(m_debounce, &QTimer::timeout, this, &HookInstaller::recheck);
+    auto later = [this] { rewatch(); m_debounce->start(); };
+    connect(m_watcher, &QFileSystemWatcher::fileChanged, this, later);
+    connect(m_watcher, &QFileSystemWatcher::directoryChanged, this, later);
+    connect(prefs, &Preferences::changed, this, [this] { m_debounce->start(); });
+    auto *poll = new QTimer(this); // for the cases a watcher misses (network drives, a replaced folder)
+    poll->setInterval(10 * 60 * 1000);
+    connect(poll, &QTimer::timeout, this, &HookInstaller::recheck);
+    poll->start();
+    rewatch();
+    QTimer::singleShot(4000, this, &HookInstaller::recheck); // after the window is up, so the toast is seen
+}
+
+void HookInstaller::rewatch()
+{
+    const QString file = settingsPath();
+    const QString dir = QFileInfo(file).path();
+    if (QFileInfo::exists(file) && !m_watcher->files().contains(file))
+        m_watcher->addPath(file); // (an atomic save replaces the file: it has to be added again)
+    if (QFileInfo(dir).isDir() && !m_watcher->directories().contains(dir))
+        m_watcher->addPath(dir);
+}
+
+void HookInstaller::recheck()
+{
+    emit changed(); // the health shown in Settings may have moved
+    if (!m_prefs || m_prefs->hookWatch() == QLatin1String("off"))
+        return;
+    if (!QFile::exists(paths::hookBinary()))
+        ensureRelay(m_bundled); // the usual cause of a stale path: put the relay back first
+    const QString h = health();
+    if (h == QLatin1String("ok") || h == QLatin1String("unreadable")) {
+        m_notified.clear();
+        return;
+    }
+    if (h == QLatin1String("stale") && m_prefs->hookWatch() == QLatin1String("auto") && apply(true)) {
+        m_notified.clear();
+        emit repaired();
+        return;
+    }
+    // Hooks that are gone are news only to someone who had them working (a session has
+    // come through them at least once) and did not take them out. Someone who never
+    // connected Claude Code has the Connect button on Home, and is not told at every start.
+    if (h == QLatin1String("none")
+        && (m_prefs->hookWatch() != QLatin1String("ask") || m_prefs->hookRemoved() || !m_prefs->hookSeen()))
+        return;
+    if (m_notified == h)
+        return;
+    m_notified = h;
+    emit attention(h);
 }
 
 bool HookInstaller::ensureRelay(const QString &bundledPath) const

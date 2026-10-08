@@ -17,6 +17,16 @@ Item {
     function devState() { return island.devState() }
     function devCenter() { return island.devCenter() }
 
+    // Claude Code's hooks went missing or stale: say so; the fix itself is confirmed in Settings.
+    Connections {
+        target: Hooks
+        function onAttention(state) {
+            island.showToast(state === "stale" ? Tr.t("Claude Code hooks need repair. Open Settings.")
+                                               : Tr.t("Claude Code is not connected. Open Settings."))
+        }
+        function onRepaired() { island.showToast(Tr.t("Claude Code hooks repaired")) }
+    }
+
     Island {
         id: island
         width: 708

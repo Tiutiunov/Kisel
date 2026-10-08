@@ -132,6 +132,6 @@ Kisel начал Антон Куклин как спутник для KDE Plasma
 
 > この作品はピアプロ・キャラクター・ライセンスに基づいてクリプトン・フューチャー・メディア株式会社のキャラクター「初音ミク」「鏡音リン」「巡音ルカ」を描いたものです。
 
-Kisel не имеет отношения к Anthropic. Claude и Claude Code это их товарные знаки.
+Kisel не имеет отношения к Anthropic. Claude и Claude Code это их товарные знаки, и маленький оранжевый зверёк, которого Мику обнимает за работой, тоже их персонаж из Claude Code.
 
 Внутри [Qt 6](https://www.qt.io) по LGPL v3, подключён динамически: библиотеки лежат рядом с `kisel.exe` как есть, их можно заменить своей сборкой. Исходники Qt на [download.qt.io](https://download.qt.io/official_releases/qt/). Тексты лицензий ставятся в папку `licenses`, остальное перечислено в [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
