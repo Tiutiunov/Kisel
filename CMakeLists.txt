@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(Kisel VERSION 0.5.0 LANGUAGES CXX)
+project(Kisel VERSION 0.6.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -103,7 +103,6 @@ qt_add_qml_module(kisel
         qml/Motion.qml
         qml/Icon.qml
         qml/DrawnCheck.qml
-        qml/StatusPill.qml
         qml/PillChip.qml
         qml/PillDisc.qml
         qml/LimitRing.qml
@@ -116,7 +115,6 @@ qt_add_qml_module(kisel
         qml/PillBars.qml
         qml/PillDots.qml
         qml/GitHubMark.qml
-        qml/LaunchTile.qml
         qml/DotWave.qml
         qml/Spinner.qml
         qml/KToggle.qml
@@ -134,7 +132,6 @@ qt_add_qml_module(kisel
         qml/PlayerView.qml
         qml/KField.qml
         qml/Mascot.qml
-        qml/StatusBadge.qml
         qml/KButton.qml
         qml/CodePanel.qml
         qml/BrandShape.qml

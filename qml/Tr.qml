@@ -73,7 +73,7 @@ QtObject {
         "GitHub sent something unexpected": "GitHub прислал что-то непонятное", "GitHub refused the request": "GitHub отклонил запрос",
         "GitHub rejected the token": "GitHub не принял токен",
         "Can't read that file (text files up to 200 KB)": "Не могу прочитать файл (только текст до 200 КБ)",
-        "That looks like a binary file": "Похоже, это не текстовый файл", "Add your Anthropic API key in Settings": "Добавь ключ Anthropic в настройках",
+        "That looks like a binary file": "Похоже, это не текстовый файл", 
         "The request failed": "Запрос не удался",
 
         // ---- Zundamon's player ----
@@ -159,7 +159,7 @@ QtObject {
         "Kisel tells you when the hooks are missing or stale. The change is made only after you confirm it here.": "Kisel скажет, если хуков нет или они устарели. Менять файл он будет только после твоего подтверждения здесь.",
         "Kisel does not check the hooks.": "Kisel не проверяет хуки.", "Nothing to change in ": "Нечего менять в ",
         "This is the exact change to ": "Вот точное изменение в ", ". A backup is saved first as ": ". Сначала сохраняется копия: ",
-        "Write change": "Записать", "Cancel": "Отмена", "Key saved in ": "Ключ сохранён: ", "Anthropic API key": "Ключ Anthropic API", "Save": "Сохранить",
+        "Write change": "Записать", "Cancel": "Отмена", "Save": "Сохранить",
         "Token saved in ": "Токен сохранён: ", "Personal access token (read-only)": "Личный токен (только чтение)", "Remove": "Убрать",
         "GitHub token removed": "Токен GitHub убран", "Screen": "Экран", ", Kisel is here": ", Kisel здесь", "Kisel moved to ": "Kisel переехал на ",
         "Follow primary": "За основным", "Following the primary monitor": "Следую за основным монитором",

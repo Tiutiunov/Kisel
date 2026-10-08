@@ -52,7 +52,7 @@ Row {
                 anchors.fill: parent; anchors.margins: 2
                 color: Theme.surface3
                 clip: true
-                Image { anchors.fill: parent; source: Media.art; fillMode: Image.PreserveAspectCrop; visible: Media.art !== ""; asynchronous: true }
+                Image { anchors.fill: parent; source: Media.art; sourceSize: Qt.size(64, 64); fillMode: Image.PreserveAspectCrop; visible: Media.art !== ""; asynchronous: true }
                 PlayGlyph { anchors.centerIn: parent; kind: "note"; size: 10; tint: Theme.inkFaint; visible: Media.art === "" }
             }
         }

@@ -1173,6 +1173,9 @@ Item {
     // At rest (a while after starting, after the card has closed, on tucking away) Kisel
     // gives back the memory it is not using (Shell.rest).
     Timer { id: restSoon; interval: 12000; running: true; onTriggered: if (!root.expanded) Shell.rest() }
+    // (and again now and then while the card stays shut: what the bar's little shows
+    // touched comes back into memory, and would stay there for good)
+    Timer { interval: 120000; repeat: true; running: !root.expanded && !root.carried; onTriggered: Shell.rest() }
     Connections {
         target: root
         function onTuckedChanged() { if (root.tucked) restSoon.restart() }

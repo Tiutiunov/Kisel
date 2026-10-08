@@ -74,6 +74,7 @@ Item {
             Image {
                 anchors.fill: parent
                 source: Media.art
+                sourceSize: Qt.size(256, 256) // (shown at a third of that: no need for the whole picture)
                 fillMode: Image.PreserveAspectCrop
                 visible: Media.art !== ""
                 asynchronous: true

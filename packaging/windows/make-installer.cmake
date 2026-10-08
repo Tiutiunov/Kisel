@@ -18,6 +18,11 @@ if(NOT rc EQUAL 0)
 endif()
 # (the runtime's own installer is not needed: its DLLs are installed next to the app)
 file(REMOVE "${stage}/bin/vc_redist.x64.exe")
+# What the deploy tool brings along and Kisel never loads: the shader compiler of
+# Direct3D 12 (Kisel draws with Direct3D 11), the QML debugger's plugins, a touch
+# protocol nobody speaks to it.
+file(REMOVE "${stage}/bin/dxcompiler.dll" "${stage}/bin/dxil.dll")
+file(REMOVE_RECURSE "${stage}/plugins/qmltooling" "${stage}/plugins/generic")
 if(NOT EXISTS "${stage}/bin/kisel.exe")
     message(FATAL_ERROR "no kisel.exe in ${stage}/bin")
 endif()
