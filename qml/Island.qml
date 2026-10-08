@@ -2162,9 +2162,11 @@ Item {
                     enterDelay: root.enterDelay
                     HomeView {
                         id: homeView
-                        own: root.rest === "zunda" && Prefs.zundaSpotify && Media.available ? "zunda"
-                           : root.rest === "teto" && Prefs.tetoSystem && Sys.available ? "teto"
-                           : root.rest === "luka" && Prefs.lukaNet && Net.available ? "luka" : ""
+                        // (whose Home it is goes by who is on stage, not by who was chosen: while Miku
+                        // is there, for Claude's work or a visit, the card is hers and shows the session)
+                        own: root.stage === "zunda" && Prefs.zundaSpotify && Media.available ? "zunda"
+                           : root.stage === "teto" && Prefs.tetoSystem && Sys.available ? "teto"
+                           : root.stage === "luka" && Prefs.lukaNet && Net.available ? "luka" : ""
                         age: hostHome.age
                         revealCard: assembly.revealCard
                         revealButton: assembly.revealButton
