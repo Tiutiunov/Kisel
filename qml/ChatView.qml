@@ -36,8 +36,40 @@ Item {
     onActiveChanged: if (active) focusTimer.restart()
     Timer { id: focusTimer; interval: Theme.tFast; onTriggered: input.forceActiveFocus() }
 
+    // While the Claude Code session has someone listening for prompts (the kisel-prompts
+    // mod, see PromptRelay) this is where you write to it: what you send goes to that
+    // session as your own prompt, and Claude answers there. It needs no API key. Without
+    // a listening session the chat is the one with the API, as before.
+    readonly property string sid: Hub.session.id || ""
+    readonly property bool relayOn: sid !== "" && Relay.live.includes(sid)
+    readonly property bool relayWaiting: Relay.waiting.includes(sid)
+    onSidChanged: if (sid !== "") Relay.watch(sid)
+    Component.onCompleted: if (sid !== "") Relay.watch(sid)
+    ListModel { id: sent } // the talk with the session, as seen from here: {role, text, file, time}
+    property string relayNote: ""
+    Timer { id: relayNoteOff; interval: 4000; onTriggered: root.relayNote = "" }
+    Connections {
+        target: Relay
+        // (what Claude says in the session comes back here, so the chat has both sides)
+        function onReply(id, text) {
+            if (id !== root.sid) return
+            sent.append({ role: "assistant", text: text, file: "", time: Qt.formatTime(new Date(), "hh:mm") })
+            if (root.active) Sfx.play("receive")
+        }
+    }
+
     function send() {
-        if (input.text.trim() === "" || Chat.busy)
+        if (input.text.trim() === "")
+            return
+        if (relayOn) {
+            const text = input.text.trim()
+            if (!Relay.send(sid, text)) { relayNote = Tr.t("Couldn't send it"); relayNoteOff.restart(); Sfx.play("deny"); return }
+            Sfx.play("send")
+            sent.append({ role: "user", text: text, file: "", time: Qt.formatTime(new Date(), "hh:mm") })
+            input.text = ""
+            return
+        }
+        if (Chat.busy)
             return
         Sfx.play("send")
         Chat.send(input.text)
@@ -48,29 +80,87 @@ Item {
         function onReplyFinished() { Sfx.play("receive") }
     }
 
-    // Escape everything, then turn `code` into the mono face and ``` blocks into <pre>.
+    // What Claude writes is Markdown, and it is model output: untrusted. So everything is
+    // escaped first, and then the marks that matter in a chat bubble are turned into tags
+    // of our own, never the text's: code and ``` blocks in the mono face, headings and
+    // **bold**, *italic*, ~~struck~~, lists with a dot, quotes, rules, and tables as rows.
+    // A link keeps its words and loses its address (nothing here can be clicked), and an
+    // image is only its caption: nothing is ever fetched.
     function styled(text, mine) {
-        let t = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
         const mono = Theme.mono
         const codeInk = mine ? root.onAcc : Theme.inkMuted
-        t = t.replace(/```[a-zA-Z0-9_+-]*\n?([\s\S]*?)```/g, (m, code) =>
-            "<pre><font face=\"" + mono + "\" color=\"" + codeInk + "\">" + code.replace(/\n+$/, "") + "</font></pre>")
-        t = t.replace(/`([^`\n]+)`/g, "<font face=\"" + mono + "\" color=\"" + codeInk + "\">$1</font>")
-        return t.replace(/\n/g, "<br>")
+        const faint = mine ? root.onAcc : Theme.inkFaint
+        const esc = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        const code = (t) => "<font face=\"" + mono + "\" color=\"" + codeInk + "\">" + t + "</font>"
+        // inline marks, on text already escaped; `code` is set aside first so nothing inside it is touched
+        const inline = (t) => {
+            const kept = []
+            t = t.replace(/`([^`\n]+)`/g, (m, c) => { kept.push(code(c)); return "\u0001" + (kept.length - 1) + "\u0001" })
+            t = t.replace(/!\[([^\]\n]*)\]\([^)\n]*\)/g, "$1")
+            t = t.replace(/\[([^\]\n]+)\]\([^)\n]*\)/g, "$1")
+            t = t.replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>").replace(/__([^_\n]+)__/g, "<b>$1</b>")
+            t = t.replace(/(^|[\s(])\*([^*\s][^*\n]*)\*/g, "$1<i>$2</i>").replace(/(^|[\s(])_([^_\s][^_\n]*)_(?=$|[\s).,!?:;])/g, "$1<i>$2</i>")
+            t = t.replace(/~~([^~\n]+)~~/g, "<s>$1</s>")
+            return t.replace(/\u0001(\d+)\u0001/g, (m, n) => kept[Number(n)])
+        }
+        const cells = (line) => line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map(c => c.trim())
+        const out = []
+        const parts = text.split(/```/)
+        for (let k = 0; k < parts.length; k++) {
+            if (k % 2 === 1) { // inside a fence: as it is, less the language on its first line
+                const body = parts[k].replace(/^[a-zA-Z0-9_+-]*\n/, "").replace(/\n+$/, "")
+                out.push("<pre>" + code(esc(body)) + "</pre>")
+                continue
+            }
+            const lines = esc(parts[k]).split("\n")
+            let tableHead = true
+            for (let n = 0; n < lines.length; n++) {
+                const line = lines[n], trimmed = line.trim()
+                if (/^\|.*\|$/.test(trimmed)) { // a table row; the row of dashes under the heading is dropped
+                    if (/^\|[\s:|-]+\|$/.test(trimmed)) { tableHead = false; continue }
+                    const row = cells(trimmed).map(inline).join(" <font color=\"" + faint + "\">\u00b7</font> ")
+                    out.push((tableHead ? "<b>" + row + "</b>" : row) + "<br>")
+                    continue
+                }
+                tableHead = true
+                let m
+                if (trimmed === "") out.push("<br>")
+                else if ((m = /^#{1,6}\s+(.*)$/.exec(trimmed))) out.push("<b>" + inline(m[1]) + "</b><br>")
+                else if (/^(-{3,}|\*{3,}|_{3,})$/.test(trimmed)) out.push("<font color=\"" + faint + "\">\u2014\u2014\u2014</font><br>")
+                else if ((m = /^(\s*)[-*+]\s+(.*)$/.exec(line))) out.push("&nbsp;".repeat(Math.min(8, m[1].length) + 1) + "\u2022 " + inline(m[2]) + "<br>")
+                else if ((m = /^(\s*)(\d+[.)])\s+(.*)$/.exec(line))) out.push("&nbsp;".repeat(Math.min(8, m[1].length) + 1) + m[2] + " " + inline(m[3]) + "<br>")
+                else if ((m = /^&gt;\s?(.*)$/.exec(trimmed))) out.push("<font color=\"" + faint + "\"><i>" + inline(m[1]) + "</i></font><br>")
+                else out.push(inline(line) + "<br>")
+            }
+        }
+        // (no blank line left at either end, and never more than one in a row)
+        return out.join("").replace(/(<br>)+<pre>/g, "<pre>").replace(/<\/pre>(<br>)+/g, "</pre>") // (a block brings its own space)
+            .replace(/(<br>){3,}/g, "<br><br>").replace(/^(<br>)+/, "").replace(/(<br>)+$/, "")
     }
 
-    // her colour in the room: a soft glow in two corners (rings of it, each fainter and
-    // wider, so there is no edge to see), and sparkles that turn slowly
-    Repeater {
-        model: 44
-        Rectangle {
-            required property int index
-            readonly property bool low: index >= 22
-            readonly property real r: 30 + (index % 22) * 11
-            x: (low ? root.width - 30 : 30) - r
-            y: (low ? root.height - 40 : 10) - r
-            width: 2 * r; height: 2 * r; radius: r
-            color: root.tinted(low ? 0.008 : 0.011)
+    // her colour in the room: a soft glow in two corners, and sparkles that turn slowly.
+    // (The glow is painted over the whole card, which this view sits inside at 150, 48,
+    // and cut to the card's own round corners: it used to be plain discs, and showed as
+    // a tinted square in the corners outside the card's outline.)
+    Canvas {
+        id: glow
+        x: -150; y: -48
+        width: 660; height: root.height + 62
+        property color tint: root.acc
+        onTintChanged: requestPaint()
+        onHeightChanged: requestPaint()
+        onPaint: {
+            const g = getContext("2d"), w = width, h = height, r = 26
+            g.reset()
+            g.beginPath(); g.moveTo(r, 0); g.lineTo(w - r, 0); g.quadraticCurveTo(w, 0, w, r); g.lineTo(w, h - r); g.quadraticCurveTo(w, h, w - r, h)
+            g.lineTo(r, h); g.quadraticCurveTo(0, h, 0, h - r); g.lineTo(0, r); g.quadraticCurveTo(0, 0, r, 0); g.closePath(); g.clip()
+            const spot = (cx, cy, a) => {
+                const gr = g.createRadialGradient(cx, cy, 30, cx, cy, 261)
+                gr.addColorStop(0, Qt.rgba(tint.r, tint.g, tint.b, a)); gr.addColorStop(1, Qt.rgba(tint.r, tint.g, tint.b, 0))
+                g.fillStyle = gr; g.fillRect(0, 0, w, h)
+            }
+            spot(150 + 30, 48 + 10, 0.24)
+            spot(150 + root.width - 30, 48 + root.height - 40, 0.176)
         }
     }
     Repeater {
@@ -101,7 +191,7 @@ Item {
         id: list
         width: parent.width
         height: composer.y - Theme.space2
-        model: Chat.messages
+        model: root.relayOn ? sent : Chat.messages
         spacing: Theme.space2
         clip: true
         boundsBehavior: Flickable.StopAtBounds
@@ -188,7 +278,7 @@ Item {
                         textFormat: Text.StyledText
                         wrapMode: Text.Wrap
                         color: msg.mine ? root.onAcc : Theme.ink
-                        font.family: Theme.sans; font.pixelSize: 13; font.weight: Font.DemiBold
+                        font.family: Theme.sans; font.pixelSize: 13; font.weight: msg.mine ? Font.DemiBold : Font.Medium // (Claude's is lighter, so its **bold** shows)
                         lineHeight: 18; lineHeightMode: Text.FixedHeight
                     }
                 }
@@ -215,13 +305,13 @@ Item {
             }
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: Tr.t("Ask Claude anything")
+                text: root.relayOn ? Tr.t("Write to Claude Code") : Tr.t("Ask Claude anything")
                 color: Theme.ink
                 font.family: Theme.display; font.pixelSize: 16; font.weight: Font.DemiBold
             }
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: root.pal.name + Tr.t(" is listening")
+                text: root.relayOn ? Tr.t("It goes to your session as your own prompt") : root.pal.name + Tr.t(" is listening")
                 color: Theme.inkFaint
                 font.family: Theme.sans; font.pixelSize: 12; font.weight: Font.DemiBold
             }
@@ -236,7 +326,7 @@ Item {
         spacing: Theme.space1
 
         Rectangle { // error line on diff-del-bg
-            visible: Chat.error !== ""
+            visible: Chat.error !== "" && !root.relayOn
             width: parent.width; height: 26; radius: Theme.radiusSm
             color: Theme.diffDelBg
             Row { x: 8; anchors.verticalCenter: parent.verticalCenter; spacing: Theme.space1
@@ -246,8 +336,12 @@ Item {
             }
         }
         Row {
+            // (with a Claude Code session the model is named in the left column, and how a
+            // message fares is said in the field itself: nothing is kept here to crowd the talk)
+            visible: !root.relayOn || Chat.attachedName !== ""
             spacing: Theme.space2
             Rectangle {
+                visible: !root.relayOn
                 height: 20; width: modelName.implicitWidth + 18; radius: 10
                 color: root.tinted(0.14)
                 Text { id: modelName; anchors.centerIn: parent; text: Chat.model; color: Theme.inkMuted; font.family: Theme.mono; font.pixelSize: 11 }
@@ -285,7 +379,9 @@ Item {
                 anchors { left: parent.left; right: sendBtn.left; top: parent.top; bottom: parent.bottom; margins: 4; leftMargin: 12 }
                 C.TextArea {
                     id: input
-                    placeholderText: Tr.t("Message Claude")
+                    placeholderText: !root.relayOn ? Tr.t("Message Claude")
+                        : root.relayNote !== "" ? root.relayNote
+                        : root.relayWaiting ? Tr.t("Sent. Claude takes it when it is free.") : Tr.t("Write to Claude Code")
                     placeholderTextColor: Theme.inkFaint
                     wrapMode: TextEdit.Wrap
                     color: Theme.ink
@@ -305,15 +401,16 @@ Item {
                 id: sendBtn
                 width: 32; height: 32; radius: 16
                 anchors { right: parent.right; rightMargin: 4; bottom: parent.bottom; bottomMargin: 4 }
-                color: Chat.busy ? Theme.surface3 : (sendTap.pressed ? root.accDeep : root.acc)
-                border.width: Chat.busy ? 0 : 2
+                readonly property bool busy: Chat.busy && !root.relayOn
+                color: busy ? Theme.surface3 : (sendTap.pressed ? root.accDeep : root.acc)
+                border.width: busy ? 0 : 2
                 border.color: "#FFFFFF"
                 scale: sendTap.pressed ? 0.9 : sendHover.hovered ? 1.1 : 1
                 Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutBack } }
                 Accessible.role: Accessible.Button
-                Accessible.name: Chat.busy ? Tr.t("Stop") : Tr.t("Send")
-                Icon { anchors.centerIn: parent; size: 18; name: Chat.busy ? "cross" : "send"; color: Chat.busy ? Theme.ink : root.onAcc }
-                TapHandler { id: sendTap; onTapped: Chat.busy ? Chat.cancel() : root.send() }
+                Accessible.name: busy ? Tr.t("Stop") : Tr.t("Send")
+                Icon { anchors.centerIn: parent; size: 18; name: sendBtn.busy ? "cross" : "send"; color: sendBtn.busy ? Theme.ink : root.onAcc }
+                TapHandler { id: sendTap; onTapped: sendBtn.busy ? Chat.cancel() : root.send() }
                 HoverHandler { id: sendHover; cursorShape: Qt.PointingHandCursor }
             }
         }

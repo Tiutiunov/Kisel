@@ -1,0 +1,6 @@
+{
+  "name": "kisel-prompts",
+  "version": "0.1.1",
+  "description": "Takes prompts typed in Kisel's session card and submits them to this session",
+  "author": { "name": "Tiutiunov" }
+}

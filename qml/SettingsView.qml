@@ -9,15 +9,14 @@ Item {
     property bool active: false
     property real age: 800 // ms since shown; blocks rise from it (Motion.rise)
     signal toast(string text)
-    readonly property bool inputFocus: keyField.inputFocus || ghField.inputFocus
+    readonly property bool inputFocus: ghField.inputFocus
 
     width: 494
 
     property var plan: null          // hooks preview being confirmed
     property bool planInstall: true
     property string note: ""
-    property bool keySaved: false
-    onActiveChanged: { if (active) { plan = null; note = "" } }
+    onActiveChanged: { if (active) { plan = null; note = ""; Mods.refresh() } }
 
     Timer { id: clearPlan; interval: 2200; onTriggered: root.plan = null }
     // dock the island on `edge`, `fraction` of the way along it, and remember that for this monitor
@@ -141,20 +140,122 @@ Item {
                 }
             }
 
-            // ---- Claude chat ----
-            Text { text: Tr.t("Chat"); color: Theme.ink; font.family: Theme.display; font.pixelSize: 16; font.weight: Font.DemiBold }
+            // ---- the mods: Kisel's two plugins for Claude Code ----
+            // (They are what the chat talks to a session through, so they stand where the
+            // API key used to: with them the chat needs no key. Kisel runs Claude Code's own
+            // command line for this, only on the click, and shows the commands first.)
             Row {
                 spacing: Theme.space2
-                KField {
-                    id: keyField
-                    width: 280
-                    echoMode: TextInput.Password
-                    placeholder: root.keySaved ? Tr.t("Key saved in ") + Vault.storeName : Tr.t("Anthropic API key")
-                    onAccepted: root.saveKey()
+                Text { text: Tr.t("Claude Code mods"); color: Theme.ink; font.family: Theme.display; font.pixelSize: 16; font.weight: Font.DemiBold }
+                // the guide, in case: it opens under the section
+                Item {
+                    id: modsInfo
+                    property bool open: false
+                    width: 22; height: 22
+                    anchors.verticalCenter: parent.verticalCenter
+                    activeFocusOnTab: true
+                    Accessible.role: Accessible.Button
+                    Accessible.name: Tr.t("How the mods work")
+                    Rectangle { anchors.fill: parent; radius: 11; color: modsInfo.open ? Theme.kisel : infoHover.hovered ? Theme.surface3 : "transparent" }
+                    Icon { anchors.centerIn: parent; name: "info"; size: 18; color: modsInfo.open ? Theme.onKisel : Theme.inkMuted }
+                    HoverHandler { id: infoHover; cursorShape: Qt.PointingHandCursor }
+                    TapHandler { onTapped: { Sfx.play("click"); modsInfo.open = !modsInfo.open } }
+                    Keys.onReturnPressed: modsInfo.open = !modsInfo.open
+                    Keys.onSpacePressed: modsInfo.open = !modsInfo.open
                 }
-                KButton { id: saveBtn; variant: "primary"; text: Tr.t("Save"); onClicked: root.saveKey() }
             }
-            Text { text: Chat.model; color: Theme.inkFaint; font.family: Theme.mono; font.pixelSize: 11 }
+            Rectangle {
+                visible: modsInfo.open
+                width: parent.width
+                height: guide.height + 20
+                radius: Theme.radiusMd
+                color: Theme.surface2
+                border.width: 1; border.color: Theme.line
+                Column {
+                    id: guide
+                    x: 12; y: 10
+                    width: parent.width - 24
+                    spacing: 8
+                    Repeater {
+                        model: [
+                        { head: Tr.t("What they are"), body: Tr.t("Two plugins that Kisel installs into Claude Code. kisel-prompts joins a session to this chat. cache-band adds a line about the prompt cache above the prompt box.") },
+                        { head: Tr.t("1. You need the claude command"), body: Tr.t("Open a terminal and run: claude --version. If it is not found, install Claude Code's command line first: npm install -g @anthropic-ai/claude-code. The desktop app alone is not enough for the button.") },
+                        { head: Tr.t("2. Press Install mods"), body: Tr.t("Kisel runs the three commands shown under the button. Nothing else on your computer is changed. It takes a few seconds; the line above turns to Installed.") },
+                        { head: Tr.t("3. Start a new session"), body: Tr.t("Plugins load when a session starts. Close the Claude Code chat or terminal you had open and start it again.") },
+                        { head: Tr.t("4. Write from Kisel"), body: Tr.t("Click the bar, open Chat. Within a couple of seconds the field reads Write to Claude Code. What you send goes to the session as your own prompt; Claude's replies appear here too.") },
+                        { head: Tr.t("What else shows up"), body: Tr.t("The rings in the chat are your limits: the five-hour window, the week, and how full the session's context is. Miku holds Claude's little one there.") },
+                        { head: Tr.t("If the field still says Message Claude"), body: Tr.t("No session is listening. Check that the session was started after installing, and that Kisel sees it (Miku reacts when Claude works). The session and Kisel must run under the same Windows user.") },
+                        { head: Tr.t("Doing it by hand"), body: Tr.t("The same three commands work in any terminal. To take the mods out: Remove mods here, or claude plugin uninstall kisel-prompts@kisel and cache-band@kisel.") },
+                        { head: Tr.t("What it can and cannot do"), body: Tr.t("It only passes text: your prompts in, Claude's words and the limit figures out, through a folder in your profile (AppData, Local, kisel, inbox). It never answers a permission for you.") }
+                        ]
+                        Column {
+                            required property var modelData
+                            width: guide.width
+                            spacing: 1
+                            Text { width: parent.width; wrapMode: Text.Wrap; text: modelData.head; color: Theme.ink; font.family: Theme.sans; font.pixelSize: 12; font.weight: Font.ExtraBold }
+                            Text { width: parent.width; wrapMode: Text.Wrap; text: modelData.body; color: Theme.inkMuted; font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.DemiBold }
+                        }
+                    }
+                }
+            }
+            Row {
+                spacing: Theme.space2
+                Icon { name: Mods.state === "installed" ? "check" : "cross"; size: 16
+                    color: Mods.state === "installed" ? Theme.mint : Mods.state === "failed" ? Theme.danger : Theme.inkMuted; anchors.verticalCenter: parent.verticalCenter }
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: Mods.state === "installed" ? Tr.t("Installed")
+                        : Mods.state === "outdated" ? Tr.t("Installed, an update is ready")
+                        : Mods.state === "partial" ? Tr.t("Partly installed")
+                        : Mods.state === "working" ? Tr.t("Working on it")
+                        : Mods.state === "checking" ? Tr.t("Checking")
+                        : Mods.state === "noclaude" ? Tr.t("Claude Code was not found")
+                        : Mods.state === "nomods" ? Tr.t("This build has no mods to install")
+                        : Mods.state === "failed" ? Tr.t("Couldn't install")
+                        : Tr.t("Not installed")
+                    color: Theme.ink; font.family: Theme.sans; font.pixelSize: 13; font.weight: Font.DemiBold
+                }
+                KButton {
+                    visible: Mods.state === "none" || Mods.state === "partial" || Mods.state === "failed"
+                    primary: true
+                    text: Mods.state === "partial" ? Tr.t("Install the rest") : Tr.t("Install mods")
+                    onClicked: { Sfx.play("click"); Mods.install() }
+                }
+                KButton {
+                    visible: Mods.state === "outdated"
+                    primary: true
+                    text: Tr.t("Update mods")
+                    onClicked: { Sfx.play("click"); Mods.update() }
+                }
+                KButton {
+                    visible: Mods.state === "installed" || Mods.state === "partial" || Mods.state === "outdated"
+                    variant: "ghost"
+                    text: Tr.t("Remove mods")
+                    onClicked: { Sfx.play("click"); Mods.remove() }
+                }
+            }
+            Text {
+                visible: Mods.state === "failed" && Mods.detail !== ""
+                width: parent.width
+                wrapMode: Text.Wrap
+                text: Mods.detail
+                color: Theme.danger; font.family: Theme.mono; font.pixelSize: 11
+            }
+            Text {
+                width: parent.width
+                wrapMode: Text.Wrap
+                color: Theme.inkFaint; font.family: Theme.sans; font.pixelSize: 11
+                text: Tr.t("Two plugins for Claude Code. One joins your session to the chat here: what you write goes to it as your prompt, and Claude's replies and your limits come back. The other shows the prompt cache above the prompt. They load in sessions started after this.")
+            }
+            Column { // the commands, as they will be run
+                visible: Mods.state === "none" || Mods.state === "partial" || Mods.state === "failed"
+                width: parent.width
+                spacing: 1
+                Repeater {
+                    model: Mods.commands
+                    Text { required property string modelData; width: parent.width; elide: Text.ElideMiddle; text: modelData; color: Theme.inkFaint; font.family: Theme.mono; font.pixelSize: 10 }
+                }
+            }
 
             // ---- GitHub: a read-only token for the widget ----
             Text { text: "GitHub"; color: Theme.ink; font.family: Theme.display; font.pixelSize: 16; font.weight: Font.DemiBold }
@@ -420,19 +521,6 @@ Item {
         if (Vault.store("github", ghField.text.trim())) {
             ghField.text = ""
             ghSave.success(Tr.t("Saved"))
-            Sfx.play("done")
-        } else {
-            note = Tr.t("Couldn't reach ") + Vault.storeName
-        }
-    }
-
-    function saveKey() {
-        if (keyField.text.trim() === "")
-            return
-        if (Vault.store("anthropic", keyField.text.trim())) {
-            keyField.text = ""
-            keySaved = true
-            saveBtn.success(Tr.t("Saved"))
             Sfx.play("done")
         } else {
             note = Tr.t("Couldn't reach ") + Vault.storeName

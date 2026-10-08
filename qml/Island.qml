@@ -122,7 +122,19 @@ Item {
     }
     onOpeningChanged: if (!opening) openedNow()
     Timer { interval: 2500; running: true; onTriggered: if (!root.opening) root.openedNow() } // (started without a greeting)
-    readonly property string stage: !opened ? "miku" : guest !== "" ? guest : rest
+    // (The chat is Miku's too, whoever was chosen: it is Claude one talks to there, and
+    // she sits in it with his little one in her arms.)
+    readonly property bool inChat: expanded && view === "chat"
+    // (A click on the partner in the bar is a wish for her card, not for Miku's, though
+    // Miku has the stage while Claude works: the card opens hers and stays hers until it
+    // closes (`askedWho`), as a click on Miku opens Miku's.)
+    property string askedWho: ""
+    function hasCard(who) {
+        return who === "zunda" ? Prefs.zundaSpotify && Media.available
+             : who === "teto" ? Prefs.tetoSystem && Sys.available
+             : who === "luka" ? Prefs.lukaNet && Net.available : false
+    }
+    readonly property string stage: !opened || inChat ? "miku" : askedWho !== "" && Hub.pendingCount === 0 ? askedWho : guest !== "" ? guest : rest // (a request waiting is Miku's to show, whoever was asked for)
     function stepIn() {
         if (rest === "miku") return
         guest = "miku"
@@ -133,6 +145,7 @@ Item {
         Prefs.character = who
         idleTune = false
         guest = ""
+        mikuAsked = false; askedWho = "" // (a pick by hand is the latest word on whose card it is)
         mikuPinned = who === "miku" && expanded
         if (who === "miku") stepIn() // (with music on the stage is Zundamon's: Miku at least comes out to say hello)
     }
@@ -142,7 +155,7 @@ Item {
         // chosen one keeps her company. Picking someone from the bench by hand still wins.)
         onTriggered: { if (Hub.pendingCount > 0 || (root.doneHold && Hub.chip === "done") || root.claudeBusy) restart(); else root.guest = "" } }
     readonly property string sessionId: Hub.session.id || ""
-    onSessionIdChanged: if (sessionId !== "") stepIn()
+    onSessionIdChanged: if (sessionId !== "") { Relay.watch(sessionId); stepIn() } // (its inbox, for prompts typed here: see SessionView)
     readonly property bool claudeBusy: Hub.mood === "work" || Hub.mood === "think"
     onClaudeBusyChanged: if (claudeBusy) { idleTune = false; stepIn() }
     // The chosen one with a service of her own (Zundamon with Spotify) minds that service:
@@ -1006,9 +1019,9 @@ Item {
     readonly property real shapeH: animH + (dockSide === "top" || dockSide === "bottom" ? radius : 0)
 
     // ---- behaviour -------------------------------------------------------------
-    readonly property bool typing: chatView.inputFocus || settingsView.inputFocus
+    readonly property bool typing: chatView.inputFocus || settingsView.inputFocus || sessionView.inputFocus
     readonly property bool holdOpen: Hub.pendingCount > 0 || dropActive || peek.running || typing || dragArea.dragging
-    readonly property bool wantsKeys: expanded && (view === "chat" || view === "settings" || view === "permission")
+    readonly property bool wantsKeys: expanded && (view === "chat" || view === "settings" || view === "permission" || view === "session")
     onWantsKeysChanged: Shell.setKeyboard(wantsKeys)
     onHoldOpenChanged: if (!holdOpen && !hover.hovered) closeIn(600)
 
@@ -1419,7 +1432,11 @@ Item {
         NumberAnimation { target: Shell; property: "floatY"; to: fitAnim.toY; duration: Theme.tBase; easing.type: Easing.OutCubic }
     }
     onExpandedChanged: {
-        if (!expanded) mikuAsked = false
+        if (!expanded) { mikuAsked = false; askedWho = "" }
+        // (A card that opens as Miku's stays Miku's until it closes. Without this, with a
+        // tune playing, she was only visiting the bar: three seconds later the stage went
+        // back to Zundamon and the open card turned into the player under the pointer.)
+        else if (stage === "miku") mikuAsked = true
         if (expanded) groundAll()
         if (!expanded && doneHold) doneHoldTimer.restart()
         if (!expanded) mikuPinned = false
@@ -1722,22 +1739,57 @@ Item {
             // has no measure of its own, so it fills over the time her sweeping takes.)
             Item {
                 id: testFill
-                readonly property bool shown: !root.expanded && !root.floating && !root.mfree
-                readonly property bool net: shown && root.miniNet && Speed.running
-                readonly property bool mem: shown && root.miniGauges && Sys.cleaning
-                readonly property bool on: net || mem
+                // (How far it has got does not depend on whether the bar is in view: open the card
+                // and close it again mid-way and the liquid is where the work is, not at the start.)
+                // (only while the bar is the bar: gone at once when the card starts to open, and back
+                // when it has closed all the way, so the liquid is never stretched over the card)
+                readonly property bool shown: !root.expanded && !root.floating && !root.mfree && root.openU < 0.03
+                readonly property bool net: root.miniNet && Speed.running
+                readonly property bool mem: root.miniGauges && Sys.cleaning
+                readonly property bool run: net || mem
+                // Done: it tops up, stands full for a moment, and then runs out: the level
+                // sinks to the floor (`drain`), still rippling. Stopped half-way, what there
+                // is of it runs out the same way. (`tail`: from the end of the work until it is gone.)
+                property bool tail: false
+                property real drain: 0
+                property real held: 0 // where the front stays meanwhile
+                onRunChanged: {
+                    if (run) { drainAway.stop(); tail = false; drain = 0; return }
+                    held = (red ? Sys.justCleaned : Speed.justDone) ? 1 : u
+                    // (Someone else took the bar while the work goes on: nothing has run out, it is
+                    // simply not this bar's to show. It is back where the work is when she returns.)
+                    if (red ? Sys.cleaning : Speed.running) return
+                    tail = true
+                    drainAway.restart()
+                }
+                // whose liquid it is has the bar
+                readonly property bool hers: red ? root.miniGauges : root.miniNet
+                SequentialAnimation {
+                    id: drainAway
+                    PauseAnimation { duration: 520 }
+                    NumberAnimation { target: testFill; property: "drain"; from: 0; to: 1; duration: Theme.reduced ? 0 : 1100; easing.type: Easing.InQuad }
+                    ScriptAction { script: testFill.tail = false }
+                }
+                // (It stays run out until it is out of sight: put back to the start while still
+                // fading, the liquid would show again, full, and slide away to the left.)
+                onOpacityChanged: if (opacity === 0 && !run && !tail) { held = 0; drain = 0 }
+                readonly property bool on: shown && hers && (run || tail)
                 property bool red: false // (kept while it fades)
-                onMemChanged: { if (mem) { red = true; sweepFill.restart() } else sweepFill.stop() }
+                onMemChanged: if (mem) red = true
+                // (the sweep's fill runs with the sweeping itself, whoever has the bar meanwhile)
+                readonly property bool sweeping: Sys.cleaning
+                onSweepingChanged: { if (sweeping) sweepFill.restart(); else sweepFill.stop() }
                 onNetChanged: if (net) red = false
                 property real swept: 0
                 NumberAnimation { id: sweepFill; target: testFill; property: "swept"; from: 0; to: 0.96; duration: 4200; easing.type: Easing.InOutSine }
-                property real u: net ? Speed.progress : mem ? swept : (red ? Sys.justCleaned : Speed.justDone) ? 1 : 0
-                Behavior on u { enabled: !Theme.reduced && !testFill.mem; SpringAnimation { spring: 1.5; damping: 0.26; epsilon: 0.0005 } } // (the sweep's own run is smooth already: a spring would only trail behind it)
+                property real u: net ? Speed.progress : mem ? swept : held
+                // (the sweep's own run is smooth already: a spring would only trail behind it; and the last bit to full is quick)
+                Behavior on u { enabled: !Theme.reduced && !testFill.mem; SpringAnimation { spring: testFill.run ? 1.5 : 7; damping: testFill.run ? 0.26 : 0.7; epsilon: 0.0005 } }
                 x: root.shapeX + 1; y: root.shapeY + 1
                 width: root.shapeW - 2; height: root.shapeH - 2
                 opacity: on ? 1 : 0
-                visible: opacity > 0.01
-                Behavior on opacity { NumberAnimation { duration: testFill.on ? 260 : 900; easing.type: Easing.InOutSine } }
+                visible: shown && hers && opacity > 0.01 // (`shown` here too: gone at once under an opening card, not after a fade)
+                Behavior on opacity { NumberAnimation { duration: 220; easing.type: Easing.InOutSine } }
                 Timer { interval: 33; repeat: true; running: testFill.visible; onTriggered: pool.requestPaint() }
                 Canvas {
                     id: pool
@@ -1746,7 +1798,8 @@ Item {
                     property real rush: 0  // how fast it is going, smoothed
                     onPaint: {
                         const g = getContext("2d"), w = width, h = height, r = Math.max(0, root.radius - 1)
-                        const t = Date.now() / 1000, u = Math.max(0, Math.min(1.02, testFill.u)), up = root.vertical
+                        const t = Date.now() / 1000, up = root.vertical, dr = testFill.drain
+                        const u = Math.max(0, Math.min(1.02, testFill.u)) * (up ? 1 - dr : 1) // (a standing one just sinks)
                         rush += (Math.min(1, Math.abs(u - was) * 60) - rush) * 0.2; was = u
                         const amp = Theme.reduced ? 0 : 1 + rush * 3.5
                         const ca = testFill.red ? "224,64,90" : "245,163,192", cb = testFill.red ? "255,120,140" : "255,183,208"
@@ -1754,6 +1807,12 @@ Item {
                         // (inside the bar's own outline)
                         g.beginPath(); g.moveTo(r, 0); g.lineTo(w - r, 0); g.quadraticCurveTo(w, 0, w, r); g.lineTo(w, h - r); g.quadraticCurveTo(w, h, w - r, h)
                         g.lineTo(r, h); g.quadraticCurveTo(0, h, 0, h - r); g.lineTo(0, r); g.quadraticCurveTo(0, 0, r, 0); g.closePath(); g.clip()
+                        let top = null // (running out of a lying bar: only what is under the sinking level is left)
+                        if (!up && dr > 0) {
+                            top = []
+                            for (let x = 0; x <= w; x += 3) top.push([x, h * dr + Math.sin(x * 0.2 + t * 5) * 1.4 * (1 - dr) + Math.sin(x * 0.37 - t * 7) * 0.7 * (1 - dr)])
+                            g.beginPath(); g.moveTo(0, h); for (const q of top) g.lineTo(q[0], q[1]); g.lineTo(w, h); g.closePath(); g.clip()
+                        }
                         const edge = []
                         if (up) { // a level surface, rising
                             const level = h * (1 - u)
@@ -1774,6 +1833,7 @@ Item {
                         // the light on its surface
                         g.beginPath(); edge.forEach((q, n) => n ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]))
                         g.strokeStyle = "rgba(255,255,255,0.55)"; g.lineWidth = 1.5; g.lineJoin = "round"; g.stroke()
+                        if (top) { g.beginPath(); top.forEach((q, n) => n ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); g.stroke() }
                         // bubbles rising behind the front
                         if (!Theme.reduced) for (let n = 0; n < 6; n++) {
                             const life = (t * (0.5 + n * 0.07) + n * 0.37) % 1
@@ -2060,6 +2120,75 @@ Item {
                 }
             }
 
+            // In the chat, over her head: the account's limits as the session reports them
+            // (through the kisel-prompts mod: see PromptRelay). The five-hour window, the
+            // week, and how full the context is; under them, when the first one resets.
+            Column {
+                id: limitRings
+                readonly property string sid: Hub.session.id || ""
+                property var rows: []
+                property string model: ""
+                function reread() { rows = sid !== "" ? Relay.limits(sid) : []; model = sid !== "" ? Relay.model(sid) : "" }
+                onSidChanged: reread()
+                Component.onCompleted: reread()
+                Connections { target: Relay; function onChanged() { limitRings.reread() } }
+                function label(kind) { return kind === "five_hour" ? Tr.t("5 hours") : kind === "seven_day" ? Tr.t("Week") : kind === "context" ? Tr.t("Context") : kind === "spend_limit" ? Tr.t("Spend") : kind }
+                // when it starts over: the hour for one that does today, the day for a later one
+                function resets(r) {
+                    if (!r.resetsAt) return ""
+                    const d = new Date(r.resetsAt)
+                    if (isNaN(d.getTime())) return ""
+                    const soon = d.getTime() - Date.now() < 20 * 3600 * 1000
+                    return Tr.t("until ") + (soon ? Qt.formatTime(d, "hh:mm") : Qt.formatDate(d, "d MMM"))
+                }
+                x: 16; y: 62
+                width: 126
+                spacing: 8
+                opacity: root.expanded && root.view === "chat" && (rows.length > 0 || model !== "") ? 1 : 0
+                visible: opacity > 0.01
+                Behavior on opacity { NumberAnimation { duration: 200 } }
+                // the model the session runs on: here, out of the way of the talk
+                Rectangle {
+                    visible: limitRings.model !== ""
+                    width: Math.min(parent.width, modelText.implicitWidth + 14); height: 18; radius: 9
+                    color: Qt.rgba(1, 1, 1, 0.07)
+                    Text {
+                        id: modelText
+                        anchors.verticalCenter: parent.verticalCenter
+                        x: 7
+                        width: parent.width - 14
+                        elide: Text.ElideRight
+                        text: limitRings.model
+                        color: Theme.inkMuted
+                        font.family: Theme.mono; font.pixelSize: 10
+                    }
+                }
+                Repeater {
+                    model: limitRings.rows.slice(0, 4)
+                    Row {
+                        id: limitRow
+                        required property var modelData
+                        spacing: 8
+                        LimitRing { used: limitRow.modelData.used }
+                        Column {
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 1
+                            Text {
+                                text: limitRings.label(limitRow.modelData.kind)
+                                color: Theme.ink
+                                font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.ExtraBold
+                            }
+                            Text {
+                                visible: text !== ""
+                                text: limitRings.resets(limitRow.modelData)
+                                color: Theme.inkFaint
+                                font.family: Theme.sans; font.pixelSize: 10; font.weight: Font.DemiBold
+                            }
+                        }
+                    }
+                }
+            }
+
             // header: wordmark, title, icon buttons
             Item {
                 id: header
@@ -2180,7 +2309,7 @@ Item {
                     id: hostSession
                     active: root.expanded && root.view === "session"
                     enterDelay: root.enterDelay
-                    SessionView { age: hostSession.age; active: hostSession.active; height: 300 - 62 }
+                    SessionView { id: sessionView; age: hostSession.age; active: hostSession.active; height: 300 - 62 }
                 }
                 ViewHost {
                     id: hostPermission
@@ -2265,7 +2394,7 @@ Item {
             id: mascot
             z: 2
             readonly property int slot: !root.expanded ? (root.floating ? 120 : root.mini)
-                : ({ home: 110, session: 88, permission: 88, github: 88, chat: 64, settings: 64 })[root.view]
+                : ({ home: 110, session: 88, permission: 88, github: 88, chat: 96, settings: 64 })[root.view]
             // collapsed: inside the bar, centred across it and `miniLead` from its leading end
             property real slotX: root.expanded ? 14 + (132 - slot) / 2
                 : root.floating ? 0 : root.vertical ? root.miniPad : root.miniLead + (root.mikuLeft ? root.seatW : 0)
@@ -2294,6 +2423,7 @@ Item {
                      * (root.arriving.includes(root.stage) ? 0 : 1) // (still on her way from the bench)
             Behavior on opacity { NumberAnimation { duration: 120 } }
             skin: root.expanded && root.view === "github" ? "github" : ""
+            holdPal: root.inChat
             walkDir: root.walkDir
             character: root.stage
             rotation: root.lean
@@ -2350,7 +2480,10 @@ Item {
                 Hub.poke()
                 if (root.note && root.buddyWho === "rin") { Sfx.play("click"); root.openNote(); return } // (Rin with her sign)
                 if (root.buddyWho === "miku") root.mikuAsked = true
+                // (her card, if she has one of her own; Rin has none, nor has one whose service is off: Miku's then)
+                const partner = root.buddyWho !== "miku" && root.hasCard(root.buddyWho) ? root.buddyWho : ""
                 root.autoOpened = false; root.open()
+                if (partner !== "") root.askedWho = partner // (once the card is opening: nobody flies off the bar for it)
             }
         }
 

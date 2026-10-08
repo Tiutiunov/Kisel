@@ -43,6 +43,7 @@ Item {
     property bool hovered: false          // the pointer is on the island: bigger eyes, a blush, an emote if it rests
     property int walkDir: 1               // -1 left, 1 right (mood walk)
     property bool celebrating: false      // sparkles and a jump without the mint badge
+    property bool holdPal: false          // Miku has Claude's little one whatever her mood (the chat: it is where one talks to him)
     property bool doneBadge: false        // keep the mint badge for 25 s after a task
     property bool eyesShut: false         // first launch: the eyes open with one blink when released
     property real leafScale: 1            // first launch: the hair grows from its roots
@@ -316,7 +317,7 @@ Item {
         // (Miku at Claude's work has Claude's little one in her arms: see paintPal)
         // (He stays with her through any feeling of her own: while her hands are busy with it he rides on her head.)
         // (And when the work is done she holds him up over her head: it is his doing too.)
-        if (character === "miku" && (m === "work" || m === "think" || m === "happy")) L.pal = true
+        if (character === "miku" && (holdPal || m === "work" || m === "think" || m === "happy")) L.pal = true
         if (!e && L.pal) {
             L.hands = "hug"
             const k = st.palK || "" // (and her face for what she is doing with him)

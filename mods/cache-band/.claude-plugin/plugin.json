@@ -1,0 +1,7 @@
+{
+  "name": "cache-band",
+  "version": "0.1.0",
+  "description": "A line above the prompt: how many tokens the prompt cache holds for this conversation",
+  "author": { "name": "Tiutiunov" },
+  "types": "./types/index.d.ts"
+}

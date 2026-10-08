@@ -8,8 +8,42 @@ Item {
     property bool active: false
     property real age: 800 // ms since shown; blocks rise from it (Motion.rise)
     readonly property var s: Hub.session
+    // A prompt for this session, typed here: only while the session has someone listening
+    // for it (the kisel-prompts mod, see PromptRelay). The field takes the foot of the card.
+    readonly property string sid: s.id || ""
+    readonly property bool relayOn: sid !== "" && Relay.live.includes(sid)
+    readonly property bool relayWaiting: Relay.waiting.includes(sid)
+    readonly property int foot: relayOn ? 44 : 0
+    readonly property bool inputFocus: promptField.inputFocus
+    onSidChanged: if (sid !== "") Relay.watch(sid)
+    Component.onCompleted: if (sid !== "") Relay.watch(sid)
+    property string sentNote: ""
+    Timer { id: sentOff; interval: 4000; onTriggered: root.sentNote = "" }
+    Connections { target: Relay; function onTaken(id) { if (id === root.sid) { root.sentNote = Tr.t("Claude Code has it"); sentOff.restart() } } }
 
     width: 494
+
+    KField {
+        id: promptField
+        visible: root.relayOn
+        x: 0; y: parent.height - 36
+        width: parent.width - sendKey.width - 8
+        placeholder: root.sentNote !== "" ? root.sentNote : root.relayWaiting ? Tr.t("Sent. Claude takes it when it is free.") : Tr.t("Write to Claude Code")
+        function go() {
+            if (text.trim() === "") return
+            if (Relay.send(root.sid, text)) { text = ""; Sfx.play("send") }
+            else { root.sentNote = Tr.t("Couldn't send it"); sentOff.restart(); Sfx.play("deny") }
+        }
+        onAccepted: go()
+    }
+    KButton {
+        id: sendKey
+        visible: root.relayOn
+        x: parent.width - width; y: parent.height - 36
+        primary: true
+        text: Tr.t("Send")
+        onClicked: promptField.go()
+    }
 
     // steps
     Column {
@@ -65,7 +99,7 @@ Item {
         transform: Translate { y: Motion.lift(root.age, 1) }
         x: 202
         width: parent.width - 202
-        height: terminal.visible ? parent.height - 48 : parent.height
+        height: (terminal.visible ? parent.height - 48 : parent.height) - root.foot
         lines: root.s.diff || []
         modified: !!root.s.file && (root.s.added > 0 || root.s.removed > 0)
         caption: root.s.file ? root.s.file + (root.s.added || root.s.removed ? "   +" + root.s.added + " −" + root.s.removed : "") : ""
@@ -85,7 +119,7 @@ Item {
         opacity: Motion.rise(root.age, 2)
         visible: !!root.s.command
         x: 202
-        y: parent.height - 40
+        y: parent.height - 40 - root.foot
         width: parent.width - 202
         height: 40
         clip: true

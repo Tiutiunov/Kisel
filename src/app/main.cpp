@@ -1,6 +1,8 @@
 #include "AgentHub.h"
 #include "Displays.h"
 #include "GitHubClient.h"
+#include "ModInstaller.h"
+#include "PromptRelay.h"
 #include "SpeedTest.h"
 #include "Updater.h"
 #include "ChatClient.h"
@@ -21,6 +23,7 @@
 
 #include <QApplication>
 #include <QCommandLineParser>
+#include <QDir>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QLocalSocket>
@@ -201,6 +204,12 @@ int main(int argc, char *argv[])
     // server does not let such a key read it, so the feature is gone and so is the key.)
     if (secrets.has(QStringLiteral("claude-signin")))
         secrets.remove(QStringLiteral("claude-signin"));
+    // Prompts typed in Kisel for a Claude Code session (see PromptRelay.h). A grab run keeps
+    // its own folder, so a trial never drops anything into a real session's inbox.
+    PromptRelay relay(cli.isSet("grab") ? QDir::tempPath() + QStringLiteral("/kisel-grab-inbox-%1").arg(QCoreApplication::applicationPid())
+                                        : paths::dataDir() + QStringLiteral("/inbox"));
+    // (installed: <prefix>/bin/kisel.exe and <prefix>/mods; from a build tree there are none beside it)
+    ModInstaller mods(QCoreApplication::applicationDirPath() + QStringLiteral("/../mods"));
     Media media;
     SysMon sysmon;
     Notices notices;
@@ -218,6 +227,8 @@ int main(int argc, char *argv[])
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "GitHub", &github);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Updates", &updater);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Speed", &speed);
+    qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Relay", &relay);
+    qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Mods", &mods);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Ticker", &ticker);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Media", &media);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Sys", &sysmon);

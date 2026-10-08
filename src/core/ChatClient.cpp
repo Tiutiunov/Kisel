@@ -120,7 +120,7 @@ void ChatClient::send(const QString &text)
 
     const QString key = m_secrets->read(Secrets::kAnthropic);
     if (key.isEmpty()) {
-        fail(QStringLiteral("Add your Anthropic API key in Settings"));
+        fail(QStringLiteral("No Claude Code session is listening. Install the mods in Settings."));
         return;
     }
     if (!m_error.isEmpty()) {

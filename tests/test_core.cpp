@@ -6,8 +6,10 @@
 #include "GitHubClient.h"
 #include "Updater.h"
 #include "Preferences.h"
+#include "PromptRelay.h"
 #include "HookInstaller.h"
 #include "HookServer.h"
+#include "ModInstaller.h"
 
 #include <QCryptographicHash>
 #include <QJsonArray>
@@ -79,6 +81,113 @@ private slots:
     {
         const QJsonObject installed = HookInstaller::merge({}, "kisel-hook", true);
         QVERIFY(!HookInstaller::merge(installed, "kisel-hook", false).contains("hooks"));
+    }
+
+    void promptsGoOnlyToASessionThatListens()
+    {
+        QTemporaryDir tmp;
+        PromptRelay relay(tmp.path() + "/inbox");
+        const QString id = "c8e0e68b-862f-4f24-a042-2e6c86c44fdb";
+
+        // an id is a folder name: nothing that climbs out of the inbox is one
+        QVERIFY(!PromptRelay::safeId("../../x"));
+        QVERIFY(!PromptRelay::safeId(""));
+        QVERIFY(PromptRelay::safeId(id));
+        relay.watch("../../x");
+        QVERIFY(!QFileInfo::exists(tmp.path() + "/x"));
+
+        // nobody listens yet: nothing is written
+        relay.watch(id);
+        QVERIFY(QFileInfo(relay.folder(id)).isDir());
+        QVERIFY(!relay.send(id, "hello"));
+        QCOMPARE(QDir(relay.folder(id)).entryList({"*.prompt"}).size(), 0);
+
+        // the mod's heartbeat appears: the session is live, a prompt is written whole
+        { QFile beat(relay.folder(id) + "/alive"); QVERIFY(beat.open(QIODevice::WriteOnly)); beat.write("1"); }
+        relay.scan();
+        QCOMPARE(relay.live(), QStringList {id});
+        QVERIFY(!relay.send(id, "   "));
+        QVERIFY(relay.send(id, "  привет, Claude  "));
+        const QStringList prompts = QDir(relay.folder(id)).entryList({"*.prompt"});
+        QCOMPARE(prompts.size(), 1);
+        { QFile f(relay.folder(id) + "/" + prompts[0]); QVERIFY(f.open(QIODevice::ReadOnly)); QCOMPARE(QString::fromUtf8(f.readAll()), QString("привет, Claude")); }
+        QCOMPARE(relay.waiting(), QStringList {id});
+
+        // the mod leaves its receipt: both files go, and Kisel says so once
+        QSignalSpy took(&relay, &PromptRelay::taken);
+        { QFile r(relay.folder(id) + "/" + QFileInfo(prompts[0]).completeBaseName() + ".taken"); QVERIFY(r.open(QIODevice::WriteOnly)); }
+        relay.scan();
+        QCOMPARE(took.count(), 1);
+        QCOMPARE(QDir(relay.folder(id)).entryList({"*.prompt", "*.taken"}).size(), 0);
+        QVERIFY(relay.waiting().isEmpty());
+    }
+
+    void modsAreCountedFromClaudesOwnList()
+    {
+        auto entry = [](const QString &id, bool on) { return QJsonObject {{"id", id}, {"enabled", on}, {"scope", "user"}}; };
+        auto list = [](const QJsonArray &a) { return QJsonDocument(a).toJson(); };
+        QCOMPARE(ModInstaller::stateFromList("No plugins installed."), QString("none"));
+        QCOMPARE(ModInstaller::stateFromList(list({entry("other@elsewhere", true)})), QString("none"));
+        QCOMPARE(ModInstaller::stateFromList(list({entry("kisel-prompts@kisel", true)})), QString("partial"));
+        QCOMPARE(ModInstaller::stateFromList(list({entry("kisel-prompts@kisel", true), entry("cache-band@kisel", false)})), QString("partial"));
+        QCOMPARE(ModInstaller::stateFromList(list({entry("kisel-prompts@kisel", true), entry("cache-band@kisel", true)})), QString("installed"));
+        // an older copy than this Kisel carries: both there, but to be updated
+        auto versioned = [](const QString &id, const QString &v) { return QJsonObject {{"id", id}, {"enabled", true}, {"version", v}}; };
+        const QHash<QString, QString> shipped {{"kisel-prompts", "0.1.1"}, {"cache-band", "0.1.0"}};
+        QCOMPARE(ModInstaller::stateFromList(list({versioned("kisel-prompts@kisel", "0.1.0"), versioned("cache-band@kisel", "0.1.0")}), shipped), QString("outdated"));
+        QCOMPARE(ModInstaller::stateFromList(list({versioned("kisel-prompts@kisel", "0.1.1"), versioned("cache-band@kisel", "0.1.0")}), shipped), QString("installed"));
+        // (a warning line printed before the list does not hide it)
+        QCOMPARE(ModInstaller::stateFromList("note: something\n" + list({entry("kisel-prompts@kisel", true), entry("cache-band@kisel", true)})), QString("installed"));
+    }
+
+    void repliesComeBackOnceAndInOrder()
+    {
+        QTemporaryDir tmp;
+        PromptRelay relay(tmp.path() + "/inbox");
+        const QString id = "abc";
+        relay.watch(id);
+        auto put = [&](const QString &name, const QByteArray &text) { QFile f(relay.folder(id) + "/" + name); QVERIFY(f.open(QIODevice::WriteOnly)); f.write(text); };
+        put("1700000000002-1.reply", "second");
+        put("1700000000001-0.reply", QString("первый").toUtf8());
+        put("1700000000003-2.reply", "   ");
+        QSignalSpy said(&relay, &PromptRelay::reply);
+        relay.scan();
+        QCOMPARE(said.count(), 2);
+        QCOMPARE(said[0][1].toString(), QString("первый"));
+        QCOMPARE(said[1][1].toString(), QString("second"));
+        QCOMPARE(QDir(relay.folder(id)).entryList({"*.reply"}).size(), 0);
+        relay.scan();
+        QCOMPARE(said.count(), 2); // (not twice)
+    }
+
+    void limitsFromTheModAreReadWithCare()
+    {
+        const QJsonObject five {{"kind", "five_hour"}, {"used", 23.5}, {"resetsAt", "2026-10-08T23:00:00Z"}};
+        const QJsonObject week {{"kind", "seven_day"}, {"used", 140}};
+        const QJsonObject nameless {{"kind", ""}, {"used", 5}};
+        const QJsonObject odd {{"kind", "odd"}, {"used", "lots"}};
+        const QJsonObject all {{"limits", QJsonArray {five, week, nameless, odd}}, {"context", QJsonObject {{"used", 61}}}};
+        const QVariantList l = PromptRelay::parseLimits(QJsonDocument(all).toJson());
+        QCOMPARE(l.size(), 3);
+        QCOMPARE(l[0].toMap().value("kind").toString(), QString("five_hour"));
+        QCOMPARE(l[0].toMap().value("used").toDouble(), 23.5);
+        QCOMPARE(l[1].toMap().value("used").toDouble(), 100.0); // (never past the ring)
+        QCOMPARE(l[2].toMap().value("kind").toString(), QString("context"));
+        QVERIFY(PromptRelay::parseLimits("not json").isEmpty());
+        QCOMPARE(PromptRelay::parseModel(QJsonDocument(QJsonObject {{"model", "claude-opus-5-5[1m]"}}).toJson()), QString("claude-opus-5-5[1m]"));
+        QVERIFY(PromptRelay::parseModel(QJsonDocument(QJsonObject {{"model", "<b>x</b>"}}).toJson()).isEmpty());
+        QVERIFY(PromptRelay::parseModel(QJsonDocument(QJsonObject {{"model", 5}}).toJson()).isEmpty());
+
+        QTemporaryDir tmp;
+        PromptRelay relay(tmp.path() + "/inbox");
+        const QString id = "abc";
+        relay.watch(id);
+        QVERIFY(relay.limits(id).isEmpty());
+        { QFile f(relay.folder(id) + "/limits"); QVERIFY(f.open(QIODevice::WriteOnly)); f.write(QJsonDocument(QJsonObject {{"limits", QJsonArray {five}}}).toJson()); }
+        QSignalSpy moved(&relay, &PromptRelay::changed);
+        relay.scan();
+        QCOMPARE(moved.count(), 1);
+        QCOMPARE(relay.limits(id).size(), 1);
     }
 
     void healthTellsMissingFromStaleFromWhole()

@@ -302,7 +302,7 @@ class Bot {
     const m = this.m, a = looks[m] || looks.idle, e = emotes[this.emote] || (this.music && m === "idle" ? emotes.hum : null);
     const L = e ? Object.assign({}, a, e) : Object.assign({}, a);
     L.tinted = !!L.color; if (!L.color) L.color = this.T.hair; if (!L.mouth) L.mouth = this.who.mouth;
-    if (this.key === "miku" && (m === "work" || m === "think" || m === "happy")) L.pal = true; // (Claude's little one, through any feeling of hers)
+    if (this.key === "miku" && (this.holdPal || m === "work" || m === "think" || m === "happy")) L.pal = true; // (Claude's little one, through any feeling of hers)
     if (!e && L.pal) {
       L.hands = "hug"; const k = this.st.palK || "";
       if (k === "squeeze" || k === "pat") { L.eyes = "happy"; L.blush = 1; }
@@ -991,6 +991,7 @@ setMood("idle");
 // what each does in her own way
 const toyNames = { squeeze: ["тискает", 1500], lift: ["поднимает и разглядывает", 2200], toss: ["подбрасывает и ловит", 900], pat: ["гладит", 1500], show: ["протягивает показать", 2300], guard: ["прячет от чужой руки", 2000] };
 for (const k in toyNames) btn("toy", toyNames[k][0], () => { if (world.mood !== "work" && world.mood !== "think") setMood("work"); for (const b of [big, mini]) { b.emote = ""; b.palDo(k, toyNames[k][1], 1); } });
+btn("toy", "в чате: держит всегда, в любом настроении", b => { const on = !big.holdPal; big.holdPal = on; mini.holdPal = on; b.classList.toggle("on", on); });
 btn("own", "шлепок (у каждой свой ответ)", () => { big.poke(); mini.poke(); });
 btn("own", "три шлепка: головокружение", () => { for (const b of [big, mini]) { b.dizzyLeft = 3.3; b.moodChanged("dizzy"); } });
 btn("own", "навели мышь и замерли", () => play(big.who.rest, 2400));

@@ -20,7 +20,9 @@ add_library(kisel_core STATIC
     src/core/GitHubClient.cpp
     src/core/HookInstaller.cpp
     src/core/HookServer.cpp
+    src/core/ModInstaller.cpp
     src/core/Preferences.cpp
+    src/core/PromptRelay.cpp
     src/core/Secrets.cpp
     src/core/SessionModel.cpp
     src/core/SpeedTest.cpp
@@ -103,6 +105,7 @@ qt_add_qml_module(kisel
         qml/StatusPill.qml
         qml/PillChip.qml
         qml/PillDisc.qml
+        qml/LimitRing.qml
         qml/SideStack.qml
         qml/DockZone.qml
         qml/Ripple.qml
@@ -181,6 +184,8 @@ install(TARGETS kisel kisel-hook RUNTIME DESTINATION bin)
 # what the package must carry: Kisel's licence, whose work it depicts and is built on, and
 # the text of the licence Qt comes under
 install(FILES LICENSE THIRD-PARTY-NOTICES.md licenses/LGPL-3.0.txt licenses/GPL-3.0.txt DESTINATION licenses)
+# The two Claude Code plugins, as a marketplace folder of their own: Settings installs them from here.
+install(DIRECTORY mods/ DESTINATION mods)
 if(WIN32)
     # The compiler's runtime DLLs go next to the app, so it starts on a machine that has
     # never had Visual Studio or its redistributable.
