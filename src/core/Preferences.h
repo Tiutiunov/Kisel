@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QSettings>
 #include <QStringList>
+#include <QVariantMap>
 
 namespace kisel {
 
@@ -31,6 +32,10 @@ class Preferences : public QObject
     Q_PROPERTY(bool rinNotes READ rinNotes WRITE setRinNotes NOTIFY changed)       // Rin announces notifications
     Q_PROPERTY(bool lukaNet READ lukaNet WRITE setLukaNet NOTIFY changed)          // Luka watches the connection
     Q_PROPERTY(QString character READ character WRITE setCharacter NOTIFY changed) // miku | rin | luka | zunda | teto
+    // Who has which job. The jobs are known by the one who had them first: "miku" is Claude
+    // Code, "rin" the notifications, "luka" the connection, "zunda" the music, "teto" the
+    // computer. `faces` says who does each now, job -> character; always all five, each once.
+    Q_PROPERTY(QVariantMap faces READ faces NOTIFY changed)
     Q_PROPERTY(bool hookSeen READ hookSeen NOTIFY changed)
     // What Kisel does when Claude Code's hooks are missing or broken: ask | auto | off
     Q_PROPERTY(QString hookWatch READ hookWatch WRITE setHookWatch NOTIFY changed)
@@ -89,6 +94,31 @@ public:
     bool lukaNet() const { return m_s.value("lukaNet", true).toBool(); }
     void setLukaNet(bool v) { set("lukaNet", v); }
     void setHookSeen(bool v) { set("hookSeen", v); }
+    static QStringList jobs() { return {QStringLiteral("miku"), QStringLiteral("rin"), QStringLiteral("luka"), QStringLiteral("zunda"), QStringLiteral("teto")}; }
+    QStringList faceList() const
+    {
+        QStringList f = m_s.value("faces").toStringList(), sorted = f, all = jobs();
+        sorted.sort(); all.sort();
+        return sorted == all ? f : jobs(); // (anything but the five, each once: as it was at first)
+    }
+    QVariantMap faces() const
+    {
+        QVariantMap m;
+        const QStringList j = jobs(), f = faceList();
+        for (int i = 0; i < j.size(); ++i)
+            m.insert(j[i], f[i]);
+        return m;
+    }
+    // Gives the job to that character; whoever had it takes the job she leaves.
+    Q_INVOKABLE void setFace(const QString &job, const QString &character)
+    {
+        QStringList f = faceList();
+        const int at = jobs().indexOf(job), from = f.indexOf(character);
+        if (at < 0 || from < 0 || at == from)
+            return;
+        f.swapItemsAt(at, from);
+        set("faces", f);
+    }
     bool discordOn() const { return m_s.value("discordOn", false).toBool(); }
     void setDiscordOn(bool v) { set("discordOn", v); }
     bool discordProject() const { return m_s.value("discordProject", false).toBool(); }

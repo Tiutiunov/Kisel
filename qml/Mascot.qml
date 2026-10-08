@@ -545,7 +545,8 @@ Item {
         if (!s.tails || s.tailStyle !== who.style) { s.tails = H ? [{ side: -1, p: [] }, { side: 1, p: [] }] : []; s.tailStyle = who.style }
         if (!H) return
         // short hair in the bar, so that it ends inside it; full length on the card
-        const seg = R * H.seg * (0.42 + 0.58 * detail), n = H.n
+        // (short in the bar, where they must not stick out of it; full length from the size of a card's corner up)
+        const seg = R * H.seg * (0.42 + 0.58 * Math.min(1, detail * 2.2)), n = H.n
         const wx = dragging ? clampv(-dragVx / k, -2600, 2600) : 0, wy = dragging ? clampv(-dragVy / k, -2600, 2600) : 0
         for (const T of s.tails) {
             const a = toWorld(P, T.side * H.x, H.y), p = T.p

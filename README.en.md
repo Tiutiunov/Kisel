@@ -35,9 +35,11 @@ There isn't a single image file inside. The characters, the icons, the sparkles 
 
 You pick the main one by clicking the bench on the right. The others don't go anywhere: they sit there, blink, and pull faces now and then.
 
+Who does what can be rearranged in Settings: Teto on Claude Code, Miku on the music, whatever you like. Character and favourite food stay with the mochi; the job moves.
+
 ## The bar
 
-288 by 32 pixels, on any edge. What it shows depends on what's going on.
+288 by 32 pixels, at home on any edge of the screen. What it shows depends on what's going on.
 
 <p align="center">
   <img src="docs/img/bar.png" alt="The bar in different states" width="900">
@@ -46,11 +48,17 @@ You pick the main one by clicking the bench on the right. The others don't go an
 A few things that took longer than they should have:
 
 - They somersault over the whole bar to get to the bench and back. Just vanishing would have been boring.
-- While Claude works, Miku sits on the left and someone keeps her company. They shove each other, toss a star around, play hide and seek. There are thirty-odd of these little scenes.
+- While Claude works, Miku sits on the left holding its little orange creature, and someone keeps her company. They shove each other, toss a star around, play hide and seek, reach for the creature. There are forty-odd of these little scenes, and each of them has one of her own: Teto gets laughed at and raises her broom.
+- The speed test and the memory clean start right from the bar, and while they run the bar fills up with liquid.
 - If music is playing and there are at least two of them, a dance breaks out every so often.
 - A minute of nothing and the bar slides off the edge. With music on it stays as a mini player, and you can scrub the track along its edge.
 - Under a full-screen game it drops to the very bottom of the screen instead of hanging in the middle of the picture.
-- To move it, hit the arrows button in the card's header and drag it wherever you like.
+- To move it, hit the arrows button in the card's header: it comes off its edge, follows the pointer like jelly, and when you let go it flies to the nearest edge by itself. On a side edge it stands on end, with everything it has along the top or bottom.
+- At start-up Miku comes up from the bottom of the screen and waves, and only then does the bar turn up for her to fly into.
+
+<p align="center">
+  <img src="docs/img/bar-side.png" alt="The bar on a side edge" width="900">
+</p>
 
 ## The cards
 
@@ -58,7 +66,7 @@ Click the main character and the card opens. Each has her own.
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/img/card-miku.png" alt="Miku's card"><br><b>Miku.</b> How many sessions are open and what the latest one is doing. The ring spins while Claude thinks.</td>
+    <td width="50%"><img src="docs/img/card-miku.png" alt="Miku's card"><br><b>Miku.</b> What the latest session is doing, and three limit rings: the five hours, the week, and how full the context is. Underneath, when the limit resets.</td>
     <td width="50%"><img src="docs/img/card-permission.png" alt="Permission"><br><b>Permissions.</b> Claude wants to run or edit something and the card opens by itself. Kisel never answers for you. Only your click does.</td>
   </tr>
   <tr>
@@ -70,10 +78,19 @@ Click the main character and the card opens. Each has her own.
     <td><img src="docs/img/card-teto.png" alt="Monitor"><br><b>Teto.</b> The last minute of load and a button that cleans memory. She'll tell you how much she freed, and not modestly.</td>
   </tr>
   <tr>
+    <td colspan="2"><img src="docs/img/card-chat.png" alt="Chat"><br><b>Chat.</b> You write here and it goes to your running Claude Code session as an ordinary prompt. The answers come back here, with your limits and the model on the left. No API key needed.</td>
+  </tr>
+  <tr>
     <td><img src="docs/img/card-luka.png" alt="Network"><br><b>Luka.</b> Ping and current speed. The Test button measures the line without opening a speed test site. The faster it is, the happier she gets; a slow one upsets her.</td>
     <td><img src="docs/img/card-rin.png" alt="Notifications"><br><b>Rin.</b> Holds up a sign with the app's name until you look. Click her and that app opens. She's also the one who tells you about a new Kisel version.</td>
   </tr>
 </table>
+
+<p align="center">
+  <img src="docs/img/card-settings.png" alt="Settings" width="620">
+</p>
+
+Settings are in tabs: Claude Code, services, characters, look and sound, place, Kisel itself.
 
 You can play with all the animations and scenes separately: open [`design/miku-editor.html`](design/miku-editor.html) in a browser. It has sliders for how each of them looks, too.
 
@@ -93,13 +110,28 @@ The interface is English by default. Russian is in Settings if you want it.
 
 Card → gear → **Connect Claude Code**. Kisel shows exactly what it will add to `~/.claude/settings.json` and doesn't touch the file until you click. It makes a backup first.
 
-After that Claude Code calls a tiny `kisel-hook` on every event, which passes it on to Kisel. If Kisel isn't running, the hook exits quietly and Claude Code never notices.
+After that Claude Code calls a tiny `kisel-hook` on every event, which passes it on to Kisel. If Kisel isn't running, the hook exits quietly and Claude Code never notices. If the hooks go missing or stale after an update, Kisel tells you and offers to repair them.
+
+### Mods: the chat and the limits
+
+In the same place there is an **Install mods** button. It installs two Claude Code plugins that ship with Kisel:
+
+- `kisel-prompts` joins a session to Kisel's chat: prompts in, answers and limits back.
+- `cache-band` shows, above the prompt box in Claude Code, how many tokens sit in the cache.
+
+Kisel runs Claude Code's own `claude plugin ...` commands for this and shows them first, so the `claude` command line has to be installed. The mods load in sessions started after that.
+
+## Discord
+
+If you want, Kisel shows "Working with Claude Code" with a timer in your Discord profile. It is off until you switch it on in Settings. The session's name is shown only if you switch that on too. It talks only to the Discord running on your computer.
 
 ## Your data
 
-Keys (Anthropic for the chat, a GitHub token for the widget) live in the Windows Credential Manager and are never written to files.
+Secrets (a GitHub token for the widget) live in the Windows Credential Manager and are never written to files.
 
-No telemetry. Kisel goes online for the chat with Claude, for the GitHub widget, to ping `1.1.1.1` for Luka, to check for updates once a day, and to measure speed through Cloudflare when you press the button. Everything but the ping can be switched off or never starts by itself.
+No telemetry. Kisel goes online for the GitHub widget, to ping `1.1.1.1` for Luka, to check for updates once a day, and to measure speed through Cloudflare when you press the button. All of it can be switched off or never starts by itself. The chat goes through your local Claude Code session, not through any network of Kisel's.
+
+Point by point: [docs/PRIVACY.md](docs/PRIVACY.md). Terms of use: [docs/TERMS.md](docs/TERMS.md).
 
 From notifications it reads the app's name and how many there are. Never the text.
 

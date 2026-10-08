@@ -109,6 +109,7 @@ int main(int argc, char *argv[])
     cli.addOption({"intro", "Play the first-launch animation now."});
     cli.addOption({"grab", "Save a screenshot of the island to <file> and quit (development).", "file"});
     cli.addOption({"scroll", "Development: with --grab, scroll Settings down by <px> first.", "px"});
+    cli.addOption({"no-hello", "Development: start with the bar in place, without Miku's hello."});
     cli.addOption({"tab", "Development: with --grab, show this tab of Settings (claude, services, cast, look, place, kisel).", "id"});
     cli.addOption({"speed-test", "Measure the connection (ping, down, up), print the result and quit."});
     cli.addOption({"check-updates", "Ask GitHub whether a newer version is out, print the answer and quit."});
@@ -208,7 +209,8 @@ int main(int argc, char *argv[])
         secrets.remove(QStringLiteral("claude-signin"));
     // Prompts typed in Kisel for a Claude Code session (see PromptRelay.h). A grab run keeps
     // its own folder, so a trial never drops anything into a real session's inbox.
-    PromptRelay relay(cli.isSet("grab") ? QDir::tempPath() + QStringLiteral("/kisel-grab-inbox-%1").arg(QCoreApplication::applicationPid())
+    // (KISEL_INBOX=<folder>: the folder a grab run uses, to show a trial what a session would say)
+    PromptRelay relay(cli.isSet("grab") ? qEnvironmentVariable("KISEL_INBOX", QDir::tempPath() + QStringLiteral("/kisel-grab-inbox-%1").arg(QCoreApplication::applicationPid()))
                                         : paths::dataDir() + QStringLiteral("/inbox"));
     // (installed: <prefix>/bin/kisel.exe and <prefix>/mods; from a build tree there are none beside it)
     ModInstaller mods(QCoreApplication::applicationDirPath() + QStringLiteral("/../mods"));

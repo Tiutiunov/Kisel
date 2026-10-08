@@ -379,7 +379,7 @@ class Bot {
     const H = HAIRS[CAST[key].style];
     if (!s.tails || s.who !== key) { s.tails = H ? [{ side: -1, p: [] }, { side: 1, p: [] }] : []; s.who = key; }
     if (!H) return;
-    const seg = R * T.seg * (0.42 + 0.58 * this.detail), n = H.n;
+    const seg = R * T.seg * (0.42 + 0.58 * Math.min(1, this.detail * 2.2)), n = H.n; // (short in the bar; full length from the size of a card's corner up)
     for (const Tl of s.tails) {
       const a = this.toWorld(P, Tl.side * T.tx, T.ty), p = Tl.p;
       if (p.length === 0) for (let i = 0; i < n; i++) p.push({ x: a.x + Tl.side * i * seg * 0.35, y: a.y + i * seg * 0.93, px: a.x + Tl.side * i * seg * 0.35, py: a.y + i * seg * 0.93 });

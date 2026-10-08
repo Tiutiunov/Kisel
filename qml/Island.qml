@@ -71,6 +71,12 @@ Item {
     // The cast. One of them is the mascot; the other four wait at the bar's far end, two
     // by two, as Coucou keeps its other agents, and a click on one swaps her in.
     readonly property var cast: ["miku", "rin", "luka", "zunda", "teto"]
+    // (Those five names are the jobs, each called by the one who had it first: "miku" is
+    // Claude Code, "rin" the notifications, "luka" the connection, "zunda" the music, "teto"
+    // the computer. Who does a job now is the user's choice in Settings: `face(job)`. All
+    // that follows goes by the job; only the drawing, and the scenes that are a matter of
+    // character, go by the face.)
+    function face(job) { return Prefs.faces[job] || job }
     // Who is on stage: whoever has something to show.
     //   Miku is Claude Code's. She does not stand there for as long as Claude works (that
     //   can be an hour): she steps in for a few seconds when there is news (a task begins,
@@ -591,7 +597,7 @@ Item {
     }
     function playToy() {
         const mk = seated("miku")
-        if (!mk || !claudeBusy || mk.emote !== "" || arriving.includes("miku")) return false
+        if (!mk || face("miku") !== "miku" || !claudeBusy || mk.emote !== "" || arriving.includes("miku")) return false // (the toy is Miku's own)
         const others = head.filter(c => c !== "miku" && seated(c) !== null && !arriving.includes(c))
         if (others.length === 0) return false
         ownA = mk; ownB = seated(others[Math.floor(Math.random() * others.length)])
@@ -605,7 +611,7 @@ Item {
     Timer { // by herself
         interval: 12000
         repeat: true
-        running: root.claudeBusy && !Theme.reduced && !root.tucked && root.seated("miku") !== null
+        running: root.claudeBusy && !Theme.reduced && !root.tucked && root.seated("miku") !== null && root.face("miku") === "miku"
         onTriggered: {
             interval = 18000 + Math.random() * 16000
             const mk = root.seated("miku")
@@ -653,7 +659,7 @@ Item {
         lastOwn = who
         ownA = seated(who); ownB = seated(others[Math.floor(Math.random() * others.length)])
         duoLook = true; duoLookOff.restart()
-        ownSkits[who].restart()
+        ownSkits[face(who)].restart() // (the scene is the character's, whatever her job)
         return true
     }
     SequentialAnimation {
@@ -1312,11 +1318,12 @@ Item {
         if (Prefs.floating)
             Shell.restoreFloat(Prefs.floatX, Prefs.floatY)
         updateHit()
-        if (!Prefs.floating && !Theme.reduced) {
+        if (!Prefs.floating && !Theme.reduced && Qt.application.arguments.indexOf("--no-hello") < 0) {
             ghost = true // (no bar yet: it turns up when she has said hello)
             greetSoon.restart()
-        } else if (introDue) {
-            introSoon.restart()
+        } else {
+            if (Qt.application.arguments.indexOf("--no-hello") > 0) opened = true // (a trial: whoever was chosen, at once, with no visit of Miku's first)
+            if (introDue) introSoon.restart()
         }
     }
 
@@ -1960,7 +1967,7 @@ Item {
                             size: 18
                             bench: true
                             paused: root.tucked
-                            character: seat.modelData
+                            character: root.face(seat.modelData)
                             scale: seatArea.containsMouse ? 1.15 : 1
                             Behavior on scale { NumberAnimation { duration: Theme.tHover; easing.type: Easing.OutCubic } }
                         }
@@ -2009,7 +2016,7 @@ Item {
                             size: 18
                             bench: true
                             paused: root.tucked
-                            character: stool.modelData
+                            character: root.face(stool.modelData)
                             scale: stoolArea.containsMouse ? 1.15 : 1
                             Behavior on scale { NumberAnimation { duration: Theme.tHover; easing.type: Easing.OutCubic } }
                         }
@@ -2155,7 +2162,7 @@ Item {
                 Row {
                     x: 14; y: 12
                     spacing: Theme.space2
-                    Mascot { size: 24; still: true; character: root.stage }
+                    Mascot { size: 24; still: true; character: root.face(root.stage) }
                     Text {
                         text: mascot.displayName
                         // (only on Home: on any other view the title stands where a long name would run into it)
@@ -2204,7 +2211,7 @@ Item {
                                 anchors.centerIn: parent
                                 size: 24
                                 bench: true
-                                character: chair.modelData
+                                character: root.face(chair.modelData)
                                 scale: chairArea.containsMouse ? 1.2 : 1
                                 Behavior on scale { NumberAnimation { duration: Theme.tHover; easing.type: Easing.OutCubic } }
                             }
@@ -2281,7 +2288,7 @@ Item {
                     rises: false
                     ChatView {
                         id: chatView
-                        who: root.stage
+                        who: root.face(root.stage)
                         active: hostChat.active
                         dropActive: root.dropActive
                         height: 412 - 62
@@ -2345,7 +2352,7 @@ Item {
             id: mascot
             z: 2
             readonly property int slot: !root.expanded ? (root.floating ? 120 : root.mini)
-                : ({ home: 110, session: 88, permission: 88, github: 88, chat: 96, settings: 64 })[root.view]
+                : ({ home: 110, session: 88, permission: 88, github: 88, chat: 96, settings: 88 })[root.view]
             // collapsed: inside the bar, centred across it and `miniLead` from its leading end
             property real slotX: root.expanded ? 14 + (132 - slot) / 2
                 : root.floating ? 0 : root.vertical ? root.miniPad : root.miniLead + (root.mikuLeft ? root.seatW : 0)
@@ -2374,7 +2381,7 @@ Item {
             skin: root.expanded && root.view === "github" ? "github" : ""
             holdPal: root.inChat
             walkDir: root.walkDir
-            character: root.stage
+            character: root.face(root.stage)
             rotation: root.lean
             instant: root.duo
             music: root.tune
@@ -2404,7 +2411,7 @@ Item {
             readonly property real along: root.miniLead + (root.mikuLeft ? 0 : root.seatW) + root.side * root.buddyDx
             x: root.vertical ? card.x + root.miniPad : card.x + along
             y: root.vertical ? card.y + along : (root.atBottom ? card.y + card.height - root.pillT : card.y) + (root.pillT - height) / 2
-            character: root.buddyWho
+            character: root.face(root.buddyWho)
             rotation: -root.lean
             inwardTilt: root.sway
             instant: true
@@ -2444,7 +2451,7 @@ Item {
             readonly property real along: root.miniLead + root.mini + 3 + root.duoW + root.heraldDx
             x: root.vertical ? card.x + root.miniPad : card.x + along
             y: root.vertical ? card.y + along : (root.atBottom ? card.y + card.height - root.pillT : card.y) + (root.pillT - height) / 2
-            character: "rin"
+            character: root.face("rin")
             rotation: root.duo ? root.lean : -root.lean
             inwardTilt: root.sway
             instant: true
@@ -2496,7 +2503,7 @@ Item {
                 x: headX + (benchX - headX) * k + (root.vertical ? root.inward * Math.sin(Math.PI * u) * 24 : 0)
                 y: headY + (benchY - headY) * k + (root.vertical ? 0 : (root.atBottom ? -1 : 1) * Math.sin(Math.PI * u) * 24)
                 rotation: (coming ? -1 : 1) * u * 360
-                character: who
+                character: root.face(who)
                 instant: true
                 mood: "idle"
                 visible: up && seat >= 0

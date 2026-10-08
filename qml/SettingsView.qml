@@ -21,6 +21,21 @@ Item {
     readonly property var tabList: [{ id: "claude", name: "Claude Code" }, { id: "services", name: Tr.t("Services") }, { id: "cast", name: Tr.t("Characters") },
         { id: "look", name: Tr.t("Look and sound") }, { id: "place", name: Tr.t("Place") }, { id: "kisel", name: "Kisel" }]
     function show(t) { tab = t; scroll.contentItem.contentY = 0 }
+    readonly property var names: ({ miku: "Miku", rin: "Rin", luka: "Luka", zunda: "Zundamon", teto: "Teto" })
+    // the five jobs (each known by the one who had it first), whether it is switched on, and whether this computer can do it at all
+    readonly property var jobs: [
+        { id: "miku", name: "Claude Code", on: true, can: true },
+        { id: "rin", name: Tr.t("Notifications"), on: Prefs.rinNotes, can: Notes.available },
+        { id: "luka", name: Tr.t("Internet"), on: Prefs.lukaNet, can: Net.available },
+        { id: "zunda", name: Tr.t("Music"), on: Prefs.zundaSpotify, can: Media.available },
+        { id: "teto", name: Tr.t("Computer"), on: Prefs.tetoSystem, can: Sys.available }
+    ]
+    function setJob(id, v) {
+        if (id === "rin") Prefs.rinNotes = v
+        else if (id === "luka") Prefs.lukaNet = v
+        else if (id === "zunda") Prefs.zundaSpotify = v
+        else if (id === "teto") Prefs.tetoSystem = v
+    }
     onActiveChanged: { if (active) { plan = null; note = ""; Mods.refresh() } }
 
     Timer { id: clearPlan; interval: 2200; onTriggered: root.plan = null }
@@ -391,23 +406,63 @@ Item {
                 spacing: Theme.space3
 
                 // ---- who is on stage ----
+                Text { text: Tr.t("On stage"); color: Theme.ink; font.family: Theme.display; font.pixelSize: 16; font.weight: Font.DemiBold }
                 Row {
                     spacing: Theme.space2
                     Repeater {
-                        model: [{ id: "miku", name: "Miku" }, { id: "rin", name: "Rin" }, { id: "luka", name: "Luka" }, { id: "zunda", name: "Zundamon" }, { id: "teto", name: "Teto" }]
+                        model: root.jobs
                         KButton {
                             required property var modelData
                             primary: Prefs.character === modelData.id
-                            text: modelData.name
+                            text: root.names[Prefs.faces[modelData.id]]
                             onClicked: Prefs.character = modelData.id
                         }
                     }
                 }
 
-                KToggle { visible: Sys.available; label: Tr.t("Teto watches the computer"); checked: Prefs.tetoSystem; onToggled: (v) => Prefs.tetoSystem = v }
-                KToggle { visible: Net.available; label: Tr.t("Luka watches the connection"); checked: Prefs.lukaNet; onToggled: (v) => Prefs.lukaNet = v }
-                KToggle { visible: Notes.available; label: Tr.t("Rin announces notifications"); checked: Prefs.rinNotes; onToggled: (v) => Prefs.rinNotes = v }
-                KToggle { visible: Media.available; label: Tr.t("Zundamon shows and steers Spotify"); checked: Prefs.zundaSpotify; onToggled: (v) => Prefs.zundaSpotify = v }
+                // ---- who does what: each job goes to one of the five; the one who had it takes
+                // the job its new owner leaves, so nobody is left idle and nothing is done twice ----
+                Text { text: Tr.t("Who does what"); color: Theme.ink; font.family: Theme.display; font.pixelSize: 16; font.weight: Font.DemiBold }
+                Repeater {
+                    model: root.jobs
+                    Column {
+                        id: job
+                        required property var modelData
+                        width: parent.width
+                        spacing: 6
+                        Row {
+                            spacing: Theme.space2
+                            height: 28
+                            KToggle {
+                                visible: job.modelData.id !== "miku"
+                                enabled: job.modelData.can
+                                opacity: enabled ? 1 : 0.5
+                                anchors.verticalCenter: parent.verticalCenter
+                                label: job.modelData.name
+                                checked: job.modelData.on
+                                onToggled: (v) => root.setJob(job.modelData.id, v)
+                            }
+                            Text { // (Claude Code is what Kisel is for: it has no switch)
+                                visible: job.modelData.id === "miku"
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: job.modelData.name
+                                color: Theme.ink; font.family: Theme.sans; font.pixelSize: 13; font.weight: Font.DemiBold
+                            }
+                        }
+                        Row {
+                            spacing: 6
+                            Repeater {
+                                model: ["miku", "rin", "luka", "zunda", "teto"]
+                                KButton {
+                                    required property string modelData
+                                    primary: Prefs.faces[job.modelData.id] === modelData
+                                    text: root.names[modelData]
+                                    onClicked: { Sfx.play("click"); Prefs.setFace(job.modelData.id, modelData) }
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             // ==== look and sound ====
