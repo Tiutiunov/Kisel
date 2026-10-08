@@ -13,15 +13,6 @@ Item {
     signal go(string view)
 
     readonly property var s: Hub.session
-    // The first-launch assembly reveals the real elements one by one as the
-    // flying shapes become them (1 = shown, the normal state).
-    property real revealCard: 1
-    property real revealButton: 1
-    property var revealTiles: [1, 1, 1, 1]
-    // Where the shapes should land, in this view's coordinates.
-    readonly property rect hookRect: Qt.rect(218, 32, 270, 38)
-    readonly property rect buttonRect: Qt.rect(426, 82, 62, 42)
-    readonly property var tileRects: [Qt.rect(98, 14, 104, 48), Qt.rect(98, 70, 104, 48)]
     readonly property bool hasSession: !!s.id
     // Home belongs to whoever is chosen. Miku's is this one, Claude Code's; Zundamon's is her
     // Spotify player. The ones with no service of their own yet show Claude's.
@@ -259,13 +250,13 @@ Item {
                 spacing: 8
                 Key1 {
                     over: "Claude"; label: Tr.t("Chat"); icon: "chat"
-                    opacity: root.revealTiles[0] * Motion.rise(root.age, 1)
+                    opacity: Motion.rise(root.age, 1)
                     transform: Translate { y: Motion.lift(root.age, 1) }
                     onClicked: root.go("chat")
                 }
                 Key1 {
                     over: Tr.t("Repos"); label: "GitHub"; icon: "github"
-                    opacity: root.revealTiles[1] * Motion.rise(root.age, 2)
+                    opacity: Motion.rise(root.age, 2)
                     transform: Translate { y: Motion.lift(root.age, 2) }
                     onClicked: root.go("github")
                 }
@@ -303,7 +294,7 @@ Item {
                 radius: 12
                 color: stripTap.pressed || stripHover.hovered && root.hasSession ? "#3a3142" : "#2b2430"
                 Behavior on color { ColorAnimation { duration: Theme.tHover } }
-                opacity: root.revealCard * Motion.rise(root.age, 2)
+                opacity: Motion.rise(root.age, 2)
                 transform: Translate { y: Motion.lift(root.age, 2) }
                 Item {
                     x: 10
@@ -381,7 +372,7 @@ Item {
             radius: 12
             color: keyTap.pressed ? root.deep : root.teal
             border.width: activeFocus ? 3 : 2; border.color: "#FFFFFF"
-            opacity: root.revealButton * Motion.rise(root.age, 3)
+            opacity: Motion.rise(root.age, 3)
             property real pulse: 1
             scale: pulse * (keyTap.pressed ? 0.92 : keyHover.hovered ? 1.06 : 1)
             Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutBack } }

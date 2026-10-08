@@ -98,6 +98,7 @@
       <h4>С Рин и её табличкой: всем телом</h4><div class="row sc" id="scSkit"></div>
       <h4>Танцы под музыку</h4><div class="row sc" id="scDance"></div>
       <h4>Скамейка: кувырком туда и обратно</h4><div class="row sc" id="scBench"></div>
+      <h4>Запуск Kisel</h4><div class="row sc" id="scStart"></div>
       <p class="hint">Сценки идут слева внизу, в размере таблетки, только увеличенно. Нужных для сценки персонажей страница сажает сама.</p>
     </div>
     <div class="tab" id="tLook" hidden>
@@ -732,7 +733,7 @@ function drawMini(c) {
 // (while Claude works), `herald` Rin with her sign (while a notification waits). The rest
 // sit on the bench at the bar's far end.
 const SC = { main: "miku", buddy: "zunda", duo: true, rin: false };
-const S = { mainDx: 0, buddyDx: 0, heraldDx: 0, buddyPop: 1, heraldPop: 1, lean: 0, tossU: 0, tossA: 0, discoOn: false, discoT: 0, duoLook: 0, duoW: 27, heraldW: 0, buddyIn: 1, heraldIn: 0 };
+const S = { mainDx: 0, buddyDx: 0, heraldDx: 0, buddyPop: 1, heraldPop: 1, lean: 0, tossU: 0, tossA: 0, discoOn: false, discoT: 0, duoLook: 0, duoW: 27, heraldW: 0, buddyIn: 1, heraldIn: 0, barA: 1, greet: false, gy: 0, gu: 0 };
 const MINI = 24, PILL = 32, SEAT = 27, LEAD = 14, BX = 16, BY = 50, BARW = 140, ZOOM = 4;
 const mainB = new Bot(0, () => SC.main), buddyB = new Bot(0, () => SC.buddy), heraldB = new Bot(0, "rin");
 const benchB = {}, flyB = {};
@@ -782,7 +783,7 @@ function stepTweens() {
 }
 function stopScenes() {
   gen++;
-  Object.assign(S, { mainDx: 0, buddyDx: 0, heraldDx: 0, buddyPop: 1, heraldPop: 1, lean: 0, tossU: 0, tossA: 0, discoOn: false });
+  Object.assign(S, { mainDx: 0, buddyDx: 0, heraldDx: 0, buddyPop: 1, heraldPop: 1, lean: 0, tossU: 0, tossA: 0, discoOn: false, barA: 1, greet: false, gu: 0 });
 }
 let playing = "";
 function setPlaying(name) { playing = name; document.getElementById("scNow").textContent = name === "" ? "—" : name; document.querySelectorAll(".sc button").forEach(b => b.classList.toggle("on", b.dataset.n === name && name !== "")); }
@@ -919,12 +920,15 @@ function drawSign(g, x, y, t) {
 function drawScene() {
   const g = cSc.getContext("2d"), W = barW();
   g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cSc.width, cSc.height); g.setTransform(ZOOM, 0, 0, ZOOM, 0, 0);
+  // (at the start there is no bar yet: it turns up, growing a little, when she has said hello)
+  g.save();
+  if (S.barA < 0.999) { const a = Math.max(0, S.barA), sc = 0.7 + 0.3 * S.barA, cx = BX + W / 2, cy = BY + PILL; g.globalAlpha = Math.min(1, a); g.translate(cx, cy); g.scale(sc, sc); g.translate(-cx, -cy); }
   g.fillStyle = "#0e0c0d"; g.strokeStyle = "#2a2526"; g.lineWidth = 1; rr(g, BX, BY, W, PILL, 14); g.fill(); g.stroke();
   const y = BY + (PILL - MINI) / 2;
   // the bench: two wide, at the far end
   benchNow().forEach((c, i) => { if (inAir(c)) return; const p = benchPos(i); drawBot(g, benchB[c], p.x, p.y, 18, 0, 1); });
   // the head of the bar
-  if (!arriving(SC.main)) drawBot(g, mainB, seatX("main") + S.mainDx, y, MINI, S.lean, 1);
+  if (!arriving(SC.main) && !S.greet) drawBot(g, mainB, seatX("main") + S.mainDx, y, MINI, S.lean, 1);
   if (S.buddyIn > 0.01 && !arriving(SC.buddy) && !(flights.some(f => !f.coming && f.who === SC.buddy))) drawBot(g, buddyB, seatX("buddy") + S.buddyDx, y, MINI, -S.lean, S.buddyIn * S.buddyPop);
   const hx = seatX("herald") + S.heraldDx;
   if (S.heraldIn > 0.01 && !arriving("rin") && !(flights.some(f => !f.coming && f.who === "rin"))) drawBot(g, heraldB, hx, y, MINI, duo() ? S.lean : -S.lean, S.heraldIn * S.heraldPop);
@@ -935,6 +939,13 @@ function drawScene() {
     const k = f.coming ? 1 - f.u : f.u, seat = f.coming ? f.seat : benchNow().indexOf(f.who), b = benchPos(Math.max(0, seat));
     const hxx = f.coming ? seatX(f.role) : f.fromX, size = MINI - (MINI - 18) * k;
     drawBot(g, flyB[f.who], hxx + (b.x - hxx) * k, y + (b.y - y) * k - Math.sin(Math.PI * f.u) * 24, size, (f.coming ? -1 : 1) * f.u * 360, 1);
+  }
+  g.restore();
+  // hello: she stands free of the bar, then goes into her seat along an arc, shrinking (`greet` in Island.qml)
+  if (S.greet) {
+    const ax = 193, ay = S.gy, bx = seatX("main") + MINI / 2, by = BY + PILL / 2, t = S.gu, k = 1 - t, cx = (ax + bx) / 2, cy = (ay + by) / 2 - 14;
+    const size = 48 + (MINI - 48) * t;
+    drawBot(g, mainB, k * k * ax + 2 * k * t * cx + t * t * bx - size / 2, k * k * ay + 2 * k * t * cy + t * t * by - size / 2, size, 0, 1);
   }
   // the notes of the dance, and the star that is passed along
   if (S.discoOn) for (let i = 0; i < 7; i++) {
@@ -1058,6 +1069,17 @@ btn("scBench", "напарница приходит со скамейки", () =
 btn("scBench", "уведомление: Рин приходит с табличкой", () => { stopScenes(); setPlaying(""); if (!SC.rin) { SC.rin = true; castChanged(); syncCastUi(); } });
 btn("scBench", "уведомление прочитано: Рин уходит", () => { stopScenes(); setPlaying(""); if (SC.rin) { SC.rin = false; castChanged(); syncCastUi(); } });
 btn("scBench", "смена главной: одна улетает, другая прилетает", () => { stopScenes(); setPlaying(""); const free = benchNow().filter(c => !inAir(c)); if (free.length) { SC.main = free[0]; castChanged(); syncCastUi(); } });
+// ---- the start (`greet` in Island.qml): she comes up and waves with no bar anywhere, the
+// bar turns up, she notices it and flies into it ----
+async function hello() {
+  if (SC.main !== "miku" || duo()) { SC.main = "miku"; SC.duo = false; if (SC.buddy === "miku") SC.buddy = "zunda"; castChanged(); syncCastUi(); }
+  S.greet = true; S.barA = 0; S.gu = 0; S.gy = 125;
+  await anim({ gy: 62 }, 620, "outBack"); M.play("hello", 1900); await pause(2000);
+  M.play("surprised", 600); await anim({ barA: 1 }, 240, "outBack"); await pause(410);
+  M.jump(0.5, true); await anim({ gu: 1 }, 760, "inOutCubic");
+  S.greet = false; M.st.sqv += 6;
+}
+sceneBtn("scStart", "привет: Мику выходит и машет, появляется таблетка, она улетает в неё", [], hello);
 // everything, one after another
 let touring = false;
 document.getElementById("scAll").onclick = async e => {

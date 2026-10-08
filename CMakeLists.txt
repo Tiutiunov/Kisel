@@ -135,7 +135,6 @@ qt_add_qml_module(kisel
         qml/KButton.qml
         qml/CodePanel.qml
         qml/BrandShape.qml
-        qml/Assembly.qml
         qml/DoneBurst.qml
         qml/AttentionTab.qml
         qml/JellyTrio.qml

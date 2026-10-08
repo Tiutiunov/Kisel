@@ -45,8 +45,6 @@ Item {
     property bool celebrating: false      // sparkles and a jump without the mint badge
     property bool holdPal: false          // Miku has Claude's little one whatever her mood (the chat: it is where one talks to him)
     property bool doneBadge: false        // keep the mint badge for 25 s after a task
-    property bool eyesShut: false         // first launch: the eyes open with one blink when released
-    property real leafScale: 1            // first launch: the hair grows from its roots
     property bool paused: false           // out of sight: nothing is simulated or painted
     property bool music: false            // a tune is playing: idle, she hums along
     property bool bench: false            // waiting her turn in a seat: small, cheap, but alive (see the bench timer)
@@ -158,7 +156,6 @@ Item {
         st.sqv -= 3
     }
     onDraggingChanged: if (dragging) play("surprised", 900)
-    onEyesShutChanged: if (!eyesShut) blinkNow()
     // Changing places. The one on stage spins away and shrinks to nothing (280 ms); the
     // new one springs up in her place with a ring of sparks in her own colour, and waves
     // if the card is open. Portraits, and "reduce motion", simply change.
@@ -548,7 +545,7 @@ Item {
         if (!s.tails || s.tailStyle !== who.style) { s.tails = H ? [{ side: -1, p: [] }, { side: 1, p: [] }] : []; s.tailStyle = who.style }
         if (!H) return
         // short hair in the bar, so that it ends inside it; full length on the card
-        const seg = R * H.seg * Math.max(0.15, leafScale) * (0.42 + 0.58 * detail), n = H.n
+        const seg = R * H.seg * (0.42 + 0.58 * detail), n = H.n
         const wx = dragging ? clampv(-dragVx / k, -2600, 2600) : 0, wy = dragging ? clampv(-dragVy / k, -2600, 2600) : 0
         for (const T of s.tails) {
             const a = toWorld(P, T.side * H.x, H.y), p = T.p
@@ -787,7 +784,7 @@ Item {
 
     function paintEyes(g, L, fx, fy) {
         const s = st, R = cR, t = s.t, TAU = 2 * Math.PI, INK = mk.ink
-        const type = eyesShut ? "closed" : L.eyes
+        const type = L.eyes
         const soft = type === "normal" || type === "big" || type === "tired" || type === "smug"
         const open = soft ? clampv(1 - Math.max(0, s.blink), 0.08, 1) : 1
         // the mini in the bar has a handful of pixels for a face: bigger, simpler eyes

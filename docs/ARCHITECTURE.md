@@ -65,7 +65,7 @@ Kisel is a desktop companion for KDE Plasma that watches Claude Code, asks permi
 * `Island.qml` – state machine: collapsed pill ⇄ card, hover open, 600 ms close timer, `holdOpen` rules (permission waiting, drag over, typing, peek), view cross-fade (140 ms), one mascot gliding between slots.
 * `HomeView`, `SessionView`, `PermissionView`, `GitHubView`, `ChatView`, `SettingsView` – one file each; `CodePanel` renders diffs and commands.
 * Collapsed v2: `PillChip`, `PillBars`, `PillDots`; the mascot's level of detail and mood bridges live in `Mascot.qml`.
-* Transitions: `ViewHost` (how each view enters and leaves), `Motion` (stagger helpers), `RollText`, `Assembly` (first launch).
+* Transitions: `ViewHost` (how each view enters and leaves), `Motion` (stagger helpers), `RollText`.
 * Components: `KButton` (variants, success move), `KToggle`, `KField`, `Toast`.
 * Brand-shape motion: `BrandShape` (the seven cover shapes), `FirstLaunch`, `DoneBurst`, `AttentionTab`, `JellyTrio`, `DotWave`, `HomeBackdrop` (drift + night sky), `DrawnCheck`.
 * C++ objects are QML singletons in the `Kisel.Core` module: `Hub`, `Prefs`, `Hooks`, `Chat`, `Vault`, `Shell`, `Displays`, `Sounds`, `Launcher`, `GitHub`, `Media`.

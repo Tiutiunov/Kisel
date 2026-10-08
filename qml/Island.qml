@@ -114,7 +114,7 @@ Item {
     // is its face. Once she is in the bar the chosen one takes over from her as after any
     // visit of hers. `opened` is false until then.)
     property bool opened: false
-    readonly property bool opening: greeting || assembling
+    readonly property bool opening: greeting
     function openedNow() {
         if (opened) return
         if (rest !== "miku") { guest = "miku"; guestTimer.restart() }
@@ -173,7 +173,7 @@ Item {
     function row() { return [mascot].concat(duo ? [buddy] : []).concat(heraldRin ? [herald] : []) }
     function hopRow(odd) { row().forEach((m, i) => { if (i % 2 === odd) m.jump(0.4, true) }) }
     readonly property bool canGroove: zundaLive && (duo || heraldRin) && !expanded && !floating && !mfree
-        && !tucked && !assembling && !greeting && !Theme.reduced
+        && !tucked && !greeting && !Theme.reduced
     onCanGrooveChanged: if (!canGroove && (skGroove.running || skDisco.running)) { stopDances(); mainDx = 0; buddyDx = 0; heraldDx = 0 }
     Timer {
         interval: 12000
@@ -277,7 +277,7 @@ Item {
     // one made on the spot would first play its own coming-in. `flying` names those in the air.)
     property var flying: []
     function launch(who, fromX) {
-        if (who === "" || expanded || floating || mfree || tucked || assembling || greeting || Theme.reduced) return
+        if (who === "" || expanded || floating || mfree || tucked || greeting || Theme.reduced) return
         if (head.includes(who) || flying.includes(who)) return // (`head` is fresh here; other bindings may not have caught up)
         const f = flyers.itemAt(cast.indexOf(who))
         if (!f) return
@@ -292,7 +292,7 @@ Item {
     property var arriving: []
     property var benchWas: []
     function launchIn(who, role) {
-        if (who === "" || expanded || floating || mfree || tucked || assembling || greeting || Theme.reduced) return
+        if (who === "" || expanded || floating || mfree || tucked || greeting || Theme.reduced) return
         const seat = benchWas.indexOf(who)
         if (seat < 0 || flying.includes(who) || arriving.includes(who)) return
         const f = flyers.itemAt(cast.indexOf(who))
@@ -353,7 +353,7 @@ Item {
         settingsView.showUpdates()
     }
     readonly property bool note: noteAny
-        && !expanded && !floating && !mfree && !assembling && !greeting
+        && !expanded && !floating && !mfree && !greeting
     // (if Rin is at the head already, on stage or as the partner, the sign is simply hers)
     readonly property bool heraldRin: note && stage !== "rin" && !(duo && buddyWho === "rin")
     property real heraldSeat: heraldRin ? mini + 3 : 0 // (she is the size of the one on stage)
@@ -534,7 +534,7 @@ Item {
     // (A notification does not bring a partner: Miku sits there only while Claude works.
     // With Rin and her sign that makes two at rest and three at work.)
     readonly property bool noteUp: noteAny
-    readonly property bool duo: claudeBusy && !expanded && !floating && !mfree && !assembling && !greeting
+    readonly property bool duo: claudeBusy && !expanded && !floating && !mfree && !greeting
     readonly property string buddyWho: stage !== "miku" ? "miku" : rest !== "miku" ? rest : "rin"
     // Miku is the one working, and she works at the head of the bar: when somebody else
     // is on stage and Miku is the partner, Miku takes the first seat and the one on stage
@@ -1033,7 +1033,7 @@ Item {
     // being moved across the screen, at 60 a second; the bar's small life at 40.
     Binding {
         target: Ticker; property: "rate"
-        value: root.expanded || root.mfree || root.assembling || root.greeting || root.moving || dockAnim.running ? 60 : 40
+        value: root.expanded || root.mfree || root.greeting || root.moving || dockAnim.running ? 60 : 40
     }
 
     // ---- moving the bar by hand: the Move key in the card's header ----
@@ -1163,7 +1163,7 @@ Item {
     }
     Timer { interval: 15000; running: root.moving && !moveArea.pressed; onTriggered: root.endMove() }
 
-    readonly property bool canTuck: !floating && !expanded && !mfree && !assembling && !dragArea.pressed && !moving
+    readonly property bool canTuck: !floating && !expanded && !mfree && !dragArea.pressed && !moving
         && !hover.hovered && !wake.hovered && Hub.pendingCount === 0 && Hub.chip === ""
         && (Hub.mood === "idle" || Hub.mood === "sleep") && !tune
         && !noteAny // (Rin has something to show)
@@ -1289,101 +1289,49 @@ Item {
         onTriggered: { mascot.jump(1.0); Sfx.play("done"); root.updateHit() }
     }
 
-    // ---- first launch: the assembly (motion.md, "The assembly") ----------------
-    // The cover drops in, becomes the island pill and the mint disc becomes its
-    // leaf spot; the island then opens while the other shapes fly to their places
-    // and become Kisel's body and gloss, the hook card, its button and the tiles.
-    // Everything is driven by Assembly's clock; here we only react to its beats.
-    readonly property bool assembling: assembly.running
-    onAssemblingChanged: updateHit()
+    // ---- first launch: once she is home, Home opens by itself for a moment, and the
+    // Connect button pulses ----
+    property bool introDue: false
+    Timer { id: introSoon; interval: 500; onTriggered: root.runIntro() }
     function runIntro() {
-        if (assembling) return
+        introDue = false
         closeTimer.stop()
-        expanded = false
         view = "home"
-        if (Theme.reduced) {
-            // "Reduce motion": no flight, no morph; Home fades in with every element in place
-            autoOpened = true
-            open()
-            peek.interval = 3000
-            peek.restart()
-            return
-        }
-        // Where everything lands, from the real layout (Home is 660 x 200, hung at the top centre)
-        const cardX = (root.width - 660) / 2
-        const ox = cardX + 150, oy = 48 // Home's content origin
-        const pw = pillMin // the pill at rest
-        assembly.pill = Qt.rect((root.width - pw) / 2, 0, pw, pillT)
-        assembly.leaf = Qt.point((root.width - pw) / 2 + miniLead + 27 * mini / 44, miniPad + 5 * mini / 44)
-        assembly.slot = Qt.rect(cardX + 14 + (132 - 110) / 2, 48, 110, 110)
-        const hr = homeView.hookRect, br = homeView.buttonRect
-        assembly.card = Qt.rect(ox + hr.x, oy + hr.y, hr.width, hr.height)
-        assembly.button = Qt.rect(ox + br.x, oy + br.y, br.width, br.height)
-        const tr = homeView.tileRects
-        assembly.tiles = [
-            { x: ox + tr[0].x, y: oy + tr[0].y, w: tr[0].width, h: tr[0].height, color: Theme.kisel },
-            { x: ox + tr[1].x, y: oy + tr[1].y, w: tr[1].width, h: tr[1].height, color: Theme.amber }
-        ]
-        mascot.eyesShut = true
-        mascot.leafScale = 0
-        assembly.play()
+        autoOpened = true
+        open()
+        homeView.pulseConnect()
+        peek.interval = 3000
+        peek.restart()
     }
-    Assembly {
-        id: assembly
-        onLanded: Sfx.play("open")
-        onBorn: { // the island is ready: the mini Kisel appears with one blink; the pill bounces 4 %
-            mascot.leafScale = 1
-            mascot.eyesShut = false
-            mascot.blinkNow()
-            pillBounce.restart()
-        }
-        onUnfold: { // the island opens; the flying shapes become Kisel, the card, the button and the tiles
-            root.view = "home"
-            root.autoOpened = true
-            root.open()
-            mascot.leafScale = 0
-            mascot.eyesShut = true
-        }
-        onSettled: { // Kisel opens its eyes with one blink, the leaf grows, and it jumps (power 0.6)
-            mascot.eyesShut = false
-            mascot.blinkNow()
-            leafGrow.restart()
-            mascot.jump(0.6)
-            Sfx.play("done")
-        }
-        onPulse: homeView.pulseConnect()
-        onCloseIsland: if (!hover.hovered && !root.holdOpen) root.collapseNow()
-    }
-    SequentialAnimation {
-        id: pillBounce
-        NumberAnimation { target: card; property: "scale"; to: 1.04; duration: 90; easing.type: Easing.OutQuad }
-        NumberAnimation { target: card; property: "scale"; to: 1; duration: 200; easing.type: Easing.OutBack }
-    }
-    NumberAnimation { id: leafGrow; target: mascot; property: "leafScale"; from: 0; to: 1; duration: 240; easing.type: Easing.OutBack }
-    // a click skips the sequence: every shape snaps to its final form in 120 ms
-    MouseArea { anchors.fill: parent; z: 30; enabled: root.assembling; onClicked: assembly.skip() }
 
     Component.onCompleted: {
         if (!Prefs.firstRunDone) {
             Prefs.firstRunDone = true
-            runIntro()
+            introDue = true
         }
-        if (Prefs.floating && !assembling)
+        if (Prefs.floating)
             Shell.restoreFloat(Prefs.floatX, Prefs.floatY)
         updateHit()
-        if (!Prefs.floating && !assembling)
+        if (!Prefs.floating && !Theme.reduced) {
+            ghost = true // (no bar yet: it turns up when she has said hello)
             greetSoon.restart()
+        } else if (introDue) {
+            introSoon.restart()
+        }
     }
 
-    // ---- hello: every start she comes up from the bottom of the screen, waves, and flies
-    // into the bar. It is the drag's machinery run by a clock instead of a pointer: the
-    // surface covers the output, she is "free" at an exact place on it, and the docking
-    // arc takes her home. Only her own box takes clicks meanwhile.
+    // ---- hello: every start she comes up from the bottom of the screen and waves, with no
+    // bar anywhere yet. Then the bar turns up at its place, she looks at it, and flies into
+    // it. It is the drag's machinery run by a clock instead of a pointer: the surface covers
+    // the output, she is "free" at an exact place on it, the bar is the `ghost` a drag
+    // leaves behind, and the docking arc takes her home. Only her own box takes clicks
+    // meanwhile.
     property bool greeting: false
     Timer { id: greetSoon; interval: 500; onTriggered: root.greet() }
     function greet() {
-        if (greeting || floating || assembling || expanded || mfree || Theme.reduced) return
+        if (greeting || floating || expanded || mfree || Theme.reduced) { ghost = false; if (introDue) introSoon.restart(); return }
         greeting = true
+        ghost = true
         freeSize = 120
         freeCX = screenW / 2
         freeCY = screenH + 80
@@ -1397,13 +1345,14 @@ Item {
     NumberAnimation { id: greetRise; target: root; property: "freeCY"; to: root.screenH - 92; duration: 620
         easing.type: Easing.OutBack; easing.overshoot: 1.4
         onFinished: { mascot.wavedAt = Date.now(); mascot.play("hello", 1900); Sfx.play("open"); greetHold.restart() } }
+    // the bar turns up (the morph a dropped bar comes in with), and she notices it
     Timer { id: greetHold; interval: 2000
+        onTriggered: { root.ghost = false; cardMorph.restart(); Sfx.play("hover"); mascot.play("surprised", 600); greetGo.restart() } }
+    Timer { id: greetGo; interval: 650
         onTriggered: { mascot.jump(0.5, true); root.arcDone = false; dockAnim.duration = 760; root.startDockArc() } }
 
     function updateHit() {
         if (tucked) { Shell.setHitRect(root.x + wakeRect.x, root.y + wakeRect.y, wakeRect.width, wakeRect.height); return }
-        // while the assembly plays, the whole top of the surface takes the click that skips it
-        if (assembling) { Shell.setHitRect(0, 0, root.width, 300); return }
         // the card and the mascot (which can overhang it), in the surface's coordinates
         let x0 = Math.min(card.x, mascot.x), y0 = Math.min(card.y, mascot.y)
         let x1 = Math.max(card.x + card.width, mascot.x + mascot.width)
@@ -1537,7 +1486,10 @@ Item {
         landRipple.go(slotCenterFinal().x - isoX, slotCenterFinal().y - isoY)
         Sfx.play("click")
         arcDone = true
-        if (greeting) { greeting = false; dockAnim.duration = 320; Shell.endGrab() } // home: the surface shrinks back
+        if (greeting) { // home: the surface shrinks back
+            greeting = false; dockAnim.duration = 320; Shell.endGrab()
+            if (introDue) introSoon.restart()
+        }
         tryFinishFree()
     }
     property bool arcDone: true
@@ -1667,9 +1619,8 @@ Item {
             width: root.animW
             height: root.animH
             clip: true // the flush side sits past the screen edge: only the inner corners are round
-            // during the assembly the real card appears when the flattened half-round hands over to it;
             // after a drag the new pill morphs in (scale and fade, 240 ms OutBack)
-            opacity: (root.assembling && assembly.t < assembly.tBorn) || root.ghost ? 0 : 1
+            opacity: root.ghost ? 0 : 1
             Behavior on opacity { NumberAnimation { duration: root.ghost ? 150 : 200 } }
             transformOrigin: root.dockSide === "bottom" ? Item.Bottom : root.dockSide === "left" ? Item.Left
                            : root.dockSide === "right" ? Item.Right : Item.Top
@@ -1697,7 +1648,7 @@ Item {
             }
             // a click anywhere on the bar opens it (on the mascot: see dragArea)
             TapHandler {
-                enabled: !root.expanded && !root.floating && !root.mfree && !root.assembling
+                enabled: !root.expanded && !root.floating && !root.mfree
                 onTapped: { Hub.poke(); root.autoOpened = false; root.open() }
             }
 
@@ -2300,9 +2251,6 @@ Item {
                            : root.stage === "teto" && Prefs.tetoSystem && Sys.available ? "teto"
                            : root.stage === "luka" && Prefs.lukaNet && Net.available ? "luka" : ""
                         age: hostHome.age
-                        revealCard: assembly.revealCard
-                        revealButton: assembly.revealButton
-                        revealTiles: [assembly.revealTile(0), assembly.revealTile(1), 1, 1]
                         active: root.expanded && root.view === "home"
                         height: 200 - 62
                         onGo: (v) => root.view = v
@@ -2420,9 +2368,7 @@ Item {
             // docked on a side it leans 8 degrees toward the screen
             inwardTilt: (root.vertical && !root.expanded ? (root.edge === "left" ? 8 : -8) : 0) + root.sway
             Behavior on inwardTilt { NumberAnimation { duration: 200 } }
-            // during the assembly the mini shows only between "born" and the unfold, and the
-            // real mascot takes over from the flying body when the sequence settles
-            opacity: (root.assembling ? ((assembly.t >= assembly.tBorn && assembly.t < assembly.tOpen + 60) || assembly.t >= assembly.tSettle ? 1 : 0) : 1) * root.slotDip
+            opacity: root.slotDip
                      * (root.arriving.includes(root.stage) ? 0 : 1) // (still on her way from the bench)
             Behavior on opacity { NumberAnimation { duration: 120 } }
             skin: root.expanded && root.view === "github" ? "github" : ""
@@ -2584,7 +2530,7 @@ Item {
             flip: !root.atBottom
             x: card.x + (seat >= 0 ? headerBench.x + seat * (26 + headerBench.spacing) + 18 : 14 + 16)
             y: root.atBottom ? card.y - 19 : card.y + 36
-            on: root.noteUp && root.expanded && !root.floating && !root.mfree && !root.assembling
+            on: root.noteUp && root.expanded && !root.floating && !root.mfree
             still: root.tucked
             app: root.signApps.length ? root.signApps[0] : ""
             count: root.signCounts.length ? root.signCounts[0] : 1

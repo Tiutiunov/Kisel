@@ -13,7 +13,7 @@ Status of every behaviour in the design system (`README.md`, `motion.md`, `compo
 
 **Components** (from `components/`): buttons (primary / secondary / ghost / danger, 3 px focus ring, 40 % disabled), status pills (dot + word), launch tiles 104×84 (Claude, GitHub), chat bubbles (squared corner, inline code, timestamp), permission card (command, diff, question), island states.
 
-**Brand-shape motion** (`motion.md`, "Brand shapes in motion"): first-launch cover assembly and the full first-launch timeline, task-done ring + confetti burst, amber attention tab (with extra-request dots), jelly-trio loader, dot wave (listening) and 6×3 drop-hint grid, success move (pill → disc → check draws itself → "Connected"/"Saved"), quiet-screen drift, night sky while asleep, toasts, step check that draws itself, diff-line stagger, amber "modified" dot, reduced-motion fallbacks.
+**Brand-shape motion** (`motion.md`, "Brand shapes in motion"): task-done ring + confetti burst, amber attention tab (with extra-request dots), jelly-trio loader, dot wave (listening) and 6×3 drop-hint grid, success move (pill → disc → check draws itself → "Connected"/"Saved"), quiet-screen drift, night sky while asleep, toasts, step check that draws itself, diff-line stagger, amber "modified" dot, reduced-motion fallbacks.
 
 **Integrations**: Claude Code hooks (install/remove with diff + backup), permissions, **AskUserQuestion answered from the island** (up to four questions, single or multi-select), chat with Claude, **GitHub widget** (open PRs with CI state, reviews waiting, read-only token in KWallet, 5-minute refresh), sounds through PipeWire.
 
