@@ -17,6 +17,7 @@
 #include <QCursor>
 #include <QTimer>
 #include <qt_windows.h>
+#include <shellapi.h>
 
 #include <cstdio>
 #include <io.h>
@@ -201,7 +202,8 @@ QRect IslandWindow::area() const
     const QScreen *s = m_view->screen();
     if (!s)
         return QRect(0, 0, 1920, 1080);
-    return m_avoidPanels && canAvoidPanels() ? s->availableGeometry() : s->geometry();
+    // (under a full-screen program there is no taskbar to keep clear of)
+    return m_avoidPanels && canAvoidPanels() && !m_covered ? s->availableGeometry() : s->geometry();
 }
 
 void IslandWindow::setAvoidPanels(bool on)
@@ -540,6 +542,59 @@ void IslandWindow::applyPassThrough()
 
 // An input-transparent window gets no pointer events at all, so nothing would
 // tell us the pointer came back: ask where it is, 30 times a second.
+// Is the window in front a full-screen one on Kisel's monitor? It covers the whole
+// monitor (the taskbar's strip too) and is either bare of a title bar, as games and
+// full-screen films are, or Windows itself says a full-screen program is running. The
+// desktop does not count, and neither does an ordinary maximised window.
+bool IslandWindow::fullScreenAbove() const
+{
+    const HWND self = HWND(m_view->winId());
+    const HWND front = GetForegroundWindow();
+    if (!front || front == self || IsIconic(front) || !IsWindowVisible(front))
+        return false;
+    wchar_t cls[64] = {};
+    GetClassNameW(front, cls, 63);
+    for (const wchar_t *shell : {L"Progman", L"WorkerW", L"Shell_TrayWnd", L"Shell_SecondaryTrayWnd", L"XamlExplorerHostIslandWindow"})
+        if (wcscmp(cls, shell) == 0)
+            return false;
+    MONITORINFO mi = {};
+    mi.cbSize = sizeof mi;
+    if (!GetMonitorInfoW(MonitorFromWindow(self, MONITOR_DEFAULTTONEAREST), &mi))
+        return false;
+    RECT r = {};
+    if (!GetWindowRect(front, &r))
+        return false;
+    const RECT &m = mi.rcMonitor;
+    if (r.left > m.left || r.top > m.top || r.right < m.right || r.bottom < m.bottom)
+        return false;
+    if (!(GetWindowLongPtrW(front, GWL_STYLE) & WS_CAPTION))
+        return true;
+    QUERY_USER_NOTIFICATION_STATE state = QUNS_ACCEPTS_NOTIFICATIONS;
+    return SUCCEEDED(SHQueryUserNotificationState(&state))
+        && (state == QUNS_BUSY || state == QUNS_RUNNING_D3D_FULL_SCREEN || state == QUNS_PRESENTATION_MODE);
+}
+
+// Looked at once a second. Two looks in a row must agree before the bar goes down to
+// the edge or comes back up, so switching windows does not make it hop.
+void IslandWindow::lookForCover()
+{
+    const bool now = !m_grabbing && fullScreenAbove();
+    if (now == m_covered) {
+        m_coverCount = 0;
+        return;
+    }
+    if (++m_coverCount < 2)
+        return;
+    m_coverCount = 0;
+    m_covered = now;
+    if (!m_floating)
+        m_along = clampAlong(m_edge, m_frac * edgeLength(m_edge));
+    applyPlacement();
+    emit coveredChanged();
+    emit dockChanged();
+    emit placementChanged();
+}
+
 // Windows moves windows about by itself: when the resolution changes, when a monitor
 // goes to sleep and comes back, when a full-screen program takes over. Once a second
 // the bar looks at where it is and, if that is not where it was put, goes back.
@@ -567,6 +622,7 @@ void IslandWindow::trackPointer()
         return;
     if (++m_polls >= 30) {
         m_polls = 0;
+        lookForCover();
         keepPlace();
     }
     const HWND self = HWND(m_view->winId());

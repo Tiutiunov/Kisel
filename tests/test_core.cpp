@@ -5,6 +5,7 @@
 #include "ChatClient.h"
 #include "GitHubClient.h"
 #include "Updater.h"
+#include "Preferences.h"
 #include "HookInstaller.h"
 #include "HookServer.h"
 
@@ -223,6 +224,34 @@ private slots:
             }
             qunsetenv("KISEL_VERSION_AS");
         }
+    }
+    // What is set in Settings is in the file the moment it is set: a second reader, with
+    // the first still alive (as when Kisel is killed, or the computer goes down), sees it.
+    void preferencesAreOnDiskAtOnce()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        qputenv("KISEL_CONFIG_DIR", dir.path().toLocal8Bit());
+        {
+            Preferences a;
+            a.setCharacter(QStringLiteral("teto"));
+            a.setSoundOn(false);
+            a.setCloseDelay(7);
+            a.setLanguage(QStringLiteral("ru"));
+            a.setScreenName(QStringLiteral("\\\\.\\DISPLAY2"));
+            a.setDock(QStringLiteral("\\\\.\\DISPLAY2"), QStringLiteral("left"), 0.25);
+            Preferences b; // (opened while `a` has not been closed)
+            QCOMPARE(b.character(), QStringLiteral("teto"));
+            QCOMPARE(b.soundOn(), false);
+            QCOMPARE(b.closeDelay(), 7);
+            QCOMPARE(b.language(), QStringLiteral("ru"));
+            QCOMPARE(b.screenName(), QStringLiteral("\\\\.\\DISPLAY2"));
+            QCOMPARE(b.dockEdge(QStringLiteral("\\\\.\\DISPLAY2")), QStringLiteral("left"));
+            QCOMPARE(b.dockFraction(QStringLiteral("\\\\.\\DISPLAY2")), 0.25);
+            // a monitor with no place of its own takes the last one
+            QCOMPARE(b.dockEdge(QStringLiteral("another")), QStringLiteral("left"));
+        }
+        qunsetenv("KISEL_CONFIG_DIR");
     }
     void githubErrorsAreReadable()
     {

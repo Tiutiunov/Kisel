@@ -31,10 +31,25 @@ Item {
             : v >= 1048576 ? Math.round(v / 1048576) + Tr.t(" MB") : Math.round(v / 1024) + Tr.t(" KB")
     }
 
+    // megabits a second, as a speed test gives them
+    function mbps(v) { return (v >= 100 ? Math.round(v) : v.toFixed(1)) + Tr.t(" Mbps") }
+    // The speed test (the Test key): while it runs, and for a minute after, the tiles and
+    // the ring show its figures instead of the line's everyday traffic.
+    readonly property int pingNow: (Speed.running || (Speed.done && Speed.fresh)) && Speed.ping >= 0 ? Speed.ping : Net.ping
+    readonly property bool testing: Speed.running
+    readonly property bool tested: Speed.done && Speed.fresh
+
     readonly property string line: !Net.available ? Tr.t("I cannot see the connection from here.")
         : !Net.online ? Tr.t("The line is down. It will come back; they always do.")
         : Net.justBack ? Tr.t("And we are back. No need to fuss.")
+        : Speed.phase === "ping" ? Tr.t("Finding the nearest server. One moment.")
+        : Speed.phase === "down" ? Tr.t("Measuring the way down: ") + root.mbps(Speed.down) + Tr.t(" so far.")
+        : Speed.phase === "up" ? Tr.t("Now the way up: ") + root.mbps(Speed.up) + Tr.t(" so far.")
+        : Speed.failed && Speed.busy ? Tr.t("The test did not go through. Try again in a while.")
+        : root.tested ? Tr.t("Down ") + root.mbps(Speed.down) + Tr.t(", up ") + root.mbps(Speed.up) + Tr.t(", ping ") + Speed.ping + Tr.t(" ms. ")
+            + (Speed.down >= 100 ? Tr.t("Nothing to complain about.") : Speed.down >= 25 ? Tr.t("Quite decent.") : Speed.down >= 5 ? Tr.t("I have seen faster.") : Tr.t("Oh dear. That is slow."))
         : Net.slow ? Tr.t("Answers are coming late. Something is in the way.")
+        : Speed.busy ? Tr.t("A quiet line. Just the way I like it.")
         : Net.downloading ? Tr.t("Something is coming down: ") + root.amount(Net.fetched) + Tr.t(" so far. I am watching it.")
         : Net.justFetched ? Tr.t("That is the download done: ") + root.amount(Net.fetched) + Tr.t(" came in.")
         : Net.down > 5242880 ? Tr.t("A lot is coming in. Downloading something nice?")
@@ -55,10 +70,10 @@ Item {
             Canvas {
                 id: ring
                 width: 78; height: 78
-                property real shown: Net.online && Net.ping >= 0 ? Math.min(1, Net.ping / 300) : 1
+                property real shown: Net.online && root.pingNow >= 0 ? Math.min(1, root.pingNow / 300) : 1
                 Behavior on shown { NumberAnimation { duration: 600; easing.type: Easing.OutCubic } }
                 onShownChanged: requestPaint()
-                property color tint: root.heat(Net.online ? Net.ping : -1)
+                property color tint: root.heat(Net.online ? root.pingNow : -1)
                 onTintChanged: requestPaint()
                 onPaint: {
                     const g = getContext("2d"), c = 39
@@ -76,7 +91,7 @@ Item {
                 anchors.horizontalCenter: ring.horizontalCenter
                 anchors.verticalCenter: ring.verticalCenter
                 anchors.verticalCenterOffset: Net.online ? -4 : 0
-                text: !Net.online ? "off" : Net.ping < 0 ? "..." : Net.ping
+                text: !Net.online ? "off" : root.pingNow < 0 ? "..." : root.pingNow
                 color: Theme.ink
                 font.family: Theme.display; font.pixelSize: 19; font.weight: Font.Bold
             }
@@ -102,8 +117,18 @@ Item {
         Column {
             y: 2
             spacing: 8
-            Flow1 { name: Net.downloading ? Tr.t("Downloading") : Tr.t("Down"); value: Net.down; downward: true; lit: Net.downloading }
-            Flow1 { name: Tr.t("Up"); value: Net.up; downward: false }
+            Flow1 {
+                name: root.testing || root.tested ? Tr.t("Download") : Net.downloading ? Tr.t("Downloading") : Tr.t("Down")
+                value: Net.down; downward: true
+                shown: Speed.phase === "ping" ? "..." : root.testing || root.tested ? root.mbps(Speed.down) : ""
+                lit: Speed.phase === "down" || (Net.downloading && !Speed.busy)
+            }
+            Flow1 {
+                name: root.testing || root.tested ? Tr.t("Upload") : Tr.t("Up")
+                value: Net.up; downward: false
+                shown: root.testing && Speed.phase !== "up" ? "..." : root.testing || root.tested ? root.mbps(Speed.up) : ""
+                lit: Speed.phase === "up"
+            }
         }
     }
 
@@ -124,6 +149,15 @@ Item {
                 color: Theme.inkMuted
                 font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.DemiBold
             }
+        }
+        // the last test's result stays here, small, after the tiles have gone back to the traffic
+        Text {
+            anchors.right: parent.right
+            visible: Speed.done && !root.testing && !root.tested
+            opacity: Motion.rise(root.age, 1)
+            text: Tr.t("Last test: ") + Math.round(Speed.down) + " / " + Math.round(Speed.up) + Tr.t(" Mbps")
+            color: Theme.inkFaint
+            font.family: Theme.sans; font.pixelSize: 10; font.weight: Font.DemiBold
         }
 
         // the last minute of pings, one bar an answer
@@ -151,7 +185,7 @@ Item {
         // what Luka makes of it
         Rectangle {
             y: 70
-            width: side.width
+            width: side.width - testKey.width - 6
             height: 42
             radius: 12
             readonly property color tone: Net.trouble ? root.red : root.pink
@@ -175,6 +209,60 @@ Item {
         }
     }
 
+    // the Test key: measures the line (ping, down, up) without a browser; again to stop
+    Rectangle {
+        id: testKey
+        x: side.x + side.width - width
+        y: side.y + 70
+        width: 62; height: 42
+        radius: 12
+        color: root.testing ? Theme.surface3 : root.pink
+        border.width: activeFocus ? 3 : 2; border.color: "#FFFFFF"
+        opacity: Motion.rise(root.age, 3) * (Net.online ? 1 : 0.4)
+        scale: testTap.pressed ? 0.92 : testHover.hovered ? 1.06 : 1
+        Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutBack } }
+        Behavior on color { ColorAnimation { duration: 200 } }
+        activeFocusOnTab: true
+        Accessible.role: Accessible.Button
+        Accessible.name: root.testing ? Tr.t("Stop the test") : Tr.t("Test the speed")
+        function act() { if (!Net.online) return; Sfx.play("click"); if (root.testing) Speed.stop(); else Speed.start() }
+        // how far the test has got: the key fills from the left
+        Rectangle {
+            visible: root.testing
+            x: 2; y: 2
+            width: (parent.width - 4) * Speed.progress; height: parent.height - 4
+            radius: 10
+            color: Qt.rgba(root.pink.r, root.pink.g, root.pink.b, 0.55)
+            Behavior on width { NumberAnimation { duration: 220 } }
+        }
+        Column {
+            anchors.centerIn: parent
+            spacing: 1
+            Canvas { // two arrows, down and up
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: 18; height: 14
+                property color ink: root.testing ? Theme.ink : "#4a1730"
+                onInkChanged: requestPaint()
+                onPaint: {
+                    const g = getContext("2d")
+                    g.reset(); g.strokeStyle = ink; g.lineWidth = 2; g.lineCap = "round"; g.lineJoin = "round"
+                    g.beginPath(); g.moveTo(5, 1.5); g.lineTo(5, 12); g.moveTo(1.5, 8.5); g.lineTo(5, 12); g.lineTo(8.5, 8.5); g.stroke()
+                    g.beginPath(); g.moveTo(13, 12.5); g.lineTo(13, 2); g.moveTo(9.5, 5.5); g.lineTo(13, 2); g.lineTo(16.5, 5.5); g.stroke()
+                }
+            }
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: root.testing ? Tr.t("Stop") : Tr.t("Test")
+                color: root.testing ? Theme.ink : "#4a1730"
+                font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.ExtraBold
+            }
+        }
+        HoverHandler { id: testHover; cursorShape: Qt.PointingHandCursor; onHoveredChanged: if (hovered) Sfx.play("hover") }
+        TapHandler { id: testTap; onTapped: testKey.act() }
+        Keys.onReturnPressed: testKey.act()
+        Keys.onSpacePressed: testKey.act()
+    }
+
     // a tile: an arrow, the direction's name, the speed
     component Flow1: Rectangle {
         id: tile
@@ -182,6 +270,7 @@ Item {
         property real value: 0
         property bool downward: true
         property bool lit: false // (a download is on: the tile fills with her pink)
+        property string shown: "" // (the speed test's figure, in place of the traffic's)
         width: 104; height: 48
         radius: 12
         color: Qt.rgba(root.pink.r, root.pink.g, root.pink.b, lit ? 0.5 : 0.14)
@@ -206,8 +295,11 @@ Item {
         }
         Text {
             x: 34; y: 21
-            text: root.speed(tile.value)
+            text: tile.shown !== "" ? tile.shown : root.speed(tile.value)
             color: Theme.ink
+            // (kept inside the tile: a long figure is set a little smaller rather than run over the edge)
+            width: tile.width - x - 8
+            fontSizeMode: Text.HorizontalFit; minimumPixelSize: 9
             font.family: Theme.display; font.pixelSize: 14; font.weight: Font.Bold
         }
     }

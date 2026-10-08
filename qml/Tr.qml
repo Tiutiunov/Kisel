@@ -109,6 +109,14 @@ QtObject {
         "A little slow, but steady.": "Медленновато, но ровно.",
         "A quiet line. Just the way I like it.": "Тихая линия. Как я люблю.",
 
+        " Mbps": " Мбит/с", "Test": "Тест", "Testing": "Замер", "Download": "Приём", "Upload": "Отдача", "Down ": "Приём ", "Up ": "Отдача ",
+        "Stop the test": "Остановить замер", "Test the speed": "Измерить скорость", "Last test: ": "Последний замер: ",
+        "Finding the nearest server. One moment.": "Ищу ближайший сервер. Минутку.",
+        "Measuring the way down: ": "Меряю приём: пока ", " so far.": ".", "Now the way up: ": "Теперь отдача: пока ",
+        "The test did not go through. Try again in a while.": "Замер не удался. Попробуй чуть позже.",
+        ", up ": ", отдача ", ", ping ": ", пинг ", " ms. ": " мс. ",
+        "Nothing to complain about.": "Жаловаться не на что.", "Quite decent.": "Вполне прилично.", "I have seen faster.": "Видала и побыстрее.", "Oh dear. That is slow.": "Ох. Это очень медленно.",
+
         // ---- Rin's sign ----
         "New": "Новое", "Update": "Обновление",
 
@@ -121,7 +129,7 @@ QtObject {
         "GitHub token removed": "Токен GitHub убран", "Screen": "Экран", ", Kisel is here": ", Kisel здесь", "Kisel moved to ": "Kisel переехал на ",
         "Follow primary": "За основным", "Following the primary monitor": "Следую за основным монитором",
         "Kisel follows your primary monitor (": "Kisel держится основного монитора (", "), also after a restart": "), и после перезапуска тоже",
-        "Kisel stays on ": "Kisel остаётся на ", " until you restart it": " до перезапуска",
+        "Kisel stays on ": "Kisel остаётся на ", ", also after a restart": ", и после перезапуска тоже",
         "Character": "Персонаж", "Teto watches the computer": "Тето следит за компьютером", "Luka watches the connection": "Лука следит за связью",
         "Rin announces notifications": "Рин сообщает об уведомлениях", "Zundamon shows and steers Spotify": "Зундамон показывает Spotify и управляет им",
         "Look and sound": "Вид и звук", "Sounds": "Звуки", "Reduce motion": "Меньше движения",

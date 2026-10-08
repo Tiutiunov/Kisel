@@ -30,8 +30,13 @@ Row {
         return v >= 1073741824 ? (v / 1073741824).toFixed(2) + Tr.t(" GB")
             : v >= 1048576 ? Math.round(v / 1048576) + Tr.t(" MB") : Math.round(v / 1024) + Tr.t(" KB")
     }
-    readonly property bool fetchNews: Net.online && !Net.justBack && Net.justFetched && !Net.downloading
-    readonly property bool news: !Net.online || Net.justBack || fetchNews
+    function mbps(v) { return (v >= 100 ? Math.round(v) : v.toFixed(1)) + Tr.t(" Mbps") }
+    // (the speed test: its figure as it runs, then its result for a few seconds; what it
+    // moves is not a download to announce)
+    readonly property bool testing: Speed.running
+    readonly property bool testNews: Net.online && !Net.justBack && Speed.justDone && !testing
+    readonly property bool fetchNews: Net.online && !Net.justBack && Net.justFetched && !Net.downloading && !Speed.busy
+    readonly property bool news: !Net.online || Net.justBack || fetchNews || testNews
 
     // the light, and the ping (or the news)
     Row {
@@ -46,16 +51,33 @@ Row {
         Text {
             anchors.verticalCenter: parent.verticalCenter
             text: !Net.online ? Tr.t("No connection") : Net.justBack ? Tr.t("Back online")
+                : root.testNews ? Math.round(Speed.down) + " / " + Math.round(Speed.up) + Tr.t(" Mbps")
                 : root.fetchNews ? Tr.t("Downloaded ") + root.amount(Net.fetched) : Net.ping < 0 ? "..." : Net.ping + " ms"
             color: !Net.online ? "#FF8FA0" : Theme.ink
             font.family: Theme.sans; font.pixelSize: root.news ? 13 : 12; font.weight: Font.ExtraBold
         }
     }
-    Reading { visible: !root.news && !Net.downloading; downward: true; value: Net.down }
-    Reading { visible: !root.news && !Net.downloading; downward: false; value: Net.up }
+    Reading { visible: !root.news && !root.testing && !(Net.downloading && !Speed.busy); downward: true; value: Net.down }
+    Reading { visible: !root.news && !root.testing && !(Net.downloading && !Speed.busy); downward: false; value: Net.up }
+    // the speed test as it runs: which way, and how fast so far
+    Rectangle {
+        visible: !root.news && root.testing
+        anchors.verticalCenter: parent.verticalCenter
+        width: testText.width + 16; height: 20
+        radius: 10
+        color: "#F5A3C0"
+        border.width: 1.5; border.color: "#FFFFFF"
+        Text {
+            id: testText
+            anchors.centerIn: parent
+            text: Speed.phase === "ping" ? Tr.t("Testing") : (Speed.phase === "down" ? Tr.t("Down ") + root.mbps(Speed.down) : Tr.t("Up ") + root.mbps(Speed.up))
+            color: "#4a1730"
+            font.family: Theme.sans; font.pixelSize: 10; font.weight: Font.ExtraBold
+        }
+    }
     // a download: the speed and how much so far, in a capsule of their own
     Rectangle {
-        visible: !root.news && Net.downloading
+        visible: !root.news && Net.downloading && !Speed.busy && !root.testing
         anchors.verticalCenter: parent.verticalCenter
         width: fetchRow.width + 14; height: 20
         radius: 10

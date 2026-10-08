@@ -92,7 +92,7 @@ Item {
     readonly property bool lukaLive: Prefs.lukaNet && Net.available && (Net.trouble || Net.justBack)
     //   (...and while something is being downloaded, and for a few seconds after: but
     //   that is no trouble, and gives way to music)
-    readonly property bool lukaBusy: Prefs.lukaNet && Net.available && (Net.downloading || Net.justFetched)
+    readonly property bool lukaBusy: Prefs.lukaNet && Net.available && (Speed.running || Speed.justDone || ((Net.downloading || Net.justFetched) && !Speed.busy))
     //   And when a minute has passed with nothing to show while a tune plays, the stage
     //   goes to Zundamon and her player whoever was chosen (`idleTune`), until Claude
     //   works again or someone is picked by hand. With no tune the bar tucks away instead.
@@ -276,8 +276,8 @@ Item {
     function headSeats() {
         // (measured from the bar's far end, which stays put while the bar changes width)
         const m = {}, r = card.x + card.width
-        m[stage] = mascot.x - mainDx - r
-        if (duo) m[buddyWho] = buddy.x - buddyDx - r
+        m[stage] = mascot.x - side * mainDx - r
+        if (duo) m[buddyWho] = buddy.x - side * buddyDx - r
         if (heraldRin) m["rin"] = herald.x - heraldDx - r
         return m
     }
@@ -373,12 +373,12 @@ Item {
     // one on stage) and `far` the one beyond (only while there are three). Their slides
     // go through `nbDx` and `farDx`, which pass them on to whoever that is.
     readonly property int rowN: duo ? 2 : 1 // Rin's place in the row, counted from the head
-    function nb() { return duo ? buddy : mascot }
-    function far() { return duo ? mascot : null }
+    function nb() { return !duo ? mascot : mikuLeft ? mascot : buddy }
+    function far() { return !duo ? null : mikuLeft ? buddy : mascot }
     property real nbDx: 0
     property real farDx: 0
-    onNbDxChanged: if (duo) buddyDx = nbDx; else mainDx = nbDx
-    onFarDxChanged: if (duo) mainDx = farDx
+    onNbDxChanged: if (!duo) mainDx = nbDx; else if (mikuLeft) mainDx = -nbDx; else buddyDx = nbDx
+    onFarDxChanged: if (duo) { if (mikuLeft) buddyDx = -farDx; else mainDx = farDx }
     // Rin barges into her neighbour, who bumps into the next: dominoes
     SequentialAnimation {
         id: nkBump
@@ -413,13 +413,13 @@ Item {
     // a star from Rin down the row and all the way back
     SequentialAnimation {
         id: nkToss
-        ScriptAction { script: { root.tossU = root.rowN; root.tossA = 1; herald.st.sqv += 4 } }
+        ScriptAction { script: { root.tossBySeat = true; root.tossU = root.rowN; root.tossA = 1; herald.st.sqv += 4 } }
         NumberAnimation { target: root; property: "tossU"; to: root.rowN - 1; duration: 380; easing.type: Easing.InOutSine }
         ScriptAction { script: { const n = root.nb(); n.jump(0.45, true); n.play("hype", 700) } }
         NumberAnimation { target: root; property: "tossU"; to: 0; duration: 380; easing.type: Easing.InOutSine }
-        ScriptAction { script: { mascot.jump(0.45, true); mascot.play("laugh", 800) } }
+        ScriptAction { script: { const h = root.far() || root.nb(); h.jump(0.45, true); h.play("laugh", 800) } }
         PauseAnimation { duration: 300 }
-        ScriptAction { script: { mascot.st.sqv += 5 } }
+        ScriptAction { script: { (root.far() || root.nb()).st.sqv += 5 } }
         NumberAnimation { target: root; property: "tossU"; to: root.rowN; duration: 620; easing.type: Easing.InOutSine }
         ScriptAction { script: { herald.jump(0.6, true); herald.play("proud", 1000) } }
         NumberAnimation { target: root; property: "tossA"; to: 0; duration: 180; easing.type: Easing.OutCubic }
@@ -428,7 +428,7 @@ Item {
     SequentialAnimation {
         id: nkHuddle
         ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: 5; duration: 150; easing.type: Easing.OutQuad } NumberAnimation { target: root; property: "heraldDx"; to: -5; duration: 150; easing.type: Easing.OutQuad } }
-        ScriptAction { script: { root.tossU = root.rowN / 2; root.tossA = 1; for (const m of [mascot, buddy, herald]) { m.st.sqv += 6; m.play("laugh", 900) } } }
+        ScriptAction { script: { root.tossBySeat = true; root.tossU = root.rowN / 2; root.tossA = 1; for (const m of [mascot, buddy, herald]) { m.st.sqv += 6; m.play("laugh", 900) } } }
         ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: 0; duration: 260; easing.type: Easing.OutBack } NumberAnimation { target: root; property: "heraldDx"; to: 0; duration: 260; easing.type: Easing.OutBack } NumberAnimation { target: root; property: "tossA"; to: 0; duration: 460; easing.type: Easing.OutCubic } }
     }
     // a little line dance: they sway one after another and hop
@@ -498,6 +498,16 @@ Item {
     readonly property bool noteUp: noteAny
     readonly property bool duo: claudeBusy && !expanded && !floating && !vertical && !mfree && !assembling && !greeting
     readonly property string buddyWho: stage !== "miku" ? "miku" : rest !== "miku" ? rest : "rin"
+    // Miku is the one working, and she works at the head of the bar: when somebody else
+    // is on stage and Miku is the partner, Miku takes the first seat and the one on stage
+    // the second (`mikuLeft`). Everything the two do between them is written for "the one
+    // on stage on the left"; with the seats changed over it is simply mirrored (`side`).
+    readonly property bool mikuLeft: duo && buddyWho === "miku"
+    readonly property int side: mikuLeft ? -1 : 1
+    // the star that is passed along: `tossU` counts from the one on stage to her partner
+    // (the scenes for two), or along the seats from the head of the bar (`tossBySeat`: Rin's)
+    property bool tossBySeat: false
+    function tossX(u) { return tossBySeat || !mikuLeft ? u : 1 - u }
     property real duoW: duo ? mini + 3 : 0 // (the partner is the size of the one on stage)
     Behavior on duoW { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
     property bool duoLook: false // they are looking at each other
@@ -528,8 +538,11 @@ Item {
     // takes the lead, or the other way round). Neither vanishes and reappears: each is
     // drawn where she was a moment ago, in the other's seat, and they jump over to their
     // own. (That is why the two change character at once while they are a pair: `instant`.)
-    onStageChanged: {
-        if (duo && !Theme.reduced) skTrade.restart()
+    readonly property string leftWho: mikuLeft ? buddyWho : stage
+    property string leftWas: ""
+    onLeftWhoChanged: {
+        if (duo && leftWas !== "" && leftWho !== leftWas && !Theme.reduced) skTrade.restart()
+        leftWas = leftWho
     }
     SequentialAnimation {
         id: skTrade
@@ -623,7 +636,7 @@ Item {
     SequentialAnimation {
         id: skFive
         ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: 4; duration: 140; easing.type: Easing.OutQuad } NumberAnimation { target: root; property: "buddyDx"; to: -4; duration: 140; easing.type: Easing.OutQuad } }
-        ScriptAction { script: { root.tossU = 0.5; root.tossA = 1; mascot.st.sqv += 6; buddy.st.sqv += 6; mascot.play("laugh", 800); buddy.play("laugh", 800) } }
+        ScriptAction { script: { root.tossBySeat = false; root.tossU = 0.5; root.tossA = 1; mascot.st.sqv += 6; buddy.st.sqv += 6; mascot.play("laugh", 800); buddy.play("laugh", 800) } }
         ParallelAnimation { NumberAnimation { target: root; property: "mainDx"; to: 0; duration: 240; easing.type: Easing.OutBack } NumberAnimation { target: root; property: "buddyDx"; to: 0; duration: 240; easing.type: Easing.OutBack } NumberAnimation { target: root; property: "tossA"; to: 0; duration: 420; easing.type: Easing.OutCubic } }
     }
     // one adores, the other cannot take it
@@ -655,7 +668,7 @@ Item {
     // a star tossed over and tossed back
     SequentialAnimation {
         id: skToss
-        ScriptAction { script: { root.tossU = 0; root.tossA = 1; mascot.st.sqv += 4 } }
+        ScriptAction { script: { root.tossBySeat = false; root.tossU = 0; root.tossA = 1; mascot.st.sqv += 4 } }
         NumberAnimation { target: root; property: "tossU"; to: 1; duration: 420; easing.type: Easing.InOutSine }
         ScriptAction { script: { buddy.jump(0.45, false); buddy.play("hype", 700) } }
         PauseAnimation { duration: 350 }
@@ -722,8 +735,39 @@ Item {
     readonly property bool miniNet: lukaAct && Hub.pendingCount === 0 && !(doneHold && Hub.chip === "done")
     // (she starts when the line goes, and is quietly pleased when it is back)
     // (...and is pleased with a download that has come in whole)
-    readonly property bool fetchDone: Net.available && Net.justFetched
+    readonly property bool fetchDone: Net.available && Net.justFetched && !Speed.busy
     onFetchDoneChanged: if (fetchDone && stage === "luka") { mascot.play("proud", 1500); mascot.jump(0.5, true) }
+    // The speed test: the faster the line turns out to be, the happier she is while it
+    // runs, and a slow one upsets her. A crawl has her drooping; a slow line gets a flat
+    // look; a decent one a quiet smile; a fast one has her laughing and hopping; a very
+    // fast one sends her up with hearts and sparks. When it is over she answers the
+    // result the same way, once more and bigger.
+    //   0 crawl (under 5 Mbit/s)  1 slow (under 25)  2 decent (under 75)  3 fast (under 200)  4 very fast
+    function speedMood(v) { return v < 5 ? 0 : v < 25 ? 1 : v < 75 ? 2 : v < 200 ? 3 : 4 }
+    Timer {
+        interval: 650
+        repeat: true
+        running: (Speed.phase === "down" || Speed.phase === "up") && root.stage === "luka" && !Theme.reduced
+        onTriggered: {
+            const k = root.speedMood(Speed.phase === "down" ? Speed.down : Speed.up)
+            mascot.play(["upset", "unimpressed", "fond", "laugh", "hype"][k], 900)
+            if (k === 3) mascot.jump(0.35, false)
+            if (k === 4) { mascot.jump(0.7, false); if (!mascot.celebrating) mascot.celebrate(0.7) }
+        }
+    }
+    Connections {
+        target: Speed
+        function onFinished() {
+            if (root.stage !== "luka") return
+            const k = root.speedMood(Speed.down)
+            if (k === 0) { mascot.play("upset", 3600); mascot.st.shake = 1; return }
+            if (k === 1) { mascot.play("upset", 2400); return }
+            if (k === 2) { mascot.play("proud", 1800); mascot.jump(0.5, true); return }
+            mascot.play(k === 4 ? "love" : "laugh", 2400)
+            mascot.celebrate(k === 4 ? 1.2 : 0.8)
+            if (k === 4) mascot.roll(1, 900)
+        }
+    }
     readonly property bool lineDown: Net.available && !Net.online
     onLineDownChanged: if (stage === "luka") { if (lineDown) { mascot.play("surprised", 1100); mascot.jump(0.5, true) } else mascot.play("fond", 1600) }
     readonly property bool barOwn: miniPlayer || miniGauges || miniNet // the bar belongs to the one on stage, not to Claude's label
@@ -817,7 +861,7 @@ Item {
         && !hover.hovered && !wake.hovered && Hub.pendingCount === 0 && Hub.chip === ""
         && (Hub.mood === "idle" || Hub.mood === "sleep") && !tune
         && !noteAny // (Rin has something to show)
-        && !(lukaAct && (Net.trouble || Net.justBack || Net.downloading || Net.justFetched)) // (...or Luka has)
+        && !(lukaAct && (Net.trouble || Net.justBack || Net.downloading || Net.justFetched || Speed.running || Speed.justDone)) // (...or Luka has)
     onCanTuckChanged: if (!canTuck) tucked = false
     onTuckedChanged: updateHit()
     // At rest (a while after starting, after the card has closed, on tucking away) Kisel
@@ -1756,7 +1800,7 @@ Item {
                 : ({ home: 110, session: 88, permission: 88, github: 88, chat: 64, settings: 64 })[root.view]
             // collapsed: inside the bar, centred across it and `miniLead` from its leading end
             property real slotX: root.expanded ? 14 + (132 - slot) / 2
-                : root.floating ? 0 : root.vertical ? root.miniPad : root.miniLead
+                : root.floating ? 0 : root.vertical ? root.miniPad : root.miniLead + (root.mikuLeft ? root.seatW : 0)
             property real slotY: root.expanded ? 48
                 : root.floating ? 0 : root.vertical ? root.miniLead : root.miniPad
             // Docked at the bottom the card grows upward, so there she is placed from the
@@ -1765,7 +1809,7 @@ Item {
             property real slotB: root.expanded ? 12 : root.miniPad
             readonly property bool gliding: !root.mfree && !Theme.reduced
             size: root.mfree ? root.freeSize : slot
-            x: root.mfree ? root.freeCX - root.freeSize / 2 - root.isoX : card.x + slotX + root.mainDx
+            x: root.mfree ? root.freeCX - root.freeSize / 2 - root.isoX : card.x + slotX + root.side * root.mainDx
             y: root.mfree ? root.freeCY - root.freeSize / 2 - root.isoY
                : root.atBottom ? card.y + card.height - height - slotB : card.y + slotY
             // "Reduce motion": the mascot does not glide, it fades between slots
@@ -1796,7 +1840,7 @@ Item {
             mood: root.dropActive ? "wow" : root.dropHappy ? "happy" : root.walking ? "walk"
                 : root.stage !== "miku" && (root.claudeBusy || Hub.mood === "idle" || (Hub.mood === "sleep" && root.awake)) ? own : Hub.mood
             gazeOn: root.duo && root.duoLook
-            gaze: Qt.point(0.9, 0)
+            gaze: Qt.point(0.9 * root.side, 0)
             paused: root.tucked && root.tuckA > root.pillT
             // She watches the pointer all over the screen where the platform says where it
             // is (Shell.pointerKnown), in the bar as well; elsewhere only while it is on the island.
@@ -1811,7 +1855,7 @@ Item {
             id: buddy
             z: 2
             size: root.mini
-            x: card.x + root.miniLead + root.mini + 3 + root.buddyDx
+            x: card.x + root.miniLead + (root.mikuLeft ? 0 : root.seatW) + root.side * root.buddyDx
             y: (root.atBottom ? card.y + card.height - root.pillT : card.y) + (root.pillT - height) / 2
             character: root.buddyWho
             rotation: -root.lean
@@ -1824,7 +1868,7 @@ Item {
                      && !root.arriving.includes(root.buddyWho)             // (nor there before she has landed)
             paused: !visible || root.tucked
             gazeOn: true
-            gaze: root.duoLook ? Qt.point(-0.9, 0) : Qt.point(0, 0.25)
+            gaze: root.duoLook ? Qt.point(-0.9 * root.side, 0) : Qt.point(0, 0.25)
         }
         // a click on the partner opens the card, and if she is Miku it opens Miku's
         MouseArea {
@@ -1998,7 +2042,7 @@ Item {
             tint: "#FFE08A"
             opacity: root.tossA
             visible: opacity > 0.01
-            x: card.x + root.miniLead + root.mini / 2 + root.tossU * root.seatW - size / 2
+            x: card.x + root.miniLead + root.mini / 2 + root.tossX(root.tossU) * root.seatW - size / 2
             y: (root.atBottom ? card.y + card.height - root.pillT : card.y) + root.pillT / 2 - 3 - Math.abs(Math.sin(Math.PI * root.tossU)) * 9 - size / 2
             rotation: root.tossU * 180
             scale: 0.8 + root.tossA * 0.5

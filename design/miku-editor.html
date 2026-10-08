@@ -187,6 +187,7 @@ const emotes = {
   cool:        { eyes: "closed", mouth: "soft", hands: "hips" },
   stretch:     { eyes: "happy", mouth: "open", hands: "cheer", stretch: true },
   smug:        { eyes: "smug", mouth: "smug", hands: "hips", spin: true },
+  upset:       { eyes: "tired", mouth: "wavy", hands: "droop", fx: "sweat" },
   sweep:       { eyes: "happy", mouth: "open", hands: "sweep", fx: "dust", sway: true }
 };
 function broomLine(t) { const sx = Math.sin(t * 7) * 0.45; return { ax: 0.55 + sx * 0.6, ay: -0.5, bx: -0.45 + sx * 1.3, by: 0.78 }; }
@@ -884,7 +885,7 @@ function btn(host, text, fn, data) { const b = document.createElement("button");
 const moodNames = { idle: "покой", think: "думает", work: "работает", alert: "ждёт ответа", wow: "удивлена", happy: "готово", sad: "ошибка", sleep: "спит", dizzy: "кружится", walk: "идёт" };
 for (const m in moodNames) btn("moods", moodNames[m], () => setMood(m), { m });
 const emoteNames = { hello: "привет", surprised: "ой", love: "сердечки", fond: "нежность", flustered: "смущена", annoyed: "дуется", angry: "злится", unimpressed: "серьёзно?", laugh: "смеётся", proud: "гордится",
-                     tsun: "хмф", hum: "напевает", sing: "поёт в танце", hype: "в восторге", cool: "невозмутима", stretch: "потягивается", smug: "довольна собой", sweep: "подметает" };
+                     tsun: "хмф", hum: "напевает", sing: "поёт в танце", hype: "в восторге", cool: "невозмутима", stretch: "потягивается", smug: "довольна собой", upset: "расстроена", sweep: "подметает" };
 for (const e in emoteNames) btn("emotes", emoteNames[e], () => play(e, e === "sweep" ? 4300 : 2400));
 setMood("idle");
 // what each does in her own way

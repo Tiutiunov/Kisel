@@ -289,6 +289,8 @@ Item {
         cool:        { eyes: "closed", mouth: "soft", hands: "hips" },
         stretch:     { eyes: "happy", mouth: "open",  hands: "cheer", stretch: true },
         smug:        { eyes: "smug",  mouth: "smug",  hands: "hips", spin: true },
+        // bad news (a speed test that came out slow): she droops
+        upset:       { eyes: "tired", mouth: "wavy",  hands: "droop", fx: "sweat" },
         // the memory is being cleaned: she takes a broom to it
         sweep:       { eyes: "happy", mouth: "open",  hands: "sweep", fx: "dust", sway: true }
     })

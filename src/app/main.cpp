@@ -1,6 +1,7 @@
 #include "AgentHub.h"
 #include "Displays.h"
 #include "GitHubClient.h"
+#include "SpeedTest.h"
 #include "Updater.h"
 #include "ChatClient.h"
 #include "HookInstaller.h"
@@ -104,6 +105,7 @@ int main(int argc, char *argv[])
     cli.addOption({"intro", "Play the first-launch animation now."});
     cli.addOption({"grab", "Save a screenshot of the island to <file> and quit (development).", "file"});
     cli.addOption({"scroll", "Development: with --grab, scroll Settings down by <px> first.", "px"});
+    cli.addOption({"speed-test", "Measure the connection (ping, down, up), print the result and quit."});
     cli.addOption({"check-updates", "Ask GitHub whether a newer version is out, print the answer and quit."});
     cli.addOption({"remove-hooks", "Take Kisel's hooks out of Claude Code's settings and quit (the uninstaller does this)."});
     cli.process(app);
@@ -113,6 +115,20 @@ int main(int argc, char *argv[])
         return hooks.apply(false) ? 0 : 1;
     }
 
+    if (cli.isSet("speed-test")) {
+        SpeedTest test;
+        QObject::connect(&test, &SpeedTest::changed, &app, [&] {
+            if (test.running())
+                return;
+            if (test.failed())
+                qInfo("The test did not go through.");
+            else
+                qInfo("ping %d ms, down %.1f Mbit/s, up %.1f Mbit/s (%s)", test.ping(), test.down(), test.up(), qPrintable(test.place()));
+            app.exit(test.failed() ? 1 : 0);
+        });
+        test.start();
+        return app.exec();
+    }
     if (cli.isSet("check-updates")) {
         Secrets secrets;
         Updater up(&secrets);
@@ -174,6 +190,10 @@ int main(int argc, char *argv[])
     SeamWindows seams;
     GitHubClient github(&secrets);
     Updater updater(&secrets);
+    SpeedTest speed;
+    // KISEL_DEMO_SPEED=<ms>: act out a speed test from that time (development)
+    if (const int at = qEnvironmentVariableIntValue("KISEL_DEMO_SPEED"); at > 0)
+        QTimer::singleShot(at, &speed, [&speed] { speed.rehearse(); });
     // (A sign-in key for reading the Claude allowance was kept here for one version; the
     // server does not let such a key read it, so the feature is gone and so is the key.)
     if (secrets.has(QStringLiteral("claude-signin")))
@@ -194,6 +214,7 @@ int main(int argc, char *argv[])
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Seams", &seams);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "GitHub", &github);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Updates", &updater);
+    qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Speed", &speed);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Ticker", &ticker);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Media", &media);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Sys", &sysmon);
@@ -231,7 +252,8 @@ int main(int argc, char *argv[])
     QObject::connect(&tray, &Tray::settingsRequested, root, [root] { QMetaObject::invokeMethod(root, "openIsland", Q_ARG(QVariant, "settings")); });
     QObject::connect(&tray, &Tray::quitRequested, &app, &QApplication::quit);
 
-    if (cli.isSet("demo") || cli.isSet("grab"))
+    // (KISEL_NO_DEMO=1: a grab of the island at rest, with no session acted out)
+    if (cli.isSet("demo") || (cli.isSet("grab") && !qEnvironmentVariableIsSet("KISEL_NO_DEMO")))
         runDemo(hub);
     if (cli.isSet("grab-test")) {
         QTimer::singleShot(700, root, [root] { QMetaObject::invokeMethod(root, "devGrab"); });

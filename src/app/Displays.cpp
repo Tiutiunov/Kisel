@@ -13,10 +13,9 @@ Displays::Displays(IslandWindow *window, Preferences *prefs, QObject *parent)
     , m_window(window)
     , m_prefs(prefs)
 {
-    // Every start follows the primary monitor (the one KDE ranks first). A monitor
-    // picked in Settings holds for this session only, so a stale choice can never
-    // leave Kisel on a screen the user no longer expects.
-    m_prefs->setScreenName(QString());
+    // The monitor picked in Settings is kept from one start to the next. If it is not
+    // there (unplugged, renamed) Kisel is on the primary one until it comes back
+    // (see `target`), so a stale choice cannot lose it.
 
     // Hot-plug: a monitor appears or goes away, or the primary changes.
     connect(qApp, &QGuiApplication::screenAdded, this, [this] { reconcile(); });

@@ -23,6 +23,7 @@ add_library(kisel_core STATIC
     src/core/Preferences.cpp
     src/core/Secrets.cpp
     src/core/SessionModel.cpp
+    src/core/SpeedTest.cpp
     src/core/Updater.cpp
 )
 target_include_directories(kisel_core PUBLIC src/core)

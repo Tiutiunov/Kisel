@@ -33,6 +33,9 @@ class IslandWindow : public QObject
     Q_PROPERTY(bool canAvoidPanels READ canAvoidPanels CONSTANT)    // there is a taskbar to keep clear of
     Q_PROPERTY(bool autostart READ autostart WRITE setAutostart NOTIFY autostartChanged) // start with the session
     Q_PROPERTY(bool floating READ floating NOTIFY floatingChanged)
+    // A full-screen program (a game, a film) has this monitor. The taskbar is not there
+    // then, so the bar stops keeping clear of it and sits on the screen's very edge.
+    Q_PROPERTY(bool covered READ covered NOTIFY coveredChanged)
     Q_PROPERTY(QString edge READ edge NOTIFY dockChanged)           // top | bottom | left | right
     Q_PROPERTY(qreal along READ along NOTIFY dockChanged)           // the pill's centre along the edge, output px
     Q_PROPERTY(qreal pillAlong READ pillAlong NOTIFY placementChanged) // ...and inside the surface
@@ -94,6 +97,7 @@ public:
     bool autostart() const;
     void setAutostart(bool on);
     bool avoidPanels() const { return m_avoidPanels; }
+    bool covered() const { return m_covered; }
     bool pointerKnown() const;
     qreal pointerX() const { return m_pointer.x(); }
     qreal pointerY() const { return m_pointer.y(); }
@@ -153,6 +157,7 @@ signals:
     void viewWideChanged();
     void pointerMoved();
     void screenStrayed(); // the window is on another monitor than it was put on
+    void coveredChanged();
 
 private:
     void placeOnX11();
@@ -172,6 +177,10 @@ private:
     // under us (another resolution, the taskbar), and the bar keeps its place along it.
     qreal m_frac = 0.5;
     int m_polls = 0;
+    bool m_covered = false;
+    int m_coverCount = 0; // how many looks in a row have disagreed with `m_covered`
+    bool fullScreenAbove() const;
+    void lookForCover();
     void keepPlace();
     quintptr m_lastForeground = 0; // the window that had the keyboard before the island took it
 #endif

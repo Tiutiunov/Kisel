@@ -222,7 +222,7 @@ Item {
                     color: Theme.inkMuted
                     font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.DemiBold
                     text: Displays.wanted === "" ? Tr.t("Kisel follows your primary monitor (") + Displays.current + Tr.t("), also after a restart")
-                        : Tr.t("Kisel stays on ") + Displays.wanted + Tr.t(" until you restart it")
+                        : Tr.t("Kisel stays on ") + Displays.wanted + Tr.t(", also after a restart")
                 }
             }
 
