@@ -103,6 +103,7 @@ qt_add_qml_module(kisel
         qml/StatusPill.qml
         qml/PillChip.qml
         qml/PillDisc.qml
+        qml/SideStack.qml
         qml/DockZone.qml
         qml/Ripple.qml
         qml/Seam.qml

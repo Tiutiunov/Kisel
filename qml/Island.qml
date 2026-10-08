@@ -3,7 +3,7 @@
 // place. Sizes, timings and behaviour follow motion.md.
 //
 //   docked   on top, bottom, left or right: collapsed 288 x 32, Coucou's compact bar,
-//            with Kisel wholly inside it (32 x 176 on the sides) -> home 660x200 | session 300 | permission 236/310/290 | github
+//            with Kisel wholly inside it (32 x 248 on the sides) -> home 660x200 | session 300 | permission 236/310/290 | github
 //            276 | chat 412 | settings 440. The bar's size and manners follow Coucou's
 //            island: a click opens it (280 ms OutCubic), it closes a moment after the
 //            pointer leaves (Settings: at once to 10 s) unless something holds it open, and after a minute with
@@ -51,14 +51,20 @@ Item {
     readonly property string edge: Shell.edge
     readonly property bool vertical: !floating && (edge === "left" || edge === "right")
     readonly property bool atBottom: !floating && edge === "bottom"
-    readonly property string dockSide: floating ? "none" : edge
-    // Collapsed: Coucou's compact bar, 288 x 32 with 14 px corners; a 32 x 176 one on the
+    readonly property string dockSide: floating || barAir ? "none" : edge // (in the hand the bar is round all over)
+    // Collapsed: Coucou's compact bar, 288 x 32 with 14 px corners; a 32 x 248 one on the
     // sides; the mascot alone (120 px) while floating. Kisel sits inside the bar, 4 px
     // clear of its edges, and never reaches out of it.
     readonly property int pillT: 32      // the bar's thickness
     readonly property int mini: 24       // the mascot in the bar
     readonly property int miniPad: (pillT - mini) / 2
     readonly property int miniLead: 14   // from the bar's leading end to the mascot
+    // On a side edge the bar stands on end, its long side on the edge, and everything in
+    // it goes one under another: the head of the bar is its top, the bench its bottom,
+    // and whatever moves along the lying bar moves down this one (`vertical`).
+    readonly property int sideH: 248     // the standing bar's length
+    readonly property int sideBenchH: 4 * 16 + 10
+    readonly property int inward: edge === "right" ? -1 : 1 // (which way the screen is from a side edge)
     readonly property int pillMin: 288 + Math.round(duoW + heraldW) // (a little wider while two sit at its head, or Rin holds up her sign)
     readonly property int pillMax: 288 + Math.round(duoW + heraldW)
     readonly property int labelX: miniLead + mini + 10 + Math.round(duoW + heraldW)
@@ -139,7 +145,7 @@ Item {
     property bool lastDance: false
     function row() { return [mascot].concat(duo ? [buddy] : []).concat(heraldRin ? [herald] : []) }
     function hopRow(odd) { row().forEach((m, i) => { if (i % 2 === odd) m.jump(0.4, true) }) }
-    readonly property bool canGroove: zundaLive && (duo || heraldRin) && !expanded && !floating && !vertical && !mfree
+    readonly property bool canGroove: zundaLive && (duo || heraldRin) && !expanded && !floating && !mfree
         && !tucked && !assembling && !greeting && !Theme.reduced
     onCanGrooveChanged: if (!canGroove && (skGroove.running || skDisco.running)) { stopDances(); mainDx = 0; buddyDx = 0; heraldDx = 0 }
     Timer {
@@ -244,7 +250,7 @@ Item {
     // one made on the spot would first play its own coming-in. `flying` names those in the air.)
     property var flying: []
     function launch(who, fromX) {
-        if (who === "" || expanded || floating || vertical || mfree || tucked || assembling || greeting || Theme.reduced) return
+        if (who === "" || expanded || floating || mfree || tucked || assembling || greeting || Theme.reduced) return
         if (head.includes(who) || flying.includes(who)) return // (`head` is fresh here; other bindings may not have caught up)
         const f = flyers.itemAt(cast.indexOf(who))
         if (!f) return
@@ -259,7 +265,7 @@ Item {
     property var arriving: []
     property var benchWas: []
     function launchIn(who, role) {
-        if (who === "" || expanded || floating || vertical || mfree || tucked || assembling || greeting || Theme.reduced) return
+        if (who === "" || expanded || floating || mfree || tucked || assembling || greeting || Theme.reduced) return
         const seat = benchWas.indexOf(who)
         if (seat < 0 || flying.includes(who) || arriving.includes(who)) return
         const f = flyers.itemAt(cast.indexOf(who))
@@ -273,16 +279,18 @@ Item {
     readonly property var head: [stage].concat(duo ? [buddyWho] : []).concat(heraldRin ? ["rin"] : [])
     property var headWas: []
     property var headX: ({})
+    function farEnd() { return vertical ? card.y + card.height : card.x + card.width }
+    function alongOf(it) { return vertical ? it.y : it.x }
     function headSeats() {
         // (measured from the bar's far end, which stays put while the bar changes width)
-        const m = {}, r = card.x + card.width
-        m[stage] = mascot.x - side * mainDx - r
-        if (duo) m[buddyWho] = buddy.x - side * buddyDx - r
-        if (heraldRin) m["rin"] = herald.x - heraldDx - r
+        const m = {}, r = farEnd()
+        m[stage] = alongOf(mascot) - side * mainDx - r
+        if (duo) m[buddyWho] = alongOf(buddy) - side * buddyDx - r
+        if (heraldRin) m["rin"] = alongOf(herald) - heraldDx - r
         return m
     }
     onHeadChanged: {
-        for (const c of headWas) if (!head.includes(c)) launch(c, headX[c] !== undefined ? card.x + card.width + headX[c] : mascot.x)
+        for (const c of headWas) if (!head.includes(c)) launch(c, headX[c] !== undefined ? farEnd() + headX[c] : alongOf(mascot))
         for (const c of head) if (!headWas.includes(c)) launchIn(c, c === stage ? "main" : duo && c === buddyWho ? "buddy" : "herald")
         headWas = head
         benchWas = cast.filter(c => !head.includes(c)) // (not `benchAfter`: that binding may not have caught up yet)
@@ -317,7 +325,7 @@ Item {
         settingsView.showUpdates()
     }
     readonly property bool note: noteAny
-        && !expanded && !floating && !vertical && !mfree && !assembling && !greeting
+        && !expanded && !floating && !mfree && !assembling && !greeting
     // (if Rin is at the head already, on stage or as the partner, the sign is simply hers)
     readonly property bool heraldRin: note && stage !== "rin" && !(duo && buddyWho === "rin")
     property real heraldSeat: heraldRin ? mini + 3 : 0 // (she is the size of the one on stage)
@@ -496,7 +504,7 @@ Item {
     // (A notification does not bring a partner: Miku sits there only while Claude works.
     // With Rin and her sign that makes two at rest and three at work.)
     readonly property bool noteUp: noteAny
-    readonly property bool duo: claudeBusy && !expanded && !floating && !vertical && !mfree && !assembling && !greeting
+    readonly property bool duo: claudeBusy && !expanded && !floating && !mfree && !assembling && !greeting
     readonly property string buddyWho: stage !== "miku" ? "miku" : rest !== "miku" ? rest : "rin"
     // Miku is the one working, and she works at the head of the bar: when somebody else
     // is on stage and Miku is the partner, Miku takes the first seat and the one on stage
@@ -778,7 +786,7 @@ Item {
     readonly property real pillContentW: labelX + pillRow.implicitWidth + 16
     readonly property real pillW: Math.max(pillMin, Math.min(pillMax, pillContentW))
     readonly property real closedW: floating ? 120 : (vertical ? pillT : pillW)
-    readonly property real closedH: floating ? 120 : (vertical ? 176 : pillT)
+    readonly property real closedH: floating ? 120 : (vertical ? sideH + Math.round(duoW + heraldW) : pillT)
     readonly property real cardW: expanded ? 660 : closedW
     readonly property real cardH: expanded ? viewHeight : closedH
     // the radius grows from the bar's 14 to the card's 26 as it opens, never past half the short side
@@ -838,11 +846,117 @@ Item {
     }
 
     // ---- moving the bar by hand: the Move key in the card's header ----
-    // The card closes and the bar waits to be dragged (a lemon edge pulses round it). It
-    // follows the pointer along the edge it is on, and goes over to another edge when the
-    // pointer is clearly nearer to that one. Letting go keeps the place; so does a click,
-    // and so do fifteen seconds of nothing.
+    // The card closes and the bar waits to be picked up (a lemon edge pulses round it, and
+    // it bobs off its edge). Picked up, it comes away whole and goes wherever the pointer
+    // goes, anywhere on the screen, a little behind it like jelly; those in it gasp and
+    // lean into the wind, and stars fall off its tail. A lemon shadow on the nearest edge
+    // shows where it would land, and the bar takes that edge's shape in the hand (lying
+    // for the top and the bottom, standing for the sides). Let go and it flies to the
+    // shadow, bumps into the edge, rings a ripple and throws a handful of stars. A click
+    // keeps the place; so do fifteen seconds of nothing.
     property bool moving: false
+    readonly property bool carried: moving && moveArea.pressed
+    property real bob: 0
+    SequentialAnimation on bob {
+        running: root.moving && !root.carried && !Theme.reduced
+        loops: Animation.Infinite
+        NumberAnimation { to: 1; duration: 520; easing.type: Easing.InOutSine }
+        NumberAnimation { to: 0; duration: 520; easing.type: Easing.InOutSine }
+    }
+    onMovingChanged: if (!moving) bob = 0
+    // how far the bar stands off its edge while it waits, and which way that is
+    readonly property real lift: moving && !barFree ? 3 * bob : 0
+    readonly property real liftX: edge === "left" ? lift : edge === "right" ? -lift : 0
+    readonly property real liftY: edge === "top" ? lift : edge === "bottom" ? -lift : 0
+    // In the hand the bar is placed by where it is on the output (`barSX`, `barSY`: its
+    // top left), not by its dock: the surface covers the whole output meanwhile, as it
+    // does while Kisel herself is carried. `barAir` is the time it is held; `barFree`
+    // lasts until it has landed and the surface is small again.
+    property bool barFree: false
+    property bool barAir: false
+    property real barSX: 0
+    property real barSY: 0
+    Behavior on barSX { enabled: root.barAir && !Theme.reduced; SpringAnimation { spring: 5; damping: 0.32; mass: 0.7 } }
+    Behavior on barSY { enabled: root.barAir && !Theme.reduced; SpringAnimation { spring: 5; damping: 0.32; mass: 0.7 } }
+    // where it would land: the dock it has now, on the output
+    readonly property real landX: Shell.originX + cardX
+    readonly property real landY: Shell.originY + cardY
+    function pickUp() {
+        landAnim.stop()
+        barSX = isoX + card.x; barSY = isoY + card.y
+        barFree = true
+        snapSize = true
+        Shell.beginGrab()
+        barAir = true
+    }
+    // (cx, cy: where the bar's middle should be, on the output)
+    function carryTo(cx, cy) {
+        const d = { top: cy, bottom: screenH - cy, left: cx, right: screenW - cx }
+        let e = Shell.edge
+        for (const k of ["top", "bottom", "left", "right"]) if (d[k] < d[e] - 40) e = k
+        const hop = e !== Shell.edge
+        Shell.setDock(e, e === "left" || e === "right" ? cy : cx)
+        if (hop) { Sfx.play("hover"); if (!Theme.reduced) { cardMorph.restart(); mascot.jump(0.5, true) } }
+        const tx = Math.max(0, Math.min(screenW - closedW, cx - closedW / 2))
+        const ty = Math.max(0, Math.min(screenH - closedH, cy - closedH / 2))
+        blown(tx - barSX, ty - barSY)
+        barSX = tx; barSY = ty
+        updateHit()
+    }
+    function letGo() {
+        if (!barFree) { endMove(); return }
+        barAir = false
+        swayRest.stop(); sway = 0
+        landAnim.restart()
+    }
+    ParallelAnimation {
+        id: landAnim
+        NumberAnimation { target: root; property: "barSX"; to: root.landX; duration: Theme.reduced ? 0 : 300; easing.type: Easing.OutBack; easing.overshoot: 1.6 }
+        NumberAnimation { target: root; property: "barSY"; to: root.landY; duration: Theme.reduced ? 0 : 300; easing.type: Easing.OutBack; easing.overshoot: 1.6 }
+        onFinished: { root.putDown(); Shell.endGrab(); root.barLanded() }
+    }
+    function barLanded() {
+        if (!barFree || barAir || landAnim.running || Shell.viewWide) return
+        barFree = false
+        snapSize = false
+        endMove()
+    }
+    // the lean of those in it, in degrees: into the wind while it is carried
+    property real sway: 0
+    Behavior on sway { SpringAnimation { spring: 4; damping: 0.22 } }
+    Timer { id: swayRest; interval: 70; onTriggered: { root.sway = 0; root.dentX = 0; root.dentY = 0 } }
+    function blown(vx, vy) { // (how far it is about to go)
+        if (Theme.reduced) return
+        sway = Math.max(-20, Math.min(20, (Math.abs(vx) > Math.abs(vy) ? vx : vy) * 0.9))
+        swayRest.restart()
+        const v = Math.hypot(vx, vy)
+        trailRun += v
+        if (trailRun < 26 || v < 0.5) return
+        trailRun = 0
+        // a star off the tail
+        const ux = vx / v, uy = vy / v
+        puff(card.x + card.width / 2 - ux * card.width / 2 + (Math.random() - 0.5) * 14 * Math.abs(uy),
+             card.y + card.height / 2 - uy * card.height / 2 + (Math.random() - 0.5) * 14 * Math.abs(ux), -ux, -uy)
+    }
+    property real trailRun: 0
+    property int trailI: 0
+    function puff(x, y, dx, dy) { const t = trail.itemAt(trailI++ % trail.count); if (t) t.shoot(x, y, dx, dy) }
+    function putDown() {
+        mascot.land()
+        if (Theme.reduced) return
+        // (into the edge and back: the dent's own spring does the wobble)
+        dentX = edge === "left" ? -5 : edge === "right" ? 5 : 0
+        dentY = edge === "top" ? -5 : edge === "bottom" ? 5 : 0
+        swayRest.restart()
+        landRipple.go(card.x + card.width / 2, card.y + card.height / 2)
+        for (let i = 0; i < 8; ++i) {
+            const a = Math.PI * 2 * i / 8 + Math.random() * 0.5
+            puff(card.x + card.width / 2 + Math.cos(a) * card.width * 0.3, card.y + card.height / 2 + Math.sin(a) * card.height * 0.3, Math.cos(a), Math.sin(a))
+        }
+        mascot.play("proud", 1000)
+        if (duo) buddy.jump(0.5, true)
+        if (heraldRin) herald.jump(0.5, true)
+    }
     function startMove() {
         if (floating) return
         collapseNow()
@@ -852,6 +966,7 @@ Item {
     function endMove() {
         if (!moving) return
         moving = false
+        if (barFree) { landAnim.stop(); barAir = false; barFree = false; snapSize = false; Shell.endGrab() } // (never left in the air)
         Prefs.setDock(Displays.current, Shell.edge, Shell.along / Shell.edgeLength(Shell.edge))
         updateHit()
     }
@@ -1101,7 +1216,7 @@ Item {
         let y1 = Math.max(card.y + card.height, mascot.y + mascot.height)
         if (note) { // (Rin's sign stands out of the bar and takes clicks too)
             y0 = Math.min(y0, sign.y); y1 = Math.max(y1, sign.y + sign.height)
-            x1 = Math.max(x1, sign.x + sign.width)
+            x0 = Math.min(x0, sign.x); x1 = Math.max(x1, sign.x + sign.width)
         }
         if (signOpen.on) { // (...and out of the open card)
             y0 = Math.min(y0, signOpen.y); y1 = Math.max(y1, signOpen.y + signOpen.height)
@@ -1188,7 +1303,7 @@ Item {
     function slotCenterFinal() {
         const e = Shell.edge
         const vert = e === "left" || e === "right"
-        const cw = vert ? pillT : pillW, ch = vert ? 176 : pillT
+        const cw = vert ? pillT : pillW, ch = vert ? sideH : pillT
         const cx = e === "left" ? 0 : e === "right" ? width - cw : Shell.pillAlong - cw / 2
         const cy = e === "top" ? 0 : e === "bottom" ? height - ch : Shell.pillAlong - ch / 2
         const sx = vert ? miniPad : miniLead
@@ -1237,7 +1352,7 @@ Item {
         mascot.land()
         if (hopOnLand > 0) { mascot.jump(hopOnLand); hopOnLand = 0 }
     }
-    function wideChanged2() { if (!Shell.viewWide) tryFinishFree() }
+    function wideChanged2() { if (!Shell.viewWide) { tryFinishFree(); barLanded() } }
 
     // ---- the dock zone and the wall -----------------------------------------------------
     // Measured from Kisel's own side, not from the pointer: holding it by the foot must not
@@ -1349,8 +1464,8 @@ Item {
         // ---- the card ---------------------------------------------------------
         Item {
             id: card
-            x: root.cardX + root.dentX
-            y: root.cardY + root.dentY
+            x: root.barFree ? root.barSX - root.isoX + root.dentX : root.cardX + root.dentX + root.liftX
+            y: root.barFree ? root.barSY - root.isoY + root.dentY : root.cardY + root.dentY + root.liftY
             width: root.animW
             height: root.animH
             clip: true // the flush side sits past the screen edge: only the inner corners are round
@@ -1501,7 +1616,7 @@ Item {
                 width: root.pillW
                 height: tuneScrub.containsMouse || tuneScrub.pressed ? 4 : 2
                 Behavior on height { NumberAnimation { duration: 120 } }
-                opacity: root.miniPlayer && !root.expanded && !root.floating && !root.vertical && !root.mfree ? 1 : 0
+                opacity: root.miniPlayer && !root.expanded && !root.floating && !root.vertical && !root.mfree && !root.barAir ? 1 : 0 // (in the hand the bar is round all over: the line would stick out of its corners)
                 visible: opacity > 0
                 Behavior on opacity { NumberAnimation { duration: 120 } }
                 property real scrub: -1
@@ -1585,13 +1700,103 @@ Item {
                 }
             }
 
-            // collapsed, on a side: the state becomes an icon-only 24 px disc under the mascot;
-            // the words appear when the card opens
-            PillDisc {
-                x: (root.pillT - width) / 2
-                y: root.miniLead + root.mini + 8
+            // collapsed, on a side: under those at the head, what the lying bar says
+            // (SideStack); at the bottom the bench, one under another; and the tune's line
+            // down the side that lies on the screen's edge.
+            SideStack {
+                y: root.miniLead + root.mini + 8 + Math.round(root.duoW + root.heraldW)
+                height: root.sideH - (root.miniLead + root.mini + 8) - root.sideBenchH - 6
+                on: root.vertical && !root.expanded
+                chip: Hub.chip !== "" ? Hub.chip : Hub.mood === "work" ? "work" : Hub.mood === "think" ? "think" : ""
+                label: pillRow.label
+                faint: Hub.mood === "sleep"
+                player: root.miniPlayer
+                gauges: root.miniGauges
+                net: root.miniNet
+                still: root.tucked
+            }
+            Column {
+                id: sideBench
+                x: 0
+                y: card.height - height - 10
                 opacity: root.vertical && !root.expanded ? 1 : 0
-                kind: Hub.chip !== "" ? Hub.chip : Hub.mood === "work" ? "work" : Hub.mood === "think" ? "think" : ""
+                visible: opacity > 0
+                Behavior on opacity { NumberAnimation { duration: 120 } }
+                Repeater {
+                    model: root.vertical ? root.bench : []
+                    Item {
+                        id: stool
+                        required property string modelData
+                        width: root.pillT; height: 16
+                        NumberAnimation on scale { from: 0.2; to: 1; duration: 340; easing.type: Easing.OutBack; running: !Theme.reduced }
+                        Mascot {
+                            anchors.centerIn: parent
+                            size: 18
+                            bench: true
+                            paused: root.tucked
+                            character: stool.modelData
+                            scale: stoolArea.containsMouse ? 1.15 : 1
+                            Behavior on scale { NumberAnimation { duration: Theme.tHover; easing.type: Easing.OutCubic } }
+                        }
+                        MouseArea {
+                            id: stoolArea
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: { Hub.poke(); Sfx.play("click"); root.choose(stool.modelData) }
+                        }
+                    }
+                }
+            }
+            Item {
+                id: tuneSide
+                x: root.dockSide === "right" ? root.pillT - width : 0
+                y: 0
+                width: sideScrub.containsMouse || sideScrub.pressed ? 4 : 2
+                height: card.height
+                Behavior on width { NumberAnimation { duration: 120 } }
+                opacity: root.miniPlayer && root.vertical && !root.expanded && !root.barAir ? 1 : 0
+                visible: opacity > 0
+                Behavior on opacity { NumberAnimation { duration: 120 } }
+                property real scrub: -1
+                readonly property real shown: scrub >= 0 ? scrub : Media.progress
+                Timer { id: sideHold; interval: 1200; onTriggered: tuneSide.scrub = -1 }
+                MouseArea {
+                    id: sideScrub
+                    x: root.dockSide === "right" ? parent.width - 5 : 0
+                    y: 0
+                    width: 5; height: parent.height
+                    hoverEnabled: true
+                    enabled: Media.canSeek && Media.duration > 0
+                    cursorShape: Qt.PointingHandCursor
+                    function at(m) { return Math.max(0, Math.min(1, m.y / height)) }
+                    onPressed: (m) => { sideHold.stop(); tuneSide.scrub = at(m) }
+                    onPositionChanged: (m) => { if (pressed) tuneSide.scrub = at(m) }
+                    onReleased: { Media.seek(tuneSide.scrub); Sfx.play("click"); sideHold.restart() }
+                    onCanceled: tuneSide.scrub = -1
+                }
+                Rectangle { anchors.fill: parent; radius: 1; color: Theme.ink; opacity: 0.1 }
+                Rectangle {
+                    id: sideFill
+                    width: parent.width; radius: 1
+                    height: parent.height * tuneSide.shown
+                    Behavior on height { enabled: !sideScrub.pressed; NumberAnimation { duration: 500 } }
+                    gradient: Gradient {
+                        GradientStop { position: 0; color: "#FF9EBB" }
+                        GradientStop { position: 0.6; color: "#FFE08A" }
+                        GradientStop { position: 1; color: "#B9DC6B" }
+                    }
+                }
+                Spark {
+                    size: 9
+                    x: parent.width / 2 - size / 2
+                    y: sideFill.height - size / 2
+                    scale: sideScrub.pressed ? 1.5 : 1
+                    Behavior on scale { NumberAnimation { duration: 160 } }
+                    tint: "#FFFFFF"
+                    opacity: Media.playing ? 1 : 0.5
+                    RotationAnimation on rotation { running: root.miniPlayer && root.vertical && Media.playing && !Theme.reduced && !root.tucked; from: 0; to: 90; duration: 2400; loops: Animation.Infinite }
+                }
             }
 
             // header: wordmark, title, icon buttons
@@ -1802,23 +2007,23 @@ Item {
             property real slotX: root.expanded ? 14 + (132 - slot) / 2
                 : root.floating ? 0 : root.vertical ? root.miniPad : root.miniLead + (root.mikuLeft ? root.seatW : 0)
             property real slotY: root.expanded ? 48
-                : root.floating ? 0 : root.vertical ? root.miniLead : root.miniPad
+                : root.floating ? 0 : root.vertical ? root.miniLead + (root.mikuLeft ? root.seatW : 0) : root.miniPad
             // Docked at the bottom the card grows upward, so there she is placed from the
             // card's bottom edge: one steady glide. (Placed from the top, her slot and the
             // card's height would animate against each other and she would leap up and drop.)
             property real slotB: root.expanded ? 12 : root.miniPad
             readonly property bool gliding: !root.mfree && !Theme.reduced
             size: root.mfree ? root.freeSize : slot
-            x: root.mfree ? root.freeCX - root.freeSize / 2 - root.isoX : card.x + slotX + root.side * root.mainDx
+            x: root.mfree ? root.freeCX - root.freeSize / 2 - root.isoX : card.x + slotX + (root.vertical ? 0 : root.side * root.mainDx)
             y: root.mfree ? root.freeCY - root.freeSize / 2 - root.isoY
-               : root.atBottom ? card.y + card.height - height - slotB : card.y + slotY
+               : root.atBottom ? card.y + card.height - height - slotB : card.y + slotY + (root.vertical ? root.side * root.mainDx : 0)
             // "Reduce motion": the mascot does not glide, it fades between slots
             Behavior on size { enabled: mascot.gliding; NumberAnimation { duration: root.shrinking ? Theme.tClose : Theme.tOpen; easing.type: Easing.BezierSpline; easing.bezierCurve: root.shrinking ? Theme.easeClose : Theme.easeGlide } }
             Behavior on slotX { enabled: mascot.gliding; NumberAnimation { duration: root.shrinking ? Theme.tClose : Theme.tOpen; easing.type: Easing.BezierSpline; easing.bezierCurve: root.shrinking ? Theme.easeClose : Theme.easeGlide } }
             Behavior on slotY { enabled: mascot.gliding; NumberAnimation { duration: root.shrinking ? Theme.tClose : Theme.tOpen; easing.type: Easing.BezierSpline; easing.bezierCurve: root.shrinking ? Theme.easeClose : Theme.easeGlide } }
             Behavior on slotB { enabled: mascot.gliding; NumberAnimation { duration: root.shrinking ? Theme.tClose : Theme.tOpen; easing.type: Easing.BezierSpline; easing.bezierCurve: root.shrinking ? Theme.easeClose : Theme.easeGlide } }
             // docked on a side it leans 8 degrees toward the screen
-            inwardTilt: root.vertical && !root.expanded ? (root.edge === "left" ? 8 : -8) : 0
+            inwardTilt: (root.vertical && !root.expanded ? (root.edge === "left" ? 8 : -8) : 0) + root.sway
             Behavior on inwardTilt { NumberAnimation { duration: 200 } }
             // during the assembly the mini shows only between "born" and the unfold, and the
             // real mascot takes over from the flying body when the sequence settles
@@ -1837,10 +2042,10 @@ Item {
             // (Sleep is Claude's too, and not for one who is busy with her own: Zundamon
             // does not doze off over a playing tune, nor Teto over a computer in trouble.)
             readonly property string own: (root.tetoAct && Sys.strain) || (root.lukaAct && Net.trouble) ? "sad" : "idle"
-            mood: root.dropActive ? "wow" : root.dropHappy ? "happy" : root.walking ? "walk"
+            mood: root.dropActive || root.carried ? "wow" : root.dropHappy ? "happy" : root.walking ? "walk"
                 : root.stage !== "miku" && (root.claudeBusy || Hub.mood === "idle" || (Hub.mood === "sleep" && root.awake)) ? own : Hub.mood
             gazeOn: root.duo && root.duoLook
-            gaze: Qt.point(0.9 * root.side, 0)
+            gaze: root.vertical ? Qt.point(0, 0.9 * root.side) : Qt.point(0.9 * root.side, 0)
             paused: root.tucked && root.tuckA > root.pillT
             // She watches the pointer all over the screen where the platform says where it
             // is (Shell.pointerKnown), in the bar as well; elsewhere only while it is on the island.
@@ -1855,10 +2060,12 @@ Item {
             id: buddy
             z: 2
             size: root.mini
-            x: card.x + root.miniLead + (root.mikuLeft ? 0 : root.seatW) + root.side * root.buddyDx
-            y: (root.atBottom ? card.y + card.height - root.pillT : card.y) + (root.pillT - height) / 2
+            readonly property real along: root.miniLead + (root.mikuLeft ? 0 : root.seatW) + root.side * root.buddyDx
+            x: root.vertical ? card.x + root.miniPad : card.x + along
+            y: root.vertical ? card.y + along : (root.atBottom ? card.y + card.height - root.pillT : card.y) + (root.pillT - height) / 2
             character: root.buddyWho
             rotation: -root.lean
+            inwardTilt: root.sway
             instant: true
             mood: root.buddyWho === "miku" && root.claudeBusy ? (Hub.mood === "think" ? "think" : "work") : "idle" // (only Miku does Claude's work)
             property real pop: root.duo ? 1 : 0
@@ -1868,7 +2075,7 @@ Item {
                      && !root.arriving.includes(root.buddyWho)             // (nor there before she has landed)
             paused: !visible || root.tucked
             gazeOn: true
-            gaze: root.duoLook ? Qt.point(-0.9 * root.side, 0) : Qt.point(0, 0.25)
+            gaze: root.duoLook ? (root.vertical ? Qt.point(0, -0.9 * root.side) : Qt.point(-0.9 * root.side, 0)) : Qt.point(0, 0.25)
         }
         // a click on the partner opens the card, and if she is Miku it opens Miku's
         MouseArea {
@@ -1890,10 +2097,12 @@ Item {
             id: herald
             z: 2
             size: root.mini
-            x: card.x + root.miniLead + root.mini + 3 + root.duoW + root.heraldDx
-            y: (root.atBottom ? card.y + card.height - root.pillT : card.y) + (root.pillT - height) / 2
+            readonly property real along: root.miniLead + root.mini + 3 + root.duoW + root.heraldDx
+            x: root.vertical ? card.x + root.miniPad : card.x + along
+            y: root.vertical ? card.y + along : (root.atBottom ? card.y + card.height - root.pillT : card.y) + (root.pillT - height) / 2
             character: "rin"
             rotation: root.duo ? root.lean : -root.lean
+            inwardTilt: root.sway
             instant: true
             mood: "idle"
             property real pop: root.heraldRin ? 1 : 0
@@ -1902,7 +2111,8 @@ Item {
             visible: pop > 0.01 && !root.flying.includes("rin") && !root.arriving.includes("rin")
             paused: !visible || root.tucked
             gazeOn: true
-            gaze: root.duoLook ? Qt.point(-0.9, 0) : Qt.point(0.5, -0.3) // (at the others, or up at her sign)
+            gaze: root.duoLook ? (root.vertical ? Qt.point(0, -0.9) : Qt.point(-0.9, 0))
+                : root.vertical ? Qt.point(0.6 * root.inward, -0.1) : Qt.point(0.5, -0.3) // (at the others, or at her sign)
         }
         // those on their way back to the bench (see "back to the bench")
         Repeater {
@@ -1921,21 +2131,26 @@ Item {
                 readonly property int seat: coming ? seatIn : root.benchAfter.indexOf(who)
                 readonly property real barTop: root.atBottom ? card.y + card.height - root.pillT : card.y
                 // her seat on the bench (it is two wide)
-                readonly property real benchX: card.x + card.width - 8 - 40 + (seat % 2) * 21
-                readonly property real benchY: barTop + 1 + Math.floor(seat / 2) * 15 - 1.5
+                // (on a standing bar the bench is one wide, at the bottom)
+                readonly property int benchN: coming ? root.benchWas.length : root.benchAfter.length
+                readonly property real benchX: root.vertical ? card.x + (root.pillT - 18) / 2
+                    : card.x + card.width - 8 - 40 + (seat % 2) * 21
+                readonly property real benchY: root.vertical ? card.y + card.height - 10 - (benchN - seat) * 16 - 1
+                    : barTop + 1 + Math.floor(seat / 2) * 15 - 1.5
                 // her place at the head
                 readonly property Item place: role === "buddy" ? buddy : role === "herald" ? herald : mascot
-                readonly property real headX: coming ? place.x : fromX
-                readonly property real headY: barTop + (root.pillT - root.mini) / 2
+                readonly property real headX: root.vertical ? card.x + root.miniPad : coming ? place.x : fromX
+                readonly property real headY: root.vertical ? (coming ? place.y : fromX) : barTop + (root.pillT - root.mini) / 2
                 readonly property real k: coming ? 1 - u : u // 0 at the head, 1 on the bench
                 function go(x) { coming = false; fromX = x; u = 0; flight.restart(); play("hype", 900) }
                 function come(s, r) { coming = true; seatIn = s; role = r; u = 0; flight.restart(); play("hello", 900) }
                 function stop() { flight.stop(); u = 0 }
                 z: 5
                 size: root.mini - (root.mini - 18) * k
-                x: headX + (benchX - headX) * k
-                // (the arc goes over the bar where there is room for it, and under it on the top edge)
-                y: headY + (benchY - headY) * k + (root.atBottom ? -1 : 1) * Math.sin(Math.PI * u) * 24
+                // (the arc goes over the bar where there is room for it, and under it on the top edge;
+                // from a standing bar it goes out into the screen)
+                x: headX + (benchX - headX) * k + (root.vertical ? root.inward * Math.sin(Math.PI * u) * 24 : 0)
+                y: headY + (benchY - headY) * k + (root.vertical ? 0 : (root.atBottom ? -1 : 1) * Math.sin(Math.PI * u) * 24)
                 rotation: (coming ? -1 : 1) * u * 360
                 character: who
                 instant: true
@@ -1948,9 +2163,10 @@ Item {
         NoteSign {
             id: sign
             z: 3
-            flip: !root.atBottom
-            x: root.rinNow.x + root.rinNow.width - 9
-            y: (root.atBottom ? card.y + card.height - root.pillT - 19 : card.y + root.pillT - 11)
+            flip: !root.atBottom && !root.vertical
+            x: root.vertical ? (root.inward > 0 ? card.x + root.pillT - 6 : card.x - fullW + 6) : root.rinNow.x + root.rinNow.width - 9
+            y: root.vertical ? root.rinNow.y - 8
+                : (root.atBottom ? card.y + card.height - root.pillT - 19 : card.y + root.pillT - 11)
             on: root.note
             still: root.tucked
             app: root.signApps.length ? root.signApps[0] : ""
@@ -1970,7 +2186,7 @@ Item {
             flip: !root.atBottom
             x: card.x + (seat >= 0 ? headerBench.x + seat * (26 + headerBench.spacing) + 18 : 14 + 16)
             y: root.atBottom ? card.y - 19 : card.y + 36
-            on: root.noteUp && root.expanded && !root.floating && !root.vertical && !root.mfree && !root.assembling
+            on: root.noteUp && root.expanded && !root.floating && !root.mfree && !root.assembling
             still: root.tucked
             app: root.signApps.length ? root.signApps[0] : ""
             count: root.signCounts.length ? root.signCounts[0] : 1
@@ -1991,8 +2207,9 @@ Item {
         MouseArea {
             z: 4
             visible: root.note
-            x: root.rinNow.x; y: (root.atBottom ? card.y + card.height - root.pillT : card.y)
-            width: root.rinNow.width; height: root.pillT
+            x: root.vertical ? card.x : root.rinNow.x
+            y: root.vertical ? root.rinNow.y : (root.atBottom ? card.y + card.height - root.pillT : card.y)
+            width: root.vertical ? root.pillT : root.rinNow.width; height: root.vertical ? root.rinNow.height : root.pillT
             cursorShape: Qt.PointingHandCursor
             onClicked: { Hub.poke(); Sfx.play("click"); root.openNote() }
         }
@@ -2018,9 +2235,10 @@ Item {
                 kind: "note"
                 size: 9 + (index % 3)
                 tint: ["#FF9EBB", "#FFE08A", "#B9DC6B", "#FFFFFF"][index % 4]
-                x: card.x + root.miniLead + root.mini / 2 + who * root.seatW - width / 2 + Math.sin(u * 6 + index) * 5 + (index % 3 - 1) * 5
-                // (up out of the bar; down out of one docked on the top edge)
-                y: root.atBottom ? barTop + 3 - height - u * 36 : barTop + root.pillT - 3 + u * 36
+                readonly property real along: root.miniLead + root.mini / 2 + who * root.seatW + Math.sin(u * 6 + index) * 5 + (index % 3 - 1) * 5
+                x: root.vertical ? (root.inward > 0 ? card.x + root.pillT - 3 + u * 36 : card.x + 3 - width - u * 36) : card.x + along - width / 2
+                // (up out of the bar; down out of one docked on the top edge; out into the screen from a standing one)
+                y: root.vertical ? card.y + along - height / 2 : root.atBottom ? barTop + 3 - height - u * 36 : barTop + root.pillT - 3 + u * 36
                 opacity: root.discoOn ? Math.sin(Math.PI * u) : 0
                 visible: opacity > 0.01
                 scale: 0.7 + 0.5 * Math.sin(Math.PI * u)
@@ -2042,8 +2260,11 @@ Item {
             tint: "#FFE08A"
             opacity: root.tossA
             visible: opacity > 0.01
-            x: card.x + root.miniLead + root.mini / 2 + root.tossX(root.tossU) * root.seatW - size / 2
-            y: (root.atBottom ? card.y + card.height - root.pillT : card.y) + root.pillT / 2 - 3 - Math.abs(Math.sin(Math.PI * root.tossU)) * 9 - size / 2
+            readonly property real along: root.miniLead + root.mini / 2 + root.tossX(root.tossU) * root.seatW
+            readonly property real arc: 3 + Math.abs(Math.sin(Math.PI * root.tossU)) * 9
+            x: root.vertical ? card.x + root.pillT / 2 + root.inward * arc - size / 2 : card.x + along - size / 2
+            y: root.vertical ? card.y + along - size / 2
+                : (root.atBottom ? card.y + card.height - root.pillT : card.y) + root.pillT / 2 - arc - size / 2
             rotation: root.tossU * 180
             scale: 0.8 + root.tossA * 0.5
         }
@@ -2341,18 +2562,44 @@ Item {
             onCanceled: finishPress(false)
         }
 
+        // where the bar would land, while it is in the hand
+        Rectangle {
+            z: 1
+            x: root.landX - root.isoX; y: root.landY - root.isoY
+            width: root.closedW; height: root.closedH
+            radius: 14
+            color: "#FFE08A"
+            border.width: 2; border.color: "#FFFFFF"
+            property real show: root.barAir ? 1 : 0
+            Behavior on show { NumberAnimation { duration: 160 } }
+            visible: show > 0.01
+            Behavior on x { enabled: root.barAir && !Theme.reduced; NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+            Behavior on y { enabled: root.barAir && !Theme.reduced; NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+            Behavior on width { enabled: root.barAir && !Theme.reduced; NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+            Behavior on height { enabled: root.barAir && !Theme.reduced; NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+            property real breath: 0.3
+            opacity: show * breath
+            SequentialAnimation on breath {
+                running: root.barAir && !Theme.reduced
+                loops: Animation.Infinite
+                NumberAnimation { to: 0.45; duration: 460; easing.type: Easing.InOutSine }
+                NumberAnimation { to: 0.2; duration: 460; easing.type: Easing.InOutSine }
+            }
+        }
         // the bar, waiting to be dragged (see `moving`)
         Rectangle {
             visible: root.moving
             z: 5
-            x: card.x - 3; y: card.y - 3
-            width: card.width + 6; height: card.height + 6
-            radius: Math.min(width, height) / 2
+            // (the bar's own outline, 3 px out: its flush side runs off the screen with the bar's)
+            x: card.x + root.shapeX - 3; y: card.y + root.shapeY - 3
+            width: root.shapeW + 6; height: root.shapeH + 6
+            radius: root.radius + 3
             color: "transparent"
-            border.width: 2
-            border.color: "#FFE08A"
+            border.width: root.carried ? 3 : 2
+            border.color: root.carried ? "#FFFFFF" : "#FFE08A"
+            Behavior on border.color { ColorAnimation { duration: 160 } }
             SequentialAnimation on opacity {
-                running: root.moving && !Theme.reduced
+                running: root.moving && !root.carried && !Theme.reduced
                 loops: Animation.Infinite
                 NumberAnimation { from: 1; to: 0.35; duration: 500; easing.type: Easing.InOutSine }
                 NumberAnimation { from: 0.35; to: 1; duration: 500; easing.type: Easing.InOutSine }
@@ -2366,34 +2613,54 @@ Item {
             width: Math.max(card.x + card.width, mascot.x + mascot.width) - x
             height: Math.max(card.y + card.height, mascot.y + mascot.height) - y
             cursorShape: pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor
-            property real off: 0       // the pointer minus the bar's centre, along the edge
+            property point off: Qt.point(0, 0) // the pointer minus the bar's middle
             property bool dragged: false
-            // the pointer on the monitor the bar is on
-            function where(m) {
-                const g = mapToGlobal(m.x, m.y)
-                let s = { x: 0, y: 0 }
-                for (const d of Displays.screens) if (d.name === Displays.current) s = d
-                return Qt.point(g.x - s.x, g.y - s.y)
-            }
-            function alongOf(edge, P) { return edge === "left" || edge === "right" ? P.y : P.x }
-            onPressed: (m) => { dragged = false; off = alongOf(Shell.edge, where(m)) - Shell.along; mascot.compress() }
-            onPositionChanged: (m) => {
-                if (!pressed) return
+            // the pointer on the output
+            function where(m) { const q = mapToItem(root, m.x, m.y); return Qt.point(q.x + root.isoX, q.y + root.isoY) }
+            onPressed: (m) => {
+                dragged = false
                 const P = where(m)
-                const d = { top: P.y, bottom: root.screenH - P.y, left: P.x, right: root.screenW - P.x }
-                let edge = Shell.edge
-                for (const e of ["top", "bottom", "left", "right"])
-                    if (e !== edge && d[e] < 90 && d[e] < d[edge] - 60) edge = e
-                if (edge !== Shell.edge) { off = 0; Sfx.play("hover") }
-                const to = alongOf(edge, P) - off
-                if (edge !== Shell.edge || Math.abs(to - Shell.along) >= 1) {
-                    dragged = true
-                    Shell.setDock(edge, to)
-                    root.updateHit()
-                }
+                off = Qt.point(P.x - (root.isoX + card.x + card.width / 2), P.y - (root.isoY + card.y + card.height / 2))
+                root.pickUp()
+                mascot.compress(); Sfx.play("hover")
+                if (!Theme.reduced) { if (root.duo) buddy.jump(0.4, true); if (root.heraldRin) herald.jump(0.4, true) }
             }
-            onReleased: { if (dragged) mascot.land(); root.endMove() }
-            onCanceled: root.endMove()
+            onPositionChanged: (m) => {
+                if (!pressed || !root.barAir) return
+                const P = where(m)
+                dragged = true
+                root.carryTo(P.x - off.x, P.y - off.y)
+            }
+            onReleased: { if (dragged) Sfx.play("click"); root.letGo() }
+            onCanceled: root.letGo()
+        }
+
+        // the stars that fall off the bar as it is carried
+        Repeater {
+            id: trail
+            model: 14
+            Spark {
+                id: mote
+                required property int index
+                property real px: 0
+                property real py: 0
+                property real dx: 0
+                property real dy: 0
+                property real ox: 0
+                property real oy: 0
+                property real u: 1
+                function shoot(x, y, vx, vy) { px = x; py = y; dx = vx; dy = vy; ox = root.isoX; oy = root.isoY; life.restart() }
+                z: 4
+                size: 7 + (index % 3) * 2
+                tint: ["#FFE08A", "#FF9EBB", "#B9DC6B", "#FFFFFF"][index % 4]
+                x: px + ox - root.isoX + dx * 22 * u - size / 2
+                y: py + oy - root.isoY + dy * 22 * u + 10 * u * u - size / 2
+                opacity: u < 1 ? 1 - u * u : 0
+                visible: opacity > 0.01
+                scale: 0.5 + Math.sin(Math.PI * Math.min(1, u * 1.4)) * 0.9
+                rotation: u * 200 + index * 40
+                NumberAnimation { id: life; target: mote; property: "u"; from: 0; to: 1; duration: 620 + mote.index % 4 * 60; easing.type: Easing.OutCubic }
+            }
         }
 
         DoneBurst { id: burst; anchors.fill: parent; z: 10 }
