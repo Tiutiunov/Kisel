@@ -103,8 +103,13 @@ DiscordPresence::DiscordPresence(Preferences *prefs, AgentHub *hub, bool live, Q
         m_ready = false;
         m_sent = {};
         m_sentAny = false;
-        if (was && m_state == QLatin1String("on"))
+        if (was && m_state == QLatin1String("on")) {
+            // Discord was closed or restarted: look for it again, as at the start (the
+            // looking was stopped when it answered)
             set(QStringLiteral("waiting"));
+            m_pipe = 0;
+            m_retry.start();
+        }
     });
 
     connect(prefs, &Preferences::changed, this, &DiscordPresence::apply);
