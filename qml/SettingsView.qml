@@ -632,6 +632,27 @@ Item {
                         }
                     }
                 }
+                // exactly at an end of the edge or in its middle: by hand it lands a few pixels off
+                Row {
+                    spacing: Theme.space2
+                    readonly property bool upright: Shell.edge === "left" || Shell.edge === "right"
+                    readonly property real at: Shell.along / Shell.edgeLength(Shell.edge)
+                    readonly property int keepOut: 162 // (as near a corner as the bar goes: IslandWindow::kCornerKeepOut)
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: Tr.t("Align")
+                        color: Theme.inkMuted; font.family: Theme.sans; font.pixelSize: 13; font.weight: Font.DemiBold
+                    }
+                    Repeater {
+                        model: [{ at: 0, name: parent.upright ? Tr.t("Top") : Tr.t("Left") }, { at: 0.5, name: Tr.t("Centre") }, { at: 1, name: parent.upright ? Tr.t("Bottom") : Tr.t("Right") }]
+                        KButton {
+                            required property var modelData
+                            primary: modelData.at === 0.5 ? Math.abs(parent.at - 0.5) < 0.002 : (modelData.at === 0 ? Shell.along <= parent.keepOut + 1 : Shell.along >= Shell.edgeLength(Shell.edge) - parent.keepOut - 1)
+                            text: modelData.name
+                            onClicked: root.place(Shell.edge, modelData.at)
+                        }
+                    }
+                }
                 KSlider {
                     id: alongSlider
                     from: 0; to: 20

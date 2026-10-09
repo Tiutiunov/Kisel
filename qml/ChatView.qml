@@ -887,6 +887,8 @@ Item {
                     selectedTextColor: root.onAcc
                     font.family: Theme.sans; font.pixelSize: 13; font.weight: Font.DemiBold
                     background: null
+                    // (one line stands in the middle of the field: the style's own padding set it low)
+                    topPadding: Math.max(4, Math.round((Math.max(32, contentHeight + 14) - contentHeight) / 2)); bottomPadding: 4
                     Keys.onPressed: (e) => {
                         if ((e.key === Qt.Key_Return || e.key === Qt.Key_Enter) && !(e.modifiers & Qt.ShiftModifier)) {
                             root.send()

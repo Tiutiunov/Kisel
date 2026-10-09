@@ -203,7 +203,7 @@ endif()
 # setup program below with the whole application appended to it as a zip. It is what a
 # release on GitHub carries (tag `win-v<version>`), and what Settings downloads to update.
 if(WIN32)
-    add_executable(kisel-setup WIN32 packaging/windows/setup.cpp packaging/windows/kisel.rc)
+    add_executable(kisel-setup WIN32 packaging/windows/setup.cpp packaging/windows/kisel.rc packaging/windows/setup.manifest)
     target_compile_definitions(kisel-setup PRIVATE KISEL_VERSION="${PROJECT_VERSION}")
     target_compile_options(kisel-setup PRIVATE ${KISEL_WARNINGS})
     target_link_libraries(kisel-setup PRIVATE shell32 ole32 advapi32 user32 uuid)

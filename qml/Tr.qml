@@ -168,7 +168,7 @@ QtObject {
         "Look and sound": "Вид и звук", "Sounds": "Звуки", "Reduce motion": "Меньше движения",
         "Close at once when the pointer leaves": "Закрывать сразу, как уходит курсор", "Close ": "Закрывать через ", " s after the pointer leaves": " с после ухода курсора",
         "Place": "Место", "Top": "Сверху", "Bottom": "Снизу", "Left": "Слева", "Right": "Справа",
-        "In the middle of the edge": "Посередине края", "Toward the top": "Ближе к верху", "Toward the bottom": "Ближе к низу",
+        "In the middle of the edge": "Посередине края", "Align": "Выровнять", "Centre": "По центру", "Toward the top": "Ближе к верху", "Toward the bottom": "Ближе к низу",
         "Toward the left": "Ближе к левому краю", "Toward the right": "Ближе к правому краю",
         "Start when I sign in": "Запускать при входе в систему", "Stay clear of the taskbar": "Не заезжать на панель задач",
         "System": "Как в системе", "Dark": "Тёмная", "Light": "Светлая", "Language": "Язык",
