@@ -253,7 +253,7 @@ Item {
                             { head: Tr.t("What else shows up"), body: Tr.t("The rings in the chat are your limits: the five-hour window, the week, and how full the session's context is. Miku holds Claude's little one there.") },
                             { head: Tr.t("If the field still says Message Claude"), body: Tr.t("No session is listening. Check that the session was started after installing, and that Kisel sees it (Miku reacts when Claude works). The session and Kisel must run under the same Windows user.") },
                             { head: Tr.t("Doing it by hand"), body: Tr.t("The same three commands work in any terminal. To take the mods out: Remove mods here, or claude plugin uninstall kisel-prompts@kisel and cache-band@kisel.") },
-                            { head: Tr.t("What it can and cannot do"), body: Tr.t("It only passes text: your prompts in, Claude's words and the limit figures out, through a folder in your profile (AppData, Local, kisel, inbox). It never answers a permission for you.") }
+                            { head: Tr.t("What it can and cannot do"), body: Tr.t("It only passes text: your prompts in, Claude's words and the limit figures out, through a folder in your home folder (.kisel, inbox). It never answers a permission for you.") }
                             ]
                             Column {
                                 required property var modelData

@@ -270,6 +270,7 @@ class Bot {
   get m() { return this.dizzyLeft > 0 ? "dizzy" : this.follow ? world.mood : this.mood; }
   // ---- what the island asks of her ----
   play(name, ms) {
+    if (this.searching || this.typing) return; // (at her glass or her keys: no feeling takes her from them)
     const o = OWNER[name];
     if (o && o !== this.key) {
       if (name === "smug" || name === "cool" || name === "proud") name = this.who.quirk;
@@ -304,7 +305,9 @@ class Bot {
     const L = e ? Object.assign({}, a, e) : Object.assign({}, a);
     L.tinted = !!L.color; if (!L.color) L.color = this.T.hair; if (!L.mouth) L.mouth = this.who.mouth;
     if (this.key === "miku" && (this.holdPal || m === "work" || m === "think" || m === "happy")) L.pal = true; // (Claude's little one, through any feeling of hers)
-    if (!e && L.pal) {
+    if (!e && L.pal && this.searching) { L.hands = "search"; L.look = [Math.sin(this.st.t * 1.1) * 0.6, 0.05]; } // (peering through her glass)
+    else if (!e && L.pal && this.typing) L.hands = "typing"; // (in the chat, Claude at work: he rides on her head, she is at the keys)
+    else if (!e && L.pal) {
       L.hands = "hug"; const k = this.st.palK || "";
       if (k === "squeeze" || k === "pat") { L.eyes = "happy"; L.blush = 1; }
       else if (k === "lift" || k === "toss") { L.look = [0, -0.9]; L.mouth = "open"; }
@@ -358,7 +361,7 @@ class Bot {
     if (s.jump < 0 || s.jumpV < 0) { s.jumpV += 38 * dt; s.jump += s.jumpV * dt; if (s.jump >= 0) { s.jump = 0; s.jumpV = 0; s.sqv += 5; } }
     if (s.rollT < 1) s.rollT = Math.min(1, s.rollT + dt * 1000 / s.rollMs);
     s.shake = Math.max(0, s.shake - dt * 2.2);
-    s.palHead = (s.palHead || 0) + ((this.emote !== "" ? 1 : 0) - (s.palHead || 0)) * (1 - Math.exp(-dt * 12));
+    s.palHead = (s.palHead || 0) + ((this.emote !== "" || this.typing || this.searching ? 1 : 0) - (s.palHead || 0)) * (1 - Math.exp(-dt * 12));
     s.palRise = (s.palRise || 0) + ((this.m === "happy" && this.emote === "" ? 1 : 0) - (s.palRise || 0)) * (1 - Math.exp(-dt * 9));
     if (s.palK) { s.palU += dt / s.palDur; if (s.palU >= 1) { s.palK = ""; s.palU = 0; s.sqv += 3; } }
     s.swing = Math.max(0, s.swing - dt * 1.2);
@@ -367,7 +370,8 @@ class Bot {
     s.lean += (want - s.lean) * (1 - Math.exp(-dt * 8));
     const hov = this.follow && world.hovered;
     s.blush += (((L.blush || 0.4) + (hov ? 0.15 : 0)) - s.blush) * (1 - Math.exp(-dt * 6));
-    const p = (poses[L.hands || "rest"] || poses.rest)(s.t, this.palAt()), hk = 1 - Math.exp(-dt * 14 * w.energy);
+    const p = L.hands === "search" ? (o => [{ x: -1.38, y: 0.52 }, { x: o.x + 0.5, y: o.y + 0.62 }])(this.lensAt(s.t)) // (her right paw at the end of the glass's handle)
+            : (poses[L.hands || "rest"] || poses.rest)(s.t, this.palAt()), hk = 1 - Math.exp(-dt * 14 * w.energy);
     for (let i = 0; i < 2; i++) { s.hand[i].x += (p[i].x - s.hand[i].x) * hk; s.hand[i].y += (p[i].y - s.hand[i].y) * hk; }
     this.simTails(dt);
     this.spawn(dt, L);
@@ -445,9 +449,11 @@ class Bot {
     }
     if (L.hands === "sweep") this.paintBroom(g, P, broomLine(s.t));
     if (L.pal) this.paintPal(g, P);
+    if (L.pal && this.typing && L.hands === "typing" && detail > 0.25) this.paintKeys(g, P);
     if (L.hands === "threat") this.paintBroom(g, P, threatLine(s.t));
     if (L.hands === "raise" || L.hands === "baton") this.paintHeld(g, P, L.hands === "baton");
     if (L.hands === "megaphone") this.paintShout(g, P);
+    if (L.hands === "search" && this.searching && detail > 0.25) this.paintLens(g, P);
     if (detail > 0.25) { g.globalAlpha = clampv((detail - 0.25) / 0.4, 0, 1); this.paintHands(g, P, L); g.globalAlpha = 1; }
     this.paintParts(g);
     if (L.badge) this.paintBadge(g, P, L.badge, col);
@@ -633,6 +639,44 @@ class Bot {
     const hd = s.palHead || 0; // (on her head while her hands are busy)
     if (hd > 0.01) { o.x *= 1 - hd; o.y += (-1.14 - o.y) * hd; o.sx += (1 - o.sx) * hd; o.sy += (1 - o.sy) * hd; o.a = o.a * (1 - hd) + Math.sin(s.t * 3) * 0.06 * hd; }
     return o;
+  }
+  // The glass she looks things up with while Claude searches the web: held by its handle
+  // and brought up to her right eye, which is seen through it, larger (`paintLens` in Mascot.qml)
+  lensAt(t) { return { x: this.T.ex + 0.03 + Math.sin(t * 1.1) * 0.1, y: this.T.ey + 0.02 + Math.cos(t * 0.9) * 0.05 }; }
+  paintLens(g, P) {
+    const s = this.st, T = this.T, t = s.t, o = this.lensAt(t), c = this.toWorld(P, o.x, o.y), h = this.toWorld(P, s.hand[1].x, s.hand[1].y), r = R * 0.36;
+    g.save();
+    g.lineCap = "round";
+    const dx = h.x - c.x, dy = h.y - c.y, d = Math.hypot(dx, dy) || 1;
+    g.strokeStyle = "#8a6a4a"; g.lineWidth = R * 0.12;
+    g.beginPath(); g.moveTo(c.x + dx / d * r, c.y + dy / d * r); g.lineTo(h.x, h.y); g.stroke();
+    g.beginPath(); g.arc(c.x, c.y, r, 0, TAU, false); g.save(); g.clip();
+    g.fillStyle = T.bodyTop; g.fillRect(c.x - r, c.y - r, r * 2, r * 2);
+    const open = Math.max(0.1, 1 - Math.max(0, s.blink)), ew = R * T.ew * 1.75, eh = R * T.eh * 1.75 * open;
+    const ex = c.x + Math.sin(t * 1.1) * R * 0.07, ey = c.y + R * 0.02;
+    g.fillStyle = T.ink; rr(g, ex - ew, ey - eh, ew * 2, eh * 2, Math.min(ew, eh)); g.fill();
+    g.fillStyle = "rgba(255,255,255,0.9)"; g.beginPath(); g.arc(ex - ew * 0.35, ey - eh * 0.4, ew * 0.28, 0, TAU, false); g.fill();
+    g.fillStyle = "rgba(150,225,255,0.2)"; g.fillRect(c.x - r, c.y - r, r * 2, r * 2);
+    g.restore();
+    g.strokeStyle = "#FFFFFF"; g.lineWidth = R * 0.09; g.beginPath(); g.arc(c.x, c.y, r, 0, TAU, false); g.stroke();
+    g.strokeStyle = "rgba(255,255,255,0.8)"; g.lineWidth = R * 0.045;
+    g.beginPath(); g.arc(c.x, c.y, r * 0.72, -2.5, -1.7, false); g.stroke();
+    g.restore();
+  }
+  // The keyboard she types on in the chat while Claude works (`paintKeys` in Mascot.qml)
+  paintKeys(g, P) {
+        const c = this.toWorld(P, 0, 1.0), t = this.st.t
+        g.save(); g.translate(c.x, c.y); g.rotate(P.angle)
+        g.fillStyle = "#2b2430"; g.strokeStyle = "#FFFFFF"; g.lineWidth = R * 0.035
+        rr(g, -R * 0.86, -R * 0.13, R * 1.72, R * 0.36, R * 0.09); g.fill(); g.stroke()
+        const down = [Math.max(0, Math.sin(t * 17)), Math.max(0, Math.sin(t * 17 + 2.2))]
+        for (let r = 0; r < 3; r++) for (let i = 0; i < 9; i++) {
+            const x = (-0.72 + i * 0.18) * R, y = (-0.07 + r * 0.095) * R
+            const lit = Math.abs(x - -0.5 * R) < R * 0.2 ? 1 - down[0] : Math.abs(x - 0.5 * R) < R * 0.2 ? 1 - down[1] : 0
+            g.fillStyle = lit > 0.55 ? "#39C5BB" : "#6b6275"
+            g.fillRect(x - R * 0.06, y - R * 0.03, R * 0.12, R * 0.06)
+        }
+        g.restore()
   }
   paintPal(g, P) {
     const u = R * 0.066, o = this.palAt(), c = this.toWorld(P, o.x, o.y + Math.sin(this.st.t * 2.4) * 0.015);
@@ -1002,6 +1046,8 @@ setMood("idle");
 // what each does in her own way
 const toyNames = { squeeze: ["тискает", 1500], lift: ["поднимает и разглядывает", 2200], toss: ["подбрасывает и ловит", 900], pat: ["гладит", 1500], show: ["протягивает показать", 2300], guard: ["прячет от чужой руки", 2000] };
 for (const k in toyNames) btn("toy", toyNames[k][0], () => { if (world.mood !== "work" && world.mood !== "think") setMood("work"); for (const b of [big, mini]) { b.emote = ""; b.palDo(k, toyNames[k][1], 1); } });
+btn("toy", "в чате, пока Claude ищет в сети: подносит лупу к глазу", b => { const on = !big.searching; for (const m of [big, mini]) { m.searching = on; m.holdPal = on || m.holdPal; } b.classList.toggle("on", on); });
+btn("toy", "в чате, пока Claude работает: зверёк на голове, сама печатает", b => { const on = !big.typing; for (const m of [big, mini]) { m.typing = on; m.holdPal = on || m.holdPal; } b.classList.toggle("on", on); });
 btn("toy", "в чате: держит всегда, в любом настроении", b => { const on = !big.holdPal; big.holdPal = on; mini.holdPal = on; b.classList.toggle("on", on); });
 btn("own", "шлепок (у каждой свой ответ)", () => { big.poke(); mini.poke(); });
 btn("own", "три шлепка: головокружение", () => { for (const b of [big, mini]) { b.dizzyLeft = 3.3; b.moodChanged("dizzy"); } });

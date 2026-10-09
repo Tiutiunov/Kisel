@@ -36,6 +36,26 @@ public:
 
     // Kisel has seen this session: make its folder, so the mod has somewhere to beat.
     Q_INVOKABLE void watch(const QString &session);
+    // The session to talk to when Kisel knows it as `session`: that one if its mod is
+    // listening; if not, the session whose mod beat last. (Claude Code's hooks and its
+    // plugins do not always call a session by the same id: one that was resumed keeps its
+    // first id for the hooks and takes a new one for the plugins. Kisel hears of it under
+    // one name and its mod beats under the other.) `session` itself when nobody listens.
+    Q_INVOKABLE QString best(const QString &session) const;
+    // The talk had from Kisel's chat, kept on disk so that it is there after a restart:
+    // [{role, text, time}], oldest first. Kept small: the last 200 lines of a project and
+    // no more than 200 KB of them, a long one cut to its first 4000 characters, the file
+    // packed. It is read when its project is looked at, not held in memory. `key` says whose talk it
+    // is; the chat keys it by the project's folder, so a new session in the same project
+    // carries on where the last one stopped. It is a file beside the inbox, for this user
+    // alone; nothing in it leaves the computer.
+    Q_INVOKABLE QVariantList history(const QString &key) const;
+    // The folder a talk is kept under when the session is in `cwd`: the highest folder
+    // above it (or itself) that has a talk already, else `cwd`. A session moves about
+    // inside its project (`cd` into a subfolder and back); its talk must not split in two.
+    Q_INVOKABLE QString home(const QString &cwd) const;
+    Q_INVOKABLE void remember(const QString &key, const QString &role, const QString &text);
+    Q_INVOKABLE void forget(const QString &key);
     // False when there is nothing to send, nobody listening, or the file cannot be written.
     Q_INVOKABLE bool send(const QString &session, const QString &text);
     // The session's limits as the mod last reported them: [{kind, used (0..100), resetsAt}],
@@ -57,6 +77,7 @@ signals:
     void reply(const QString &session, const QString &text);
 
 private:
+    QString historyFile(const QString &key) const;
     QString m_root;
     QStringList m_watched, m_live, m_waiting;
     QHash<QString, QVariantList> m_limits;

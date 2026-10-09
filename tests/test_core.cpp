@@ -11,6 +11,7 @@
 #include "HookInstaller.h"
 #include "HookServer.h"
 #include "ModInstaller.h"
+#include "QuickAsk.h"
 
 #include <QCryptographicHash>
 #include <QJsonArray>
@@ -174,6 +175,119 @@ private slots:
         QCOMPARE(ModInstaller::stateFromList(list({versioned("kisel-prompts@kisel", "0.1.1"), versioned("cache-band@kisel", "0.1.0")}), shipped), QString("installed"));
         // (a warning line printed before the list does not hide it)
         QCOMPARE(ModInstaller::stateFromList("note: something\n" + list({entry("kisel-prompts@kisel", true), entry("cache-band@kisel", true)})), QString("installed"));
+    }
+
+    void aSessionIsFoundUnderTheNameItsModUses()
+    {
+        // hooks call it "first", its mod beats as "second": Kisel was told only of "first"
+        QTemporaryDir tmp;
+        PromptRelay relay(tmp.path() + "/inbox");
+        relay.watch("first");
+        QCOMPARE(relay.best("first"), QString("first")); // nobody listens: as asked
+        QVERIFY(QDir().mkpath(relay.folder("second")));
+        { QFile f(relay.folder("second") + "/alive"); QVERIFY(f.open(QIODevice::WriteOnly)); f.write("1"); }
+        QVERIFY(QDir().mkpath(relay.folder("../bad name")));
+        relay.scan();
+        QCOMPARE(relay.live(), QStringList {"second"});
+        QCOMPARE(relay.best("first"), QString("second"));
+        QCOMPARE(relay.best(""), QString("second"));
+        QVERIFY(relay.send(relay.best("first"), "hello"));
+        // its own mod listening: that one, whoever else is
+        { QFile f(relay.folder("first") + "/alive"); QVERIFY(f.open(QIODevice::WriteOnly)); f.write("1"); }
+        relay.scan();
+        QCOMPARE(relay.best("first"), QString("first"));
+    }
+
+    void aQuickQuestionGoesOutBareAndComesBackAsText()
+    {
+        // only the web for tools, none of the user's hooks or plugins, nothing saved; a model only by a known alias
+        const QStringList a = QuickAsk::arguments("haiku");
+        QVERIFY(a.contains("-p") && a.contains("--no-session-persistence") && a.contains("--strict-mcp-config"));
+        QCOMPARE(a.at(a.indexOf("--tools") + 1), QString("WebSearch,WebFetch")); // (the web, and nothing that touches the computer)
+        QCOMPARE(a.at(a.indexOf("--allowedTools") + 1), QString("WebSearch,WebFetch"));
+        QCOMPARE(a.at(a.indexOf("--setting-sources") + 1), QString("project,local"));
+        QCOMPARE(a.at(a.indexOf("--model") + 1), QString("haiku"));
+        QVERIFY(!QuickAsk::arguments("").contains("--model"));
+        QVERIFY(!QuickAsk::arguments("x & calc").contains("--model"));
+        const QStringList e = QuickAsk::arguments("", "medium");
+        QCOMPARE(e.at(e.indexOf("--effort") + 1), QString("medium"));
+        QVERIFY(!QuickAsk::arguments("opus", "").contains("--effort"));
+        QVERIFY(!QuickAsk::arguments("opus", "very").contains("--effort"));
+
+        // the talk so far goes along as text
+        QCOMPARE(QuickAsk::compose({}, "  why?  "), QString("why?"));
+        const QString p = QuickAsk::compose({QVariantMap {{"role", "user"}, {"text", "one"}}, QVariantMap {{"role", "assistant"}, {"text", "two"}}}, "three");
+        QVERIFY(p.contains("User: one") && p.contains("You: two") && p.endsWith("three"));
+
+        QString answer, error;
+        QVERIFY(QuickAsk::parse(R"(warning line
+{"type":"result","is_error":false,"result":" forty-two "})", &answer, &error));
+        QCOMPARE(answer, QString("forty-two"));
+        QVERIFY(!QuickAsk::parse(R"({"is_error":true,"result":"Not logged in · Please run /login"})", &answer, &error));
+        QCOMPARE(error, QString("login"));
+        QVERIFY(!QuickAsk::parse("nothing of the kind", &answer, &error));
+        // ...and as it is written, a line at a time
+        QVERIFY(a.contains("stream-json") && a.contains("--include-partial-messages"));
+        QString delta, got, why;
+        bool look = false;
+        QVERIFY(!QuickAsk::feed(R"({"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"Hel"}}})", &delta, &look, &got, &why));
+        QCOMPARE(delta, QString("Hel"));
+        QVERIFY(!look);
+        delta.clear();
+        QVERIFY(!QuickAsk::feed(R"({"type":"stream_event","event":{"type":"content_block_start","content_block":{"type":"server_tool_use","name":"web_search"}}})", &delta, &look, &got, &why));
+        QVERIFY(look && delta.isEmpty());
+        QVERIFY(!QuickAsk::feed(R"({"type":"system","subtype":"init"})", &delta, &look, &got, &why));
+        QVERIFY(QuickAsk::feed(R"({"type":"result","is_error":false,"result":"Hello"})", &delta, &look, &got, &why));
+        QCOMPARE(got, QString("Hello"));
+        got.clear();
+        QVERIFY(QuickAsk::feed(R"({"type":"result","is_error":true,"result":"Not logged in"})", &delta, &look, &got, &why));
+        QVERIFY(got.isEmpty());
+        QCOMPARE(why, QString("login"));
+        QVERIFY(!QuickAsk::parse(R"({"is_error":true,"result":"Rate limited"})", &answer, &error));
+        QCOMPARE(error, QString("Rate limited"));
+    }
+
+    void theChatIsKeptByProject()
+    {
+        QTemporaryDir tmp;
+        const QString a = "C:/work/kisel", b = "C:/work/other";
+        {
+            PromptRelay relay(tmp.path() + "/inbox");
+            QVERIFY(relay.history(a).isEmpty());
+            relay.remember(a, "user", "first");
+            relay.remember(a, "assistant", "second");
+            relay.remember(b, "user", "elsewhere");
+            relay.remember(a, "nobody", "not a speaker");
+            relay.remember(a, "user", "   ");
+            relay.remember("", "user", "no key");
+        }
+        PromptRelay again(tmp.path() + "/inbox"); // (after a restart)
+        const QVariantList h = again.history(a);
+        QCOMPARE(h.size(), 2);
+        QCOMPARE(h[0].toMap().value("role").toString(), QString("user"));
+        QCOMPARE(h[1].toMap().value("text").toString(), QString("second"));
+        QCOMPARE(again.history(b).size(), 1);
+        QVERIFY(!QFileInfo::exists(tmp.path() + "/inbox/C:"));
+        for (int i = 0; i < 220; ++i)
+            again.remember(b, "user", QString::number(i));
+        QCOMPARE(again.history(b).size(), 200); // (the last two hundred)
+        QCOMPARE(again.history(b).last().toMap().value("text").toString(), QString("219"));
+        // a long line is cut, and the whole stays small on disk
+        again.remember(a, "assistant", QString(20000, 'x'));
+        QVERIFY(again.history(a).last().toMap().value("text").toString().size() <= 4001);
+        qint64 bytes = 0;
+        for (const QFileInfo &f : QDir(tmp.path() + "/history").entryInfoList(QDir::Files))
+            bytes += f.size();
+        QVERIFY(bytes < 16 * 1024);
+        again.forget(a);
+        QVERIFY(again.history(a).isEmpty());
+        // a session that has gone into a subfolder still talks in its project's talk
+        again.remember("C:/work/kisel", "user", "at the top");
+        QCOMPARE(again.home("C:/work/kisel/src/core"), QString("C:/work/kisel"));
+        QCOMPARE(again.home("C:/work/kisel"), QString("C:/work/kisel"));
+        QCOMPARE(again.home("C:/elsewhere/app"), QString("C:/elsewhere/app"));
+        again.remember("C:\\win\\proj", "user", "x");
+        QCOMPARE(again.home("C:\\win\\proj\\sub"), QString("C:\\win\\proj"));
     }
 
     void repliesComeBackOnceAndInOrder()

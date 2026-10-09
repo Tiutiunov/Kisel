@@ -233,6 +233,7 @@ void AgentHub::handle(const QJsonObject &p, HookConnection *conn)
         s.state = QStringLiteral("think");
         s.line = QStringLiteral("Thinking") + QChar(0x2026);
         s.prompt = p.value("prompt").toString();
+        emit prompted(s.id, s.cwd, s.name, s.prompt);
         s.steps.clear();
         s.file.clear();
         s.diff.clear();

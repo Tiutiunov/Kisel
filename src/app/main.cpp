@@ -2,6 +2,7 @@
 #include "Displays.h"
 #include "GitHubClient.h"
 #include "ModInstaller.h"
+#include "QuickAsk.h"
 #include "PromptRelay.h"
 #include "DiscordPresence.h"
 #include "SpeedTest.h"
@@ -211,9 +212,10 @@ int main(int argc, char *argv[])
     // its own folder, so a trial never drops anything into a real session's inbox.
     // (KISEL_INBOX=<folder>: the folder a grab run uses, to show a trial what a session would say)
     PromptRelay relay(cli.isSet("grab") ? qEnvironmentVariable("KISEL_INBOX", QDir::tempPath() + QStringLiteral("/kisel-grab-inbox-%1").arg(QCoreApplication::applicationPid()))
-                                        : paths::dataDir() + QStringLiteral("/inbox"));
+                                        : paths::inboxDir());
     // (installed: <prefix>/bin/kisel.exe and <prefix>/mods; from a build tree there are none beside it)
     ModInstaller mods(QCoreApplication::applicationDirPath() + QStringLiteral("/../mods"));
+    QuickAsk quick; // (the chat's temporary talk: one `claude -p` a question, see QuickAsk.h)
     DiscordPresence discord(&prefs, &hub, !cli.isSet("grab")); // (off unless switched on in Settings)
     Media media;
     SysMon sysmon;
@@ -234,6 +236,7 @@ int main(int argc, char *argv[])
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Speed", &speed);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Relay", &relay);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Mods", &mods);
+    qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Quick", &quick);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Discord", &discord);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Ticker", &ticker);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Media", &media);

@@ -77,7 +77,7 @@ Item {
                 width: 86; height: 122
                 opacity: Motion.rise(root.age, 0)
                 transform: Translate { y: Motion.lift(root.age, 0) }
-                readonly property string sid: root.s.id || ""
+                readonly property string sid: { Relay.live; return Relay.best(root.s.id || "") } // (as its mod names it: see Relay.best)
                 property var lim: [] // [{kind, used}], the last known: they are the account's, and outlive a session
                 function reread() { const l = sid !== "" ? Relay.limits(sid) : []; if (l.length > 0) lim = l }
                 onSidChanged: reread()

@@ -1,5 +1,6 @@
 #include "PromptRelay.h"
 
+#include <QCryptographicHash>
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
@@ -13,6 +14,9 @@
 namespace kisel {
 
 namespace {
+constexpr int kHistoryLines = 200;       // of one project
+constexpr int kHistoryChars = 4000;      // of one line
+constexpr int kHistoryBytes = 200 * 1024; // of one project, before packing
 constexpr qint64 kFreshMs = 7000;      // a heartbeat older than this: nobody is listening
 constexpr qint64 kStaleMs = 10 * 60000; // a prompt nobody took in ten minutes is withdrawn
 constexpr qint64 kOldReplyMs = 2 * 60000; // a reply written while Kisel was not looking is not news
@@ -23,6 +27,97 @@ PromptRelay::PromptRelay(const QString &root, QObject *parent) : QObject(parent)
 {
     m_timer.setInterval(1000);
     connect(&m_timer, &QTimer::timeout, this, &PromptRelay::scan);
+    m_timer.start(); // (from the start: a mod may be beating in a folder Kisel has not been told of, see `best`)
+}
+
+// (a key may be a path: its file is named by a digest of it)
+QString PromptRelay::historyFile(const QString &key) const
+{
+    const QByteArray name = QCryptographicHash::hash(key.toUtf8(), QCryptographicHash::Sha1).toHex().left(24);
+    return QDir::cleanPath(m_root + QStringLiteral("/../history/")) + QLatin1Char('/') + QString::fromLatin1(name) + QStringLiteral(".json");
+}
+
+QString PromptRelay::home(const QString &cwd) const
+{
+    if (cwd.isEmpty())
+        return cwd;
+    const bool back = cwd.contains(QLatin1Char('\\'));
+    QString best = cwd, at = QDir::fromNativeSeparators(cwd);
+    for (int i = 0; i < 12; ++i) {
+        const QString key = back ? QDir::toNativeSeparators(at) : at;
+        if (QFileInfo::exists(historyFile(key)))
+            best = key;
+        const int cut = at.lastIndexOf(QLatin1Char('/'));
+        if (cut <= 2) // (not the drive, nor the root: nobody's project)
+            break;
+        at.truncate(cut);
+    }
+    return best;
+}
+
+QVariantList PromptRelay::history(const QString &key) const
+{
+    QFile f(historyFile(key));
+    if (key.isEmpty() || !f.open(QIODevice::ReadOnly) || f.size() > 8 * 1024 * 1024)
+        return {};
+    QVariantList out;
+    for (const QJsonValue &v : QJsonDocument::fromJson(qUncompress(f.readAll())).array()) {
+        const QJsonObject o = v.toObject();
+        const QString role = o.value("role").toString();
+        if (role != QLatin1String("user") && role != QLatin1String("assistant"))
+            continue;
+        out.append(QVariantMap {{"role", role}, {"text", o.value("text").toString().left(kHistoryChars)}, {"time", o.value("time").toString().left(16)}});
+    }
+    return out;
+}
+
+void PromptRelay::remember(const QString &key, const QString &role, const QString &text)
+{
+    if (key.isEmpty() || text.trimmed().isEmpty() || (role != QLatin1String("user") && role != QLatin1String("assistant")))
+        return;
+    QJsonArray all;
+    for (const QVariant &v : history(key))
+        all.append(QJsonObject::fromVariantMap(v.toMap()));
+    const QString body = text.trimmed();
+    all.append(QJsonObject {{"role", role}, {"text", body.size() > kHistoryChars ? body.left(kHistoryChars) + QChar(0x2026) : body},
+                            {"time", QDateTime::currentDateTime().toString(QStringLiteral("dd.MM hh:mm"))}});
+    while (all.size() > kHistoryLines)
+        all.removeFirst();
+    QByteArray json = QJsonDocument(all).toJson(QJsonDocument::Compact);
+    while (json.size() > kHistoryBytes && all.size() > 1) { // (the oldest go first)
+        all.removeFirst();
+        json = QJsonDocument(all).toJson(QJsonDocument::Compact);
+    }
+    const QString path = historyFile(key);
+    if (!QDir().mkpath(QFileInfo(path).path()))
+        return;
+    QSaveFile out(path);
+    if (out.open(QIODevice::WriteOnly)) {
+        out.write(qCompress(json, 9));
+        out.commit();
+    }
+}
+
+void PromptRelay::forget(const QString &key)
+{
+    if (!key.isEmpty())
+        QFile::remove(historyFile(key));
+}
+
+QString PromptRelay::best(const QString &session) const
+{
+    if (m_live.contains(session) || m_live.isEmpty())
+        return session;
+    QString newest;
+    QDateTime at;
+    for (const QString &s : m_live) {
+        const QDateTime t = QFileInfo(folder(s) + QStringLiteral("/alive")).lastModified();
+        if (newest.isEmpty() || t > at) {
+            newest = s;
+            at = t;
+        }
+    }
+    return newest;
 }
 
 // (a session id becomes a folder name: nothing that could climb out of the inbox)
@@ -108,6 +203,14 @@ void PromptRelay::scan()
     QStringList live, waiting, took;
     QList<QPair<QString, QString>> said;
     bool limitsMoved = false;
+    // (a folder with a fresh heartbeat is a session to watch, whether or not Kisel was told its name)
+    for (const QFileInfo &d : QDir(m_root).entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot)) {
+        if (m_watched.size() >= 32 || m_watched.contains(d.fileName()) || !safeId(d.fileName()))
+            continue;
+        const QFileInfo beat(d.filePath() + QStringLiteral("/alive"));
+        if (beat.exists() && now - beat.lastModified().toMSecsSinceEpoch() < kFreshMs)
+            m_watched.append(d.fileName());
+    }
     for (const QString &session : std::as_const(m_watched)) {
         const QDir dir(folder(session));
         const QFileInfo beat(dir.filePath(QStringLiteral("alive")));

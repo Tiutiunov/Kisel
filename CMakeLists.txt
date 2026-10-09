@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(Kisel VERSION 0.6.0 LANGUAGES CXX)
+project(Kisel VERSION 0.6.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -21,6 +21,7 @@ add_library(kisel_core STATIC
     src/core/HookInstaller.cpp
     src/core/HookServer.cpp
     src/core/ModInstaller.cpp
+    src/core/QuickAsk.cpp
     src/core/Preferences.cpp
     src/core/PromptRelay.cpp
     src/core/DiscordPresence.cpp

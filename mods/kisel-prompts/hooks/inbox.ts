@@ -3,16 +3,21 @@
 //   <n>.prompt   a prompt Kisel wrote
 //   <n>.taken    this mod's receipt for it
 
+//
+// It is in the home folder, not under AppData: the Claude desktop app is a packaged app,
+// and Windows keeps what it (and this mod inside it) writes under AppData in a private
+// copy that Kisel never sees. (Kisel names the same folder in src/core/Paths.h.)
+
 const BACKSLASH = String.fromCharCode(92)
 
-export const folder = (localAppData: string, sessionId: string): string => {
-  let base = localAppData.split(BACKSLASH).join('/')
+export const folder = (home: string, sessionId: string): string => {
+  let base = home.split(BACKSLASH).join('/')
 
   while (base.endsWith('/')) {
     base = base.slice(0, -1)
   }
 
-  return `${base}/kisel/inbox/${sessionId}`
+  return `${base}/.kisel/inbox/${sessionId}`
 }
 
 // The prompts still to be handed over, oldest first: a `.prompt` without its `.taken`,

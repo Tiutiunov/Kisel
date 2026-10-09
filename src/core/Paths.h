@@ -62,6 +62,19 @@ inline QString dataDir()
 {
     return QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/kisel");
 }
+// The folder Kisel and its Claude Code mod share (see PromptRelay). On Windows it is in
+// the home folder, not under AppData: the Claude desktop app is a packaged app, and
+// Windows keeps what such an app (and the Claude Code it runs) writes under AppData in a
+// private copy that Kisel never sees. The home folder is the same for both.
+// (mods/kisel-prompts/hooks/inbox.ts names the same folder: keep the two in step.)
+inline QString inboxDir()
+{
+#ifdef Q_OS_WIN
+    return QDir::homePath() + QStringLiteral("/.kisel/inbox");
+#else
+    return dataDir() + QStringLiteral("/inbox");
+#endif
+}
 inline QString configDir()
 {
     // (development: KISEL_CONFIG_DIR points the settings at a scratch folder, so a trial

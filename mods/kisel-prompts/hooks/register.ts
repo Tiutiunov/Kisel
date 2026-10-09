@@ -30,12 +30,12 @@ export const register: Register = on => {
     const result = await next(e)
     stop?.()
 
-    const local = await $.env.get('LOCALAPPDATA')
-    if (!local) {
+    const home = await $.env.get('USERPROFILE')
+    if (!home) {
       return result // (not Windows, or no Kisel folder to share)
     }
 
-    const dir = folder(local, await $.session.id())
+    const dir = folder(home, await $.session.id())
     inbox = dir
     const done = new Set<string>() // handed over by this run (a receipt may fail to write)
     let isBusy = false

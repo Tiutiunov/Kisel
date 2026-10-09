@@ -10,7 +10,7 @@ Item {
     readonly property var s: Hub.session
     // A prompt for this session, typed here: only while the session has someone listening
     // for it (the kisel-prompts mod, see PromptRelay). The field takes the foot of the card.
-    readonly property string sid: s.id || ""
+    readonly property string sid: { Relay.live; return Relay.best(s.id || "") } // (as its mod names it: see Relay.best)
     readonly property bool relayOn: sid !== "" && Relay.live.includes(sid)
     readonly property bool relayWaiting: Relay.waiting.includes(sid)
     readonly property int foot: relayOn ? 44 : 0

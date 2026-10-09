@@ -43,6 +43,8 @@ Item {
     property bool hovered: false          // the pointer is on the island: bigger eyes, a blush, an emote if it rests
     property int walkDir: 1               // -1 left, 1 right (mood walk)
     property bool celebrating: false      // sparkles and a jump without the mint badge
+    property bool typing: false           // ...and there, while Claude works, she sets him on her head and types
+    property bool searching: false        // ...and while Claude looks something up on the web, she looks too, through a glass
     property bool holdPal: false          // Miku has Claude's little one whatever her mood (the chat: it is where one talks to him)
     property bool doneBadge: false        // keep the mint badge for 25 s after a task
     property bool paused: false           // out of sight: nothing is simulated or painted
@@ -137,6 +139,7 @@ Item {
     readonly property var owner: ({ smug: "teto", tsun: "teto", sweep: "teto", threat: "teto", annoyed: "miku", baton: "miku",
                                     angry: "rin", shout: "rin", cool: "luka", unimpressed: "luka", treat: "luka", proud: "zunda" })
     function play(name, ms) {
+        if (searching || typing) return // (at her glass or her keys: no feeling takes her from them)
         const o = owner[name]
         if (o && o !== character) {
             if (name === "smug" || name === "cool" || name === "proud") name = who.quirk
@@ -190,13 +193,17 @@ Item {
     property double wavedAt: 0
     onDetailChanged: if (detail > 0.9 && m === "idle" && emote === "" && Date.now() - wavedAt > 60000) { wavedAt = Date.now(); play("hello", 1900) }
 
-    // the pointer resting on her for two seconds: each takes it her own way
+    // the pointer resting on her for two seconds: each takes it her own way. (Once in a
+    // while, not every time it stops: with the card open the pointer rests there all the
+    // time, and she was throwing hearts every few seconds.)
     onLookAtChanged: stillTimer.restart()
+    property double restedAt: 0
     Timer {
         id: stillTimer
         interval: 1900
         running: root.hovered && root.detail > 0.5 && !root.dragging && !root.still
-        onTriggered: if (root.emote === "" && (root.m === "idle" || root.m === "walk")) { root.play(root.who.rest, 2400); Sfx.play("hover") }
+        onTriggered: if (root.emote === "" && (root.m === "idle" || root.m === "walk") && Date.now() - root.restedAt > 90000) {
+            root.restedAt = Date.now(); root.play(root.who.rest, 2400); Sfx.play("hover") }
     }
     // On the bench nobody watches the pointer, and nobody puts on a show either: a feeling
     // is an answer to something, and nothing is happening to them. They blink, each on a
@@ -315,7 +322,9 @@ Item {
         // (He stays with her through any feeling of her own: while her hands are busy with it he rides on her head.)
         // (And when the work is done she holds him up over her head: it is his doing too.)
         if (character === "miku" && (holdPal || m === "work" || m === "think" || m === "happy")) L.pal = true
-        if (!e && L.pal) {
+        if (!e && L.pal && searching) { L.hands = "search"; L.look = [Math.sin(st.t * 1.1) * 0.6, 0.05] } // (peering through her glass)
+        else if (!e && L.pal && typing) L.hands = "typing" // (in the chat, Claude at work: he rides on her head, she is at the keys)
+        else if (!e && L.pal) {
             L.hands = "hug"
             const k = st.palK || "" // (and her face for what she is doing with him)
             if (k === "squeeze" || k === "pat") { L.eyes = "happy"; L.blush = 1 }
@@ -373,6 +382,7 @@ Item {
     // the hands' poses, in body radii from the body's centre: [left, right]
     readonly property var poses: ({
         rest:   t => [{ x: -1.38, y: 0.52 + Math.sin(t * 2) * 0.03 }, { x: 1.38, y: 0.52 + Math.sin(t * 2 + 1) * 0.03 }],
+        search: t => { const o = lensAt(t); return [{ x: -1.38, y: 0.52 }, { x: o.x + 0.5, y: o.y + 0.62 }] }, // (her right paw at the end of the glass's handle)
         typing: t => [{ x: -0.5, y: 0.92 + Math.max(0, Math.sin(t * 17)) * -0.16 }, { x: 0.5, y: 0.92 + Math.max(0, Math.sin(t * 17 + 2.2)) * -0.16 }],
         chin:   t => [{ x: -1.38, y: 0.52 }, { x: 0.42, y: 0.72 + Math.sin(t * 1.6) * 0.02 }],
         wave2:  t => [{ x: -1.3, y: -0.55 + Math.sin(t * 11) * 0.14 }, { x: 1.3, y: -0.55 + Math.sin(t * 11 + 1.6) * 0.14 }],
@@ -517,7 +527,7 @@ Item {
         if (s.jump < 0 || s.jumpV < 0) { s.jumpV += 38 * dt; s.jump += s.jumpV * dt; if (s.jump >= 0) { s.jump = 0; s.jumpV = 0; s.sqv += 5 } }
         if (s.rollT < 1) s.rollT = Math.min(1, s.rollT + dt * 1000 / s.rollMs)
         s.shake = Math.max(0, s.shake - dt * 2.2)
-        s.palHead = (s.palHead || 0) + ((emote !== "" ? 1 : 0) - (s.palHead || 0)) * (1 - Math.exp(-dt * 12))
+        s.palHead = (s.palHead || 0) + ((emote !== "" || typing || searching ? 1 : 0) - (s.palHead || 0)) * (1 - Math.exp(-dt * 12))
         s.palRise = (s.palRise || 0) + ((m === "happy" && emote === "" ? 1 : 0) - (s.palRise || 0)) * (1 - Math.exp(-dt * 9))
         if (s.palK) { s.palU += dt / s.palDur; if (s.palU >= 1) { s.palK = ""; s.palU = 0; s.sqv += 3 } }
         s.swing = Math.max(0, s.swing - dt * 1.2)
@@ -647,11 +657,13 @@ Item {
 
         if (L.hands === "sweep" && !dragging) paintBroom(g, P, broomLine(s.t)) // (at any size: in the bar the broom is what shows she is sweeping)
         if (L.pal && !dragging) paintPal(g, P)                 // (...and so is the one she works with)
+        if (L.pal && typing && L.hands === "typing" && !dragging && detail > 0.25) paintKeys(g, P)
         if (!dragging) { // (and what they hold or do in the scenes between them: these have to read in the bar too)
             if (L.hands === "threat") paintBroom(g, P, threatLine(s.t))
             if (L.hands === "raise" || L.hands === "baton") paintHeld(g, P, L.hands === "baton")
             if (L.hands === "megaphone") paintShout(g, P)
         }
+        if (L.hands === "search" && searching && !dragging && detail > 0.25) paintLens(g, P) // (under her paw, which holds it)
         if (detail > 0.25) { g.globalAlpha = clampv((detail - 0.25) / 0.4, 0, 1); paintHands(g, P, L); g.globalAlpha = 1 }
         paintParts(g)
         const badge = L.badge || (doneBadge ? "done" : "")
@@ -871,6 +883,51 @@ Item {
         g.fillStyle = "#D97757"
         for (let r = 0; r < palRows.length; r++)
             for (const run of palRows[r]) g.fillRect((run[0] - 9) * u - 0.2, (r * 2 - 5) * u - 0.2, (run[1] - run[0] + 1) * u + 0.4, 2 * u + 0.4)
+        g.restore()
+    }
+
+    // The glass she looks things up with, in the chat while Claude searches the web. She
+    // holds it by its handle in her right paw and brings it up to her right eye: it sits
+    // before the eye and drifts a little as she peers about, and the eye is seen through
+    // it, larger. (`lensAt`: its middle, in body radii; the paw is at the end of its handle.)
+    function lensAt(t) { return { x: mk.ex + 0.03 + Math.sin(t * 1.1) * 0.1, y: mk.ey + 0.02 + Math.cos(t * 0.9) * 0.05 } }
+    function paintLens(g, P) {
+        const R = cR, s = st, t = s.t, o = lensAt(t), c = toWorld(P, o.x, o.y), h = toWorld(P, s.hand[1].x, s.hand[1].y), r = R * 0.36
+        g.save()
+        g.lineCap = "round"
+        // the handle, from the rim to her paw
+        const dx = h.x - c.x, dy = h.y - c.y, d = Math.hypot(dx, dy) || 1
+        g.strokeStyle = "#8a6a4a"; g.lineWidth = R * 0.12
+        g.beginPath(); g.moveTo(c.x + dx / d * r, c.y + dy / d * r); g.lineTo(h.x, h.y); g.stroke()
+        // the glass: her face behind it, and the eye, larger
+        g.beginPath(); g.arc(c.x, c.y, r, 0, 2 * Math.PI, false); g.save(); g.clip()
+        g.fillStyle = mk.bodyTop; g.fillRect(c.x - r, c.y - r, r * 2, r * 2)
+        const open = Math.max(0.1, 1 - Math.max(0, s.blink)), ew = R * mk.ew * 1.75, eh = R * mk.eh * 1.75 * open
+        const ex = c.x + Math.sin(t * 1.1) * R * 0.07, ey = c.y + R * 0.02
+        g.fillStyle = mk.ink; rr(g, ex - ew, ey - eh, ew * 2, eh * 2, Math.min(ew, eh)); g.fill()
+        g.fillStyle = "rgba(255,255,255,0.9)"; g.beginPath(); g.arc(ex - ew * 0.35, ey - eh * 0.4, ew * 0.28, 0, 2 * Math.PI, false); g.fill()
+        g.fillStyle = "rgba(150,225,255,0.2)"; g.fillRect(c.x - r, c.y - r, r * 2, r * 2)
+        g.restore()
+        g.strokeStyle = "#FFFFFF"; g.lineWidth = R * 0.09; g.beginPath(); g.arc(c.x, c.y, r, 0, 2 * Math.PI, false); g.stroke()
+        g.strokeStyle = "rgba(255,255,255,0.8)"; g.lineWidth = R * 0.045
+        g.beginPath(); g.arc(c.x, c.y, r * 0.72, -2.5, -1.7, false); g.stroke()
+        g.restore()
+    }
+
+    // The keyboard she types on in the chat while Claude works: a dark slab under her
+    // paws, three rows of keys, the ones under her paws lighting as they come down.
+    function paintKeys(g, P) {
+        const R = cR, c = toWorld(P, 0, 1.0), t = st.t
+        g.save(); g.translate(c.x, c.y); g.rotate(P.angle)
+        g.fillStyle = "#2b2430"; g.strokeStyle = "#FFFFFF"; g.lineWidth = R * 0.035
+        rr(g, -R * 0.86, -R * 0.13, R * 1.72, R * 0.36, R * 0.09); g.fill(); g.stroke()
+        const down = [Math.max(0, Math.sin(t * 17)), Math.max(0, Math.sin(t * 17 + 2.2))]
+        for (let r = 0; r < 3; r++) for (let i = 0; i < 9; i++) {
+            const x = (-0.72 + i * 0.18) * R, y = (-0.07 + r * 0.095) * R
+            const lit = Math.abs(x - -0.5 * R) < R * 0.2 ? 1 - down[0] : Math.abs(x - 0.5 * R) < R * 0.2 ? 1 - down[1] : 0
+            g.fillStyle = lit > 0.55 ? "#39C5BB" : "#6b6275"
+            g.fillRect(x - R * 0.06, y - R * 0.03, R * 0.12, R * 0.06)
+        }
         g.restore()
     }
 

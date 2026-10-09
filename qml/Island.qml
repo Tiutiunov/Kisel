@@ -2101,7 +2101,7 @@ Item {
             // week, and how full the context is; under them, when the first one resets.
             Column {
                 id: limitRings
-                readonly property string sid: Hub.session.id || ""
+                readonly property string sid: { Relay.live; return Relay.best(Hub.session.id || "") } // (as its mod names it: see Relay.best)
                 property var rows: []
                 property string model: ""
                 function reread() { rows = sid !== "" ? Relay.limits(sid) : []; model = sid !== "" ? Relay.model(sid) : "" }
@@ -2395,6 +2395,9 @@ Item {
             Behavior on opacity { NumberAnimation { duration: 120 } }
             skin: root.expanded && root.view === "github" ? "github" : ""
             holdPal: root.inChat
+            // (a quick question: she peers through her glass while Claude searches the web, and is at the keys once its words come)
+            searching: root.inChat && Quick.phase === "search"
+            typing: root.inChat && (root.claudeBusy || Quick.phase === "write")
             walkDir: root.walkDir
             character: root.face(root.stage)
             rotation: root.lean

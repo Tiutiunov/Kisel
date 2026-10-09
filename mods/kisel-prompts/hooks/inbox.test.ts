@@ -3,11 +3,11 @@ import { expect, test } from 'claude-code/testing'
 import { clean, folder, pending, reply } from './inbox'
 
 const B = String.fromCharCode(92)
-const LOCAL = ['C:', 'Users', 'me', 'AppData', 'Local'].join(B)
+const HOME = ['C:', 'Users', 'me'].join(B)
 
 test('the folder is the one Kisel writes to', async () => {
-  expect(folder(LOCAL, 'abc-123')).toBe('C:/Users/me/AppData/Local/kisel/inbox/abc-123')
-  expect(folder(LOCAL + B, 'abc-123')).toBe('C:/Users/me/AppData/Local/kisel/inbox/abc-123')
+  expect(folder(HOME, 'abc-123')).toBe('C:/Users/me/.kisel/inbox/abc-123')
+  expect(folder(HOME + B, 'abc-123')).toBe('C:/Users/me/.kisel/inbox/abc-123')
 })
 
 test('only prompts without a receipt are handed over, oldest first, each once', async () => {

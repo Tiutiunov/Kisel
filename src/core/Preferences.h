@@ -41,6 +41,8 @@ class Preferences : public QObject
     Q_PROPERTY(QString hookWatch READ hookWatch WRITE setHookWatch NOTIFY changed)
     Q_PROPERTY(int alwaysCount READ alwaysCount NOTIFY changed)
     // Discord (see DiscordPresence): off unless asked for; the Application ID is public, not a secret
+    Q_PROPERTY(QString quickModel READ quickModel WRITE setQuickModel NOTIFY changed) // the chat's quick questions: "" (Claude Code's own) | haiku | sonnet | opus | fable
+    Q_PROPERTY(QString quickEffort READ quickEffort WRITE setQuickEffort NOTIFY changed) // ...and how hard: "" | low | medium | high | xhigh | max
     Q_PROPERTY(bool discordOn READ discordOn WRITE setDiscordOn NOTIFY changed)
     Q_PROPERTY(bool discordProject READ discordProject WRITE setDiscordProject NOTIFY changed) // the session's name too
     Q_PROPERTY(QString discordAppId READ discordAppId WRITE setDiscordAppId NOTIFY changed)
@@ -119,6 +121,10 @@ public:
         f.swapItemsAt(at, from);
         set("faces", f);
     }
+    QString quickModel() const { return m_s.value("quickModel").toString(); }
+    void setQuickModel(const QString &v) { set("quickModel", v); }
+    QString quickEffort() const { return m_s.value("quickEffort").toString(); }
+    void setQuickEffort(const QString &v) { set("quickEffort", v); }
     bool discordOn() const { return m_s.value("discordOn", false).toBool(); }
     void setDiscordOn(bool v) { set("discordOn", v); }
     bool discordProject() const { return m_s.value("discordProject", false).toBool(); }

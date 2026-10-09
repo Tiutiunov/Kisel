@@ -63,6 +63,8 @@ signals:
     void moodChanged();
     void permissionChanged();
     void sessionChanged();
+    // The user wrote to a session (in Claude Code itself, or from Kisel): for the chat, which shows both.
+    void prompted(const QString &session, const QString &cwd, const QString &name, const QString &text);
     void activity();                       // anything happened; resets the sleep timer
     void permissionArrived();              // island should open by itself
     void permissionAnswered(const QString &decision); // allow | deny | always | terminal
