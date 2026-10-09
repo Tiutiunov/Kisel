@@ -101,16 +101,16 @@ Row {
             anchors.right: parent.right
             y: -2
             text: Math.round(meter.value * 100) + "%"
-            color: meter.hot ? "#FF8FA0" : Theme.ink
+            color: meter.hot ? Theme.hotInk : Theme.ink
             font.family: Theme.sans; font.pixelSize: 10; font.weight: Font.ExtraBold
         }
         Rectangle {
             id: tube
             y: 12
             width: parent.width; height: 11; radius: 5.5
-            color: "#2b2430"
+            color: Theme.well
             border.width: 1.5
-            border.color: meter.hot ? "#E0405A" : "#FFFFFF"
+            border.color: meter.hot ? "#E0405A" : Theme.edge
             Item {
                 id: cane
                 x: 2.5; y: 2.5

@@ -25,7 +25,7 @@ Rectangle {
         color: Theme.ink
         placeholderTextColor: Theme.inkFaint
         selectionColor: Theme.kisel
-        selectedTextColor: Theme.onKisel
+        selectedTextColor: Theme.kiselInk
         font.family: Theme.sans
         font.pixelSize: 13
         font.weight: Font.DemiBold

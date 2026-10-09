@@ -17,6 +17,23 @@ QtObject {
     readonly property color surface3: pick("#2d2428", "#efe3da")
     readonly property color line:     pick("#4a3d42", "#d9c9bf")
 
+    // What the cards' own drawings stand on, which the sticker colours do not cover: the
+    // inset strip a line of text or a ring's track lies in, a faint veil for a chip at
+    // rest, and the edge of an inset.
+    readonly property color well:      pick("#2b2430", "#efe3da")
+    readonly property color wellHover: pick("#3a3142", "#e3d4c9")
+    readonly property color veil:      pick(Qt.rgba(1, 1, 1, 0.07), Qt.rgba(0, 0, 0, 0.055))
+    readonly property color veilSoft:  pick(Qt.rgba(1, 1, 1, 0.025), Qt.rgba(0, 0, 0, 0.02))
+    readonly property color edge:      pick("#FFFFFF", "#d9c9bf")
+    // The candy colours as ink: pastel on the dark card, deep enough to read on the light one.
+    readonly property color hotInk:   pick("#FF8FA0", "#b3261e")
+    readonly property color lemonInk: pick("#FFE08A", "#8a5a00")
+    readonly property color limeInk:  pick("#B9DC6B", "#4f7a12")
+    readonly property color pinkInk:  pick("#F5A3C0", "#a8356c")
+
+    // (a candy colour as ink, whatever it is: itself on the dark card, deepened on the light one)
+    function inkOf(c) { return dark ? c : Qt.darker(c, 1.9) }
+
     // text
     readonly property color ink:      pick("#f7efe9", "#2b1d21")
     readonly property color inkMuted: pick("#b8a8a2", "#6b5a5f")
@@ -26,7 +43,7 @@ QtObject {
     readonly property color kisel:     pick("#ff7a93", "#c42a52")
     readonly property color kiselDeep: pick("#d93f66", "#a81f44")
     readonly property color kiselSoft: "#ffd0c4"
-    readonly property color onKisel:   pick("#2a0f18", "#ffffff")
+    readonly property color kiselInk:   pick("#2a0f18", "#ffffff")
 
     // status: always travels with an icon or a word
     readonly property color mint:   pick("#7fe3b0", "#0e7a4a")

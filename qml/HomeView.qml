@@ -153,7 +153,7 @@ Item {
                                 const w = n === light.pick ? light.swell : n === light.was ? 1 - light.swell : 0
                                 g.globalAlpha = 1
                                 g.lineWidth = 8
-                                g.strokeStyle = "#2b2430"; g.beginPath(); g.arc(c, c, rad, 0, 2 * Math.PI, false); g.stroke()
+                                g.strokeStyle = "" + Theme.well; g.beginPath(); g.arc(c, c, rad, 0, 2 * Math.PI, false); g.stroke()
                                 // (each ring starts a little after the one outside it, and eases out)
                                 const t = Math.max(0, Math.min(1, light.fill * 1.5 - n * 0.25)), f = 1 - Math.pow(1 - t, 3)
                                 const a = Math.max(0, Math.min(1, r.used / 100)) * f
@@ -185,7 +185,7 @@ Item {
                         }
                         g.strokeStyle = "#FFFFFF"; g.lineWidth = 12
                         g.beginPath(); g.arc(c, c, 35, 0, 2 * Math.PI, false); g.stroke()
-                        g.strokeStyle = "#2b2430"; g.lineWidth = 8
+                        g.strokeStyle = "" + Theme.well; g.lineWidth = 8
                         g.beginPath(); g.arc(c, c, 35, 0, 2 * Math.PI, false); g.stroke()
                         g.strokeStyle = tint; g.lineWidth = 8
                         const from = -Math.PI / 2 + 2 * Math.PI * turn
@@ -217,7 +217,7 @@ Item {
                     fontSizeMode: Text.HorizontalFit
                     minimumPixelSize: 8
                     text: light.cur ? Math.round(light.cur.used * Math.min(1, light.fill * 1.5)) + "%" : ""
-                    color: light.cur ? light.hue(light.cur) : Theme.ink
+                    color: light.cur ? Theme.inkOf(light.hue(light.cur)) : Theme.ink
                     Behavior on color { ColorAnimation { duration: 240 } }
                     scale: (0.85 + 0.15 * light.swell) * (root.busy && !Theme.reduced ? 1 + 0.06 * Math.sin(2 * Math.PI * ring.turn) : 1)
                     font.family: Theme.display; font.pixelSize: 13; font.weight: Font.Bold
@@ -227,7 +227,7 @@ Item {
                     width: parent.width
                     horizontalAlignment: Text.AlignHCenter
                     text: light.cur ? light.label(light.cur.kind) : counter.count === 1 ? Tr.t("Session") : Tr.t("Sessions")
-                    color: light.cur ? light.hue(light.cur) : Theme.ink
+                    color: light.cur ? Theme.inkOf(light.hue(light.cur)) : Theme.ink
                     Behavior on color { ColorAnimation { duration: 240 } }
                     opacity: light.rings ? 0.35 + 0.65 * light.swell : 1
                     font.family: Theme.sans; font.pixelSize: 12; font.weight: Font.ExtraBold
@@ -292,7 +292,7 @@ Item {
                 width: side.width
                 height: 38
                 radius: 12
-                color: stripTap.pressed || stripHover.hovered && root.hasSession ? "#3a3142" : "#2b2430"
+                color: stripTap.pressed || stripHover.hovered && root.hasSession ? Theme.wellHover : Theme.well
                 Behavior on color { ColorAnimation { duration: Theme.tHover } }
                 opacity: Motion.rise(root.age, 2)
                 transform: Translate { y: Motion.lift(root.age, 2) }
@@ -313,9 +313,9 @@ Item {
                         anchors.centerIn: parent
                         width: 16; height: 16
                         Spinner { anchors.fill: parent; visible: root.busy }
-                        DrawnCheck { anchors.centerIn: parent; size: 16; color: "#B9DC6B"; visible: root.st === "done" }
-                        Icon { anchors.centerIn: parent; size: 14; name: "cross"; color: "#FF8FA0"; visible: root.st === "failed" }
-                        Icon { anchors.centerIn: parent; size: 15; name: "bell"; color: "#FFE08A"; visible: root.st === "alert" }
+                        DrawnCheck { anchors.centerIn: parent; size: 16; color: Theme.limeInk; visible: root.st === "done" }
+                        Icon { anchors.centerIn: parent; size: 14; name: "cross"; color: Theme.hotInk; visible: root.st === "failed" }
+                        Icon { anchors.centerIn: parent; size: 15; name: "bell"; color: Theme.lemonInk; visible: root.st === "alert" }
                         Rectangle { anchors.centerIn: parent; width: 8; height: 8; radius: 4; color: "#8a8292"; visible: root.st === "idle" }
                     }
                 }
@@ -325,7 +325,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     text: root.hasSession ? (Tr.d(root.s.line) || root.s.cwd || "") : Hooks.installed ? Tr.t("waiting for a session") : Tr.t("not connected")
                     elide: Text.ElideRight
-                    color: "#F2ECF5"
+                    color: Theme.ink
                     opacity: root.hasSession ? 1 : 0.6
                     font.family: Theme.mono; font.pixelSize: 11
                 }

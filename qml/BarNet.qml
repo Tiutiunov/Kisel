@@ -54,7 +54,7 @@ Row {
             text: !Net.online ? Tr.t("No connection") : Net.justBack ? Tr.t("Back online")
                 : root.testNews ? Math.round(Speed.down) + " / " + Math.round(Speed.up) + Tr.t(" Mbps")
                 : root.fetchNews ? Tr.t("Downloaded ") + root.amount(Net.fetched) : Net.ping < 0 ? "..." : Net.ping + " ms"
-            color: !Net.online ? "#FF8FA0" : Theme.ink
+            color: !Net.online ? Theme.hotInk : Theme.ink
             font.family: Theme.sans; font.pixelSize: root.news ? 13 : 12; font.weight: Font.ExtraBold
         }
     }

@@ -81,7 +81,7 @@ Item {
                     g.lineCap = "round"
                     g.strokeStyle = "#FFFFFF"; g.lineWidth = 12
                     g.beginPath(); g.arc(c, c, 31, 0, 2 * Math.PI, false); g.stroke()
-                    g.strokeStyle = "#2b2430"; g.lineWidth = 8
+                    g.strokeStyle = "" + Theme.well; g.lineWidth = 8
                     g.beginPath(); g.arc(c, c, 31, 0, 2 * Math.PI, false); g.stroke()
                     g.strokeStyle = tint; g.lineWidth = 8
                     g.beginPath(); g.arc(c, c, 31, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * Math.max(0.04, shown), false); g.stroke()

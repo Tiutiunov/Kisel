@@ -53,8 +53,8 @@ FocusScope {
     Accessible.onPressAction: root.clicked()
 
     // keeps the layout still while the visible pill morphs
-    readonly property color fg: celebrating ? Theme.onKisel
-        : kind === "primary" ? Theme.onKisel : kind === "danger" ? Theme.surface0
+    readonly property color fg: celebrating ? Theme.kiselInk
+        : kind === "primary" ? Theme.kiselInk : kind === "danger" ? Theme.surface0
         : kind === "ghost" ? Theme.inkMuted : Theme.ink
 
     Rectangle {
@@ -101,10 +101,10 @@ FocusScope {
             anchors.centerIn: parent
             spacing: Theme.space1
             visible: root.celebrating && root.showWord
-            DrawnCheck { size: 16; progress: 1; color: Theme.onKisel; anchors.verticalCenter: parent.verticalCenter }
+            DrawnCheck { size: 16; progress: 1; color: Theme.kiselInk; anchors.verticalCenter: parent.verticalCenter }
             Text {
                 text: root.successWord
-                color: Theme.onKisel
+                color: Theme.kiselInk
                 font.family: Theme.sans; font.pixelSize: 14; font.weight: Font.ExtraBold
                 anchors.verticalCenter: parent.verticalCenter
             }
@@ -113,7 +113,7 @@ FocusScope {
             anchors.centerIn: parent
             size: 18
             progress: root.tick
-            color: Theme.onKisel
+            color: Theme.kiselInk
             visible: root.celebrating && !root.showWord
         }
     }

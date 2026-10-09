@@ -20,7 +20,7 @@ Item {
         onPaint: {
             const g = getContext("2d"), c = 20, r = 16
             g.reset(); g.lineWidth = 4; g.lineCap = "round"
-            g.strokeStyle = "#2b2430"; g.beginPath(); g.arc(c, c, r, 0, Math.PI * 2, false); g.stroke()
+            g.strokeStyle = "" + Theme.well; g.beginPath(); g.arc(c, c, r, 0, Math.PI * 2, false); g.stroke()
             const a = Math.max(0, Math.min(1, root.shown / 100))
             if (a > 0.001) { g.strokeStyle = root.tone; g.beginPath(); g.arc(c, c, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * a, false); g.stroke() }
         }

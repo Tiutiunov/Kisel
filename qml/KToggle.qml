@@ -28,7 +28,7 @@ FocusScope {
             Rectangle {
                 y: 3; width: 20; height: 20; radius: 10
                 x: root.checked ? 21 : 3
-                color: root.checked ? Theme.onKisel : Theme.ink
+                color: root.checked ? Theme.kiselInk : Theme.ink
                 Behavior on x { NumberAnimation { duration: Theme.tFast; easing.type: Theme.reduced ? Easing.OutCubic : Easing.OutBack } }
             }
         }

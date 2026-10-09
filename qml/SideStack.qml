@@ -154,7 +154,7 @@ Item {
                 color: line.heat(Net.online ? Net.ping : -1)
                 border.width: 1.5; border.color: "#FFFFFF"
             }
-            Figure { text: !Net.online ? "–" : Net.ping < 0 ? "..." : Net.ping; color: !Net.online ? "#FF8FA0" : Theme.ink }
+            Figure { text: !Net.online ? "–" : Net.ping < 0 ? "..." : Net.ping; color: !Net.online ? Theme.hotInk : Theme.ink }
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "ms"
@@ -192,13 +192,13 @@ Item {
             color: Theme.inkMuted
             font.family: Theme.sans; font.pixelSize: 8; font.weight: Font.ExtraBold
         }
-        Figure { text: Math.round(meter.value * 100); color: meter.hot ? "#FF8FA0" : Theme.ink }
+        Figure { text: Math.round(meter.value * 100); color: meter.hot ? Theme.hotInk : Theme.ink }
         Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
             width: 22; height: 5; radius: 2.5
-            color: "#2b2430"
+            color: Theme.well
             border.width: 1
-            border.color: meter.hot ? "#E0405A" : "#FFFFFF"
+            border.color: meter.hot ? "#E0405A" : Theme.edge
             Rectangle {
                 x: 1; y: 1
                 height: 3; radius: 1.5
@@ -228,6 +228,6 @@ Item {
                 g.beginPath(); g.moveTo(1, h); g.lineTo(4, a); g.lineTo(7, h); g.stroke()
             }
         }
-        Figure { text: reading.text; color: line.test ? "#F5A3C0" : Theme.ink }
+        Figure { text: reading.text; color: line.test ? Theme.pinkInk : Theme.ink }
     }
 }

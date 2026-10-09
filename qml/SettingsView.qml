@@ -99,7 +99,7 @@ Item {
                     id: chipText
                     anchors.centerIn: parent
                     text: chip.modelData.name
-                    color: chip.on ? Theme.onKisel : Theme.inkMuted
+                    color: chip.on ? Theme.kiselInk : Theme.inkMuted
                     font.family: Theme.sans; font.pixelSize: 12; font.weight: Font.ExtraBold
                 }
                 HoverHandler { id: chipHover; cursorShape: Qt.PointingHandCursor }
@@ -224,7 +224,7 @@ Item {
                         Accessible.role: Accessible.Button
                         Accessible.name: Tr.t("How the mods work")
                         Rectangle { anchors.fill: parent; radius: 11; color: modsInfo.open ? Theme.kisel : infoHover.hovered ? Theme.surface3 : "transparent" }
-                        Icon { anchors.centerIn: parent; name: "info"; size: 18; color: modsInfo.open ? Theme.onKisel : Theme.inkMuted }
+                        Icon { anchors.centerIn: parent; name: "info"; size: 18; color: modsInfo.open ? Theme.kiselInk : Theme.inkMuted }
                         HoverHandler { id: infoHover; cursorShape: Qt.PointingHandCursor }
                         TapHandler { onTapped: { Sfx.play("click"); modsInfo.open = !modsInfo.open } }
                         Keys.onReturnPressed: modsInfo.open = !modsInfo.open

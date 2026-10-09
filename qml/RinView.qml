@@ -88,13 +88,13 @@ Item {
             width: rows.width
             height: 30
             radius: 10
-            color: rowTap.pressed || rowHover.hovered ? "#3a3142" : "#2b2430"
+            color: rowTap.pressed || rowHover.hovered ? Theme.wellHover : Theme.well
             Behavior on color { ColorAnimation { duration: Theme.tHover } }
             Rectangle { // not looked at yet
                 x: 10
                 anchors.verticalCenter: parent.verticalCenter
                 width: 8; height: 8; radius: 4
-                color: row.modelData.fresh ? root.orange : "#5a5262"
+                color: row.modelData.fresh ? root.orange : Theme.inkFaint
             }
             Text {
                 id: appName
@@ -104,7 +104,7 @@ Item {
                 text: row.modelData.app
                 textFormat: Text.PlainText
                 elide: Text.ElideRight
-                color: root.lemon
+                color: Theme.lemonInk
                 font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.ExtraBold
             }
             Text {

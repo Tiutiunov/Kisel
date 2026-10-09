@@ -27,7 +27,8 @@ Item {
     readonly property var pal: palettes[who] || palettes.miku
     readonly property color acc: pal.a
     readonly property color accDeep: pal.d
-    readonly property color onAcc: pal.on
+    readonly property color accInk: pal.on
+    readonly property color accText: Theme.dark ? acc : Qt.darker(pal.d, 1.5) // (the accent as ink: deep enough to read on the light card)
     function tinted(a) { return Qt.rgba(acc.r, acc.g, acc.b, a) }
     readonly property color wash: Qt.tint(Theme.surface2, tinted(0.1))
     readonly property color mineFill: Qt.tint(Theme.surface2, tinted(0.3))
@@ -223,7 +224,7 @@ Item {
     function escHtml(t) { return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") }
     function inlineMd(t) { // (on text already escaped)
         const kept = []
-        t = t.replace(/`([^`\n]+)`/g, (m, c) => { kept.push("<font face=\"" + Theme.mono + "\" color=\"" + root.acc + "\">" + c + "</font>"); return "\u0001" + (kept.length - 1) + "\u0001" })
+        t = t.replace(/`([^`\n]+)`/g, (m, c) => { kept.push("<font face=\"" + Theme.mono + "\" color=\"" + root.accText + "\">" + c + "</font>"); return "\u0001" + (kept.length - 1) + "\u0001" })
         t = t.replace(/!\[([^\]\n]*)\]\([^)\n]*\)/g, "$1")
         t = t.replace(/\[([^\]\n]+)\]\([^)\n]*\)/g, "$1")
         t = t.replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>").replace(/__([^_\n]+)__/g, "<b>$1</b>")
@@ -395,7 +396,7 @@ Item {
             Rectangle { // the quick talk
                 id: quickTag
                 width: quickTagText.implicitWidth + 18; height: 22; radius: 11
-                color: root.quick ? root.tinted(0.3) : quickTagHover.hovered ? Theme.surface3 : Qt.rgba(1, 1, 1, 0.07)
+                color: root.quick ? root.tinted(0.3) : quickTagHover.hovered ? Theme.surface3 : Theme.veil
                 border.width: root.quick ? 1.5 : 0; border.color: root.acc
                 Behavior on color { ColorAnimation { duration: Theme.tHover } }
                 activeFocusOnTab: true
@@ -422,7 +423,7 @@ Item {
                     readonly property bool on: !root.quick && modelData.id === root.cur.id
                     readonly property bool live: { Relay.live; return Relay.live.includes(Relay.best(modelData.id)) }
                     width: tagRow.width + 18; height: 22; radius: 11
-                    color: on ? root.tinted(0.3) : tagHover.hovered ? Theme.surface3 : Qt.rgba(1, 1, 1, 0.07)
+                    color: on ? root.tinted(0.3) : tagHover.hovered ? Theme.surface3 : Theme.veil
                     border.width: on ? 1.5 : 0; border.color: root.acc
                     Behavior on color { ColorAnimation { duration: Theme.tHover } }
                     activeFocusOnTab: true
@@ -464,13 +465,13 @@ Item {
                 readonly property bool on: Prefs.quickModel === modelData
                 anchors.verticalCenter: parent.verticalCenter
                 width: pickText.implicitWidth + 12; height: 20; radius: 10
-                color: on ? root.acc : pickHover.hovered ? Theme.surface3 : Qt.rgba(1, 1, 1, 0.07)
+                color: on ? root.acc : pickHover.hovered ? Theme.surface3 : Theme.veil
                 Behavior on color { ColorAnimation { duration: Theme.tHover } }
                 activeFocusOnTab: true
                 Accessible.role: Accessible.RadioButton
                 Accessible.name: root.modelName(modelData)
                 Accessible.checked: on
-                Text { id: pickText; anchors.centerIn: parent; text: root.modelName(pick.modelData); color: pick.on ? root.onAcc : Theme.inkMuted
+                Text { id: pickText; anchors.centerIn: parent; text: root.modelName(pick.modelData); color: pick.on ? root.accInk : Theme.inkMuted
                     font.family: Theme.sans; font.pixelSize: 10; font.weight: Font.ExtraBold }
                 HoverHandler { id: pickHover; cursorShape: Qt.PointingHandCursor }
                 TapHandler { onTapped: { Sfx.play("click"); Prefs.quickModel = pick.modelData } }
@@ -482,7 +483,7 @@ Item {
             visible: quickTalk.count > 0
             anchors.verticalCenter: parent.verticalCenter
             width: 20; height: 20; radius: 10
-            color: clearHover.hovered ? Theme.surface3 : Qt.rgba(1, 1, 1, 0.07)
+            color: clearHover.hovered ? Theme.surface3 : Theme.veil
             activeFocusOnTab: true
             Accessible.role: Accessible.Button
             Accessible.name: Tr.t("Start over")
@@ -515,13 +516,13 @@ Item {
                 readonly property bool on: Prefs.quickEffort === modelData
                 anchors.verticalCenter: parent.verticalCenter
                 width: levelText.implicitWidth + 12; height: 20; radius: 10
-                color: on ? root.acc : levelHover.hovered ? Theme.surface3 : Qt.rgba(1, 1, 1, 0.07)
+                color: on ? root.acc : levelHover.hovered ? Theme.surface3 : Theme.veil
                 Behavior on color { ColorAnimation { duration: Theme.tHover } }
                 activeFocusOnTab: true
                 Accessible.role: Accessible.RadioButton
                 Accessible.name: root.effortName(modelData)
                 Accessible.checked: on
-                Text { id: levelText; anchors.centerIn: parent; text: root.effortName(level.modelData); color: level.on ? root.onAcc : Theme.inkMuted
+                Text { id: levelText; anchors.centerIn: parent; text: root.effortName(level.modelData); color: level.on ? root.accInk : Theme.inkMuted
                     font.family: Theme.sans; font.pixelSize: 10; font.weight: Font.ExtraBold }
                 HoverHandler { id: levelHover; cursorShape: Qt.PointingHandCursor }
                 TapHandler { onTapped: { Sfx.play("click"); Prefs.quickEffort = level.modelData } }
@@ -694,7 +695,7 @@ Item {
                                         Rectangle { visible: blk.k === "h"; x: 0; y: 2; width: 3.5; height: 14; radius: 1.75; color: root.acc }
                                         Rectangle { visible: blk.k === "li" && blk.modelData.num === ""; x: 3; y: 6.5; width: 5; height: 5; radius: 2.5; color: root.acc }
                                         Text { visible: blk.k === "li" && blk.modelData.num !== ""; width: 12; horizontalAlignment: Text.AlignRight; y: 0
-                                            text: blk.k === "li" ? blk.modelData.num : ""; color: root.acc
+                                            text: blk.k === "li" ? blk.modelData.num : ""; color: root.accText
                                             font.family: Theme.sans; font.pixelSize: 12; font.weight: Font.ExtraBold; lineHeight: 18; lineHeightMode: Text.FixedHeight }
                                     }
                                     Text {
@@ -753,7 +754,7 @@ Item {
                                                 required property int index
                                                 width: grid.width; height: cellRow.height + 8
                                                 radius: index === 0 || index === grid.all.length - 1 ? 6 : 0
-                                                color: index === 0 ? root.tinted(0.3) : index % 2 === 0 ? Qt.rgba(1, 1, 1, 0.06) : Qt.rgba(1, 1, 1, 0.025)
+                                                color: index === 0 ? root.tinted(0.3) : index % 2 === 0 ? Theme.veil : Theme.veilSoft
                                                 Row {
                                                     id: cellRow
                                                     x: 8; y: 4
@@ -884,7 +885,7 @@ Item {
                     wrapMode: TextEdit.Wrap
                     color: Theme.ink
                     selectionColor: root.acc
-                    selectedTextColor: root.onAcc
+                    selectedTextColor: root.accInk
                     font.family: Theme.sans; font.pixelSize: 13; font.weight: Font.DemiBold
                     background: null
                     // (one line stands in the middle of the field: the style's own padding set it low)
@@ -909,7 +910,7 @@ Item {
                 Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutBack } }
                 Accessible.role: Accessible.Button
                 Accessible.name: busy ? Tr.t("Stop") : Tr.t("Send")
-                Icon { anchors.centerIn: parent; size: 18; name: sendBtn.busy ? "cross" : "send"; color: sendBtn.busy ? Theme.ink : root.onAcc }
+                Icon { anchors.centerIn: parent; size: 18; name: sendBtn.busy ? "cross" : "send"; color: sendBtn.busy ? Theme.ink : root.accInk }
                 TapHandler { id: sendTap; onTapped: sendBtn.busy ? (root.quick ? Quick.cancel() : Chat.cancel()) : root.send() }
                 HoverHandler { id: sendHover; cursorShape: Qt.PointingHandCursor }
             }

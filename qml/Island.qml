@@ -2127,7 +2127,7 @@ Item {
                 Rectangle {
                     visible: limitRings.model !== ""
                     width: Math.min(parent.width, modelText.implicitWidth + 14); height: 18; radius: 9
-                    color: Qt.rgba(1, 1, 1, 0.07)
+                    color: Theme.veil
                     Text {
                         id: modelText
                         anchors.verticalCenter: parent.verticalCenter
