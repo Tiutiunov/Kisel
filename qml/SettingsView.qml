@@ -509,12 +509,29 @@ Item {
                 }
 
                 KToggle { label: Tr.t("Sounds"); checked: Prefs.soundOn; onToggled: (v) => Prefs.soundOn = v }
+                KSlider {
+                    visible: Prefs.soundOn
+                    from: 0; to: 10
+                    value: Math.round(Prefs.soundVolume / 10)
+                    label: Tr.t("Volume: ") + value * 10 + "%"
+                    onMoved: (v) => { Prefs.soundVolume = v * 10; Sfx.play("click") }
+                }
                 KToggle { label: Tr.t("Reduce motion"); checked: Prefs.reduceMotion; onToggled: (v) => Prefs.reduceMotion = v }
                 KSlider {
                     from: 0; to: 10
                     value: Prefs.closeDelay
                     label: Prefs.closeDelay === 0 ? Tr.t("Close at once when the pointer leaves") : Tr.t("Close ") + Prefs.closeDelay + Tr.t(" s after the pointer leaves")
                     onMoved: (v) => Prefs.closeDelay = v
+                }
+                // how long the bar rests before it hides in its edge (the last step: it never does)
+                KSlider {
+                    id: tuckSlider
+                    readonly property var steps: [10, 20, 30, 60, 120, 300, 600, 0]
+                    function word(s) { return s < 60 ? s + Tr.t(" s") : s / 60 + Tr.t(" min") }
+                    from: 0; to: steps.length - 1
+                    value: { let at = steps.indexOf(Prefs.tuckDelay); if (at < 0) { at = 0; while (at < steps.length - 2 && steps[at] < Prefs.tuckDelay) ++at } return at }
+                    label: Prefs.tuckDelay === 0 ? Tr.t("The bar never hides") : Tr.t("The bar hides after ") + word(Prefs.tuckDelay) + Tr.t(" of rest")
+                    onMoved: (v) => Prefs.tuckDelay = steps[v]
                 }
             }
 

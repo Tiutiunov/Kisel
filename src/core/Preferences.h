@@ -13,6 +13,8 @@ class Preferences : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(bool soundOn READ soundOn WRITE setSoundOn NOTIFY changed)
+    Q_PROPERTY(int soundVolume READ soundVolume WRITE setSoundVolume NOTIFY changed) // 0..100: how loud the sounds are, of their own loudness
+    Q_PROPERTY(bool noteWords READ noteWords WRITE setNoteWords NOTIFY changed) // Rin's card shows what notifications say (off until asked for)
     Q_PROPERTY(bool reduceMotion READ reduceMotion WRITE setReduceMotion NOTIFY changed)
     Q_PROPERTY(QString theme READ theme WRITE setTheme NOTIFY changed) // system | dark | light
     Q_PROPERTY(QString language READ language WRITE setLanguage NOTIFY changed) // en | ru (English unless Russian is picked)
@@ -26,6 +28,7 @@ class Preferences : public QObject
     Q_PROPERTY(qreal floatY READ floatY WRITE setFloatY NOTIFY changed)
     Q_PROPERTY(bool avoidPanels READ avoidPanels WRITE setAvoidPanels NOTIFY changed)
     Q_PROPERTY(int closeDelay READ closeDelay WRITE setCloseDelay NOTIFY changed)
+    Q_PROPERTY(int tuckDelay READ tuckDelay WRITE setTuckDelay NOTIFY changed) // seconds of rest before the bar hides in its edge; 0: it never does
     // What each character is tied to. The first: Zundamon shows and steers Spotify.
     Q_PROPERTY(bool zundaSpotify READ zundaSpotify WRITE setZundaSpotify NOTIFY changed)
     Q_PROPERTY(bool tetoSystem READ tetoSystem WRITE setTetoSystem NOTIFY changed) // Teto watches the computer
@@ -72,6 +75,12 @@ public:
     bool firstRunDone() const { return m_s.value("firstRunDone", false).toBool(); }
 
     void setSoundOn(bool v) { set("soundOn", v); }
+    int tuckDelay() const { const int v = m_s.value("tuckDelay", 60).toInt(); return v <= 0 ? 0 : qBound(10, v, 3600); }
+    void setTuckDelay(int v) { set("tuckDelay", v <= 0 ? 0 : qBound(10, v, 3600)); }
+    int soundVolume() const { return qBound(0, m_s.value("soundVolume", 100).toInt(), 100); }
+    void setSoundVolume(int v) { set("soundVolume", qBound(0, v, 100)); }
+    bool noteWords() const { return m_s.value("noteWords", false).toBool(); }
+    void setNoteWords(bool v) { set("noteWords", v); }
     void setReduceMotion(bool v) { set("reduceMotion", v); }
     void setTheme(const QString &v) { set("theme", v); }
     QString language() const { return m_s.value("language", "en").toString(); }

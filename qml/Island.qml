@@ -1202,7 +1202,7 @@ Item {
         function onTuckedChanged() { if (root.tucked) restSoon.restart() }
         function onExpandedChanged() { if (!root.expanded) restSoon.restart() }
     }
-    Timer { interval: 60000; running: root.canTuck && !root.tucked; onTriggered: { if (root.zundaLive) root.idleTune = true; else root.tucked = true } } // (a tune playing: the player instead)
+    Timer { interval: Math.max(10, Prefs.tuckDelay) * 1000; running: root.canTuck && !root.tucked && Prefs.tuckDelay > 0; onTriggered: { if (root.zundaLive) root.idleTune = true; else root.tucked = true } } // (a tune playing: the player instead)
     // the bar and its shadow clear the edge
     property real tuckA: tucked ? pillT + 14 : 0
     Behavior on tuckA { NumberAnimation { duration: Theme.reduced ? 0 : 340; easing.type: Easing.InOutCubic } }
@@ -2271,7 +2271,8 @@ Item {
                         // is there, for Claude's work or a visit, the card is hers and shows the session)
                         own: root.stage === "zunda" && Prefs.zundaSpotify && Media.available ? "zunda"
                            : root.stage === "teto" && Prefs.tetoSystem && Sys.available ? "teto"
-                           : root.stage === "luka" && Prefs.lukaNet && Net.available ? "luka" : ""
+                           : root.stage === "luka" && Prefs.lukaNet && Net.available ? "luka"
+                           : root.stage === "rin" && Prefs.rinNotes && Notes.available ? "rin" : ""
                         age: hostHome.age
                         active: root.expanded && root.view === "home"
                         height: 200 - 62

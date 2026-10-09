@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(Kisel VERSION 0.6.3 LANGUAGES CXX)
+project(Kisel VERSION 0.7.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -127,6 +127,7 @@ qt_add_qml_module(kisel
         qml/BarGauges.qml
         qml/BarNet.qml
         qml/LukaView.qml
+        qml/RinView.qml
         qml/NoteSign.qml
         qml/BroomGlyph.qml
         qml/TetoView.qml

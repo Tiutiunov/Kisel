@@ -30,8 +30,14 @@ Sounds::~Sounds() { PlaySoundW(nullptr, nullptr, 0); }
 
 void Sounds::play(const QString &name)
 {
-    if (!m_prefs->soundOn())
+    if (!m_prefs->soundOn() || m_prefs->soundVolume() <= 0)
         return;
+    if (m_scaledFor != m_prefs->soundVolume()) { // (the volume was moved: scale them anew)
+        PlaySoundW(nullptr, nullptr, 0);
+        m_wavs.clear();
+        m_scaledFor = m_prefs->soundVolume();
+    }
+    const double volume = volumeFor(name) * m_scaledFor / 100.0;
     auto it = m_wavs.find(name);
     if (it == m_wavs.end()) {
         QFile src(QStringLiteral(":/qt/qml/Kisel/resources/sounds/%1.wav").arg(name));
@@ -44,7 +50,7 @@ void Sounds::play(const QString &name)
             const qsizetype len = qMin<qsizetype>(qFromLittleEndian<quint32>(wav.constData() + at + 4), wav.size() - at - 8);
             char *p = wav.data() + at + 8;
             for (qsizetype i = 0; i + 1 < len; i += 2)
-                qToLittleEndian<qint16>(qint16(qFromLittleEndian<qint16>(p + i) * volumeFor(name)), p + i);
+                qToLittleEndian<qint16>(qint16(qFromLittleEndian<qint16>(p + i) * volume), p + i);
         }
         it = m_wavs.insert(name, wav);
     }
@@ -84,8 +90,9 @@ QString Sounds::fileFor(const QString &name)
 
 void Sounds::play(const QString &name)
 {
-    if (!m_prefs->soundOn())
+    if (!m_prefs->soundOn() || m_prefs->soundVolume() <= 0)
         return;
+    const double volume = volumeFor(name) * m_prefs->soundVolume() / 100.0;
     if (m_player.isEmpty()) {
         if (!m_warned) {
             qWarning("No paplay or pw-play found: sounds are off.");
@@ -102,10 +109,10 @@ void Sounds::play(const QString &name)
     auto *p = new QProcess(this);
     QStringList args;
     if (m_player.endsWith(QLatin1String("pw-play")))
-        args << QStringLiteral("--volume=%1").arg(volumeFor(name)) << file;
+        args << QStringLiteral("--volume=%1").arg(volume) << file;
     else // paplay: 65536 = 100 %. No media.role=event: Plasma can mute that whole
          // role (notification sounds off) and the sound server remembers it.
-        args << QStringLiteral("--volume=%1").arg(int(65536 * volumeFor(name)))
+        args << QStringLiteral("--volume=%1").arg(int(65536 * volume))
              << QStringLiteral("--client-name=Kisel") << file;
     connect(p, &QProcess::finished, this, [this, p, name] {
         m_running.remove(name);

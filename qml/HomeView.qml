@@ -16,7 +16,7 @@ Item {
     readonly property bool hasSession: !!s.id
     // Home belongs to whoever is chosen. Miku's is this one, Claude Code's; Zundamon's is her
     // Spotify player. The ones with no service of their own yet show Claude's.
-    property string own: "" // whose Home this is, says the island: "" (Claude's) | zunda | teto | luka
+    property string own: "" // whose Home this is, says the island: "" (Claude's) | zunda | teto | luka | rin
     readonly property bool ownHome: own !== ""
     // (the one last shown stays through the dissolve back to Claude's)
     property string shownOwn: ""
@@ -461,6 +461,12 @@ Item {
     // ---- Teto's is how the computer is doing ----
     TetoView {
         visible: root.ownU > 0.01 && root.shownOwn === "teto"
+        opacity: root.ownU
+        age: root.age
+    }
+    // ---- Rin's is the notifications that came last ----
+    RinView {
+        visible: root.ownU > 0.01 && root.shownOwn === "rin"
         opacity: root.ownU
         age: root.age
     }

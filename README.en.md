@@ -133,7 +133,7 @@ No telemetry. Kisel goes online for the GitHub widget, to ping `1.1.1.1` for Luk
 
 Point by point: [docs/PRIVACY.md](docs/PRIVACY.md). Terms of use: [docs/TERMS.md](docs/TERMS.md).
 
-From notifications it reads the app's name and how many there are. Never the text.
+From notifications it reads the app's name, how many there are and when they came. The text is read only if you press "Show text" in Rin's card (off by default): it is shown in that card, kept in memory, and never saved or sent anywhere.
 
 Settings are in `%LOCALAPPDATA%\kisel\kisel.conf`, a plain text file.
 

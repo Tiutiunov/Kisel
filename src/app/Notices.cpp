@@ -12,8 +12,11 @@
 
 #include "Notices.h"
 
+#include <QDateTime>
 #include <QTimer>
+#include <QVariantMap>
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -34,12 +37,13 @@ struct Notices::Worker
     std::condition_variable wake;
     std::atomic<bool> stop {false};
     std::atomic<bool> dismissed {false};
+    std::atomic<bool> words {false};
 
     void report(bool available, int count, const QString &app, const QStringList &apps = {}, const QVariantList &counts = {},
-                const QString &target = {})
+                const QString &target = {}, const QVariantList &recent = {})
     {
-        QMetaObject::invokeMethod(owner, [o = owner, available, count, app, apps, counts, target] {
-            o->apply(available, count, app, apps, counts, target); }, Qt::QueuedConnection);
+        QMetaObject::invokeMethod(owner, [o = owner, available, count, app, apps, counts, target, recent] {
+            o->apply(available, count, app, apps, counts, target, recent); }, Qt::QueuedConnection);
     }
 
 #ifdef Q_OS_WIN
@@ -71,6 +75,39 @@ struct Notices::Worker
         std::chrono::steady_clock::time_point came;
     };
 
+    // One of the newest few, for the list in Rin's card
+    struct Recent
+    {
+        quint32 id;
+        QString name, aumid, title, text;
+        qint64 at;       // ms since the epoch
+        bool read;       // its words have been asked for
+    };
+    static constexpr int kRecent = 8;
+
+    // The title and the text of a notification, as its banner shows them: one line each
+    static void wordsOf(const winrt::Windows::UI::Notifications::UserNotification &n, QString *title, QString *text)
+    {
+        namespace un = winrt::Windows::UI::Notifications;
+        try {
+            const auto binding = n.Notification().Visual().GetBinding(un::KnownNotificationBindings::ToastGeneric());
+            if (!binding)
+                return;
+            QStringList lines;
+            for (const auto &t : binding.GetTextElements()) {
+                const winrt::hstring s = t.Text();
+                const QString line = QString::fromWCharArray(s.c_str(), int(s.size())).simplified();
+                if (!line.isEmpty())
+                    lines.append(line);
+            }
+            if (lines.isEmpty())
+                return;
+            *title = lines.takeFirst().left(80);
+            *text = lines.join(QLatin1Char(' ')).left(200);
+        } catch (...) {
+        }
+    }
+
     void run()
     {
         namespace un = winrt::Windows::UI::Notifications;
@@ -100,13 +137,51 @@ struct Notices::Worker
         QStringList lastApps;
         QVariantList lastCounts;
         QString lastTarget;
+        std::vector<Recent> recent; // newest first
+        QVariantList lastRecent;
+        bool hadWords = false;
         while (!stop) {
+            const bool wantWords = words.load();
+            if (hadWords && !wantWords) // (switched off: what was read is let go)
+                for (auto &r : recent) {
+                    r.title.clear();
+                    r.text.clear();
+                    r.read = false;
+                }
+            hadWords = wantWords;
             try {
                 const auto list = listener.GetNotificationsAsync(un::NotificationKinds::Toast).get();
                 std::set<quint32> now;
                 for (const auto &n : list) {
                     const quint32 id = n.Id();
                     now.insert(id);
+                    // the list in Rin's card: what is in the centre at the start is in it too
+                    {
+                        auto have = std::find_if(recent.begin(), recent.end(), [id](const Recent &r) { return r.id == id; });
+                        if (have == recent.end()) {
+                            Recent r {id, {}, {}, {}, {}, 0, false};
+                            try {
+                                if (const auto info = n.AppInfo()) {
+                                    const winrt::hstring s = info.DisplayInfo().DisplayName();
+                                    r.name = QString::fromWCharArray(s.c_str(), int(s.size()));
+                                    const winrt::hstring a = info.AppUserModelId();
+                                    r.aumid = QString::fromWCharArray(a.c_str(), int(a.size()));
+                                }
+                                r.at = qint64(winrt::clock::to_time_t(n.CreationTime())) * 1000;
+                            } catch (...) {
+                            }
+                            if (r.at <= 0)
+                                r.at = QDateTime::currentMSecsSinceEpoch();
+                            if (!r.name.isEmpty() && r.name != QLatin1String("Kisel")) {
+                                recent.push_back(r);
+                                have = std::prev(recent.end());
+                            }
+                        }
+                        if (have != recent.end() && wantWords && !have->read) {
+                            wordsOf(n, &have->title, &have->text);
+                            have->read = true;
+                        }
+                    }
                     if (first) {
                         seen.insert(id);
                         continue;
@@ -191,22 +266,37 @@ struct Notices::Worker
                     counts[at] = counts[at].toInt() + 1;
                 }
             }
+            // the newest few, for Rin's card
+            std::stable_sort(recent.begin(), recent.end(), [](const Recent &a, const Recent &b) { return a.at > b.at; });
+            if (int(recent.size()) > kRecent)
+                recent.resize(kRecent);
+            QVariantList recentNow;
+            for (const auto &r : recent) {
+                bool fresh = false;
+                for (const auto &u : unseen)
+                    fresh = fresh || (u.id != 0 && u.id == r.id);
+                recentNow.append(QVariantMap {{QStringLiteral("app"), r.name}, {QStringLiteral("aumid"), r.aumid},
+                                              {QStringLiteral("title"), r.title}, {QStringLiteral("text"), r.text},
+                                              {QStringLiteral("at"), r.at}, {QStringLiteral("fresh"), fresh}});
+            }
             // the one program they are all from, if it is one
             QString target = unseen.empty() ? QString() : unseen.front().aumid;
             for (const auto &u : unseen)
                 if (u.aumid != target)
                     target.clear();
-            if (!told || count != lastCount || app != lastApp || apps != lastApps || counts != lastCounts || target != lastTarget) {
+            if (!told || count != lastCount || app != lastApp || apps != lastApps || counts != lastCounts || target != lastTarget
+                || recentNow != lastRecent) {
+                lastRecent = recentNow;
                 lastTarget = target;
                 told = true;
                 lastCount = count;
                 lastApp = app;
                 lastApps = apps;
                 lastCounts = counts;
-                report(true, count, app, apps, counts, target);
+                report(true, count, app, apps, counts, target, recentNow);
             }
             std::unique_lock lock(mutex);
-            wake.wait_for(lock, std::chrono::milliseconds(1200), [this] { return stop.load() || dismissed.load(); });
+            wake.wait_for(lock, std::chrono::milliseconds(1200), [this, wantWords] { return stop.load() || dismissed.load() || words.load() != wantWords; });
         }
     }
 #else
@@ -223,6 +313,19 @@ Notices::Notices(QObject *parent)
     if (const int at = qEnvironmentVariableIntValue("KISEL_DEMO_NOTE"); at > 0) {
         m_demo = true;
         m_available = true;
+        const qint64 t = QDateTime::currentMSecsSinceEpoch();
+        const auto one = [t](const char *app, const char *title, const char *text, int minutesAgo, bool fresh) {
+            return QVariantMap {{QStringLiteral("app"), QString::fromLatin1(app)}, {QStringLiteral("aumid"), QString()},
+                                {QStringLiteral("title"), QString::fromLatin1(title)}, {QStringLiteral("text"), QString::fromLatin1(text)},
+                                {QStringLiteral("at"), t - qint64(minutesAgo) * 60000}, {QStringLiteral("fresh"), fresh}};
+        };
+        // (KISEL_DEMO_WORDS=1: ...with their words, as if the key in Rin's card were on)
+        const bool w = qEnvironmentVariableIsSet("KISEL_DEMO_WORDS");
+        m_words = w;
+        m_recent = {one("Telegram", w ? "Sasha" : "", w ? "Are you coming tonight? We start at eight." : "", 0, true),
+                    one("Discord", w ? "#general" : "", w ? "The build is green again" : "", 4, true),
+                    one("Telegram", w ? "Mum" : "", w ? "Call me when you can" : "", 37, false),
+                    one("Steam", w ? "Download complete" : "", w ? "Hollow Knight is ready to play" : "", 190, false)};
         QTimer::singleShot(at, this, [this] { m_count = 3; m_app = QStringLiteral("Telegram");
             m_apps = {QStringLiteral("Telegram"), QStringLiteral("Discord")}; m_counts = {2, 1}; emit changed(); });
         // KISEL_DEMO_NOTE_END=<ms>: ...and they are looked at
@@ -241,12 +344,36 @@ Notices::~Notices()
         m_worker->thread.join();
 }
 
+void Notices::setWords(bool on)
+{
+    if (on == m_words)
+        return;
+    m_words = on;
+    m_worker->words = on;
+    m_worker->wake.notify_one();
+    emit changed();
+}
+
+void Notices::openRecent(int index)
+{
+#ifdef Q_OS_WIN
+    const QString aumid = m_recent.value(index).toMap().value(QStringLiteral("aumid")).toString();
+    if (aumid.isEmpty())
+        return;
+    const QString entry = QStringLiteral("shell:AppsFolder\\") + aumid;
+    ShellExecuteW(nullptr, L"open", L"explorer.exe", reinterpret_cast<LPCWSTR>(entry.utf16()), nullptr, SW_SHOWNORMAL);
+#else
+    Q_UNUSED(index)
+#endif
+}
+
 void Notices::apply(bool available, int count, const QString &app, const QStringList &apps, const QVariantList &counts,
-                    const QString &target)
+                    const QString &target, const QVariantList &recent)
 {
     m_target = target;
-    if (m_demo || (available == m_available && count == m_count && app == m_app && apps == m_apps && counts == m_counts))
+    if (m_demo || (available == m_available && count == m_count && app == m_app && apps == m_apps && counts == m_counts && recent == m_recent))
         return;
+    m_recent = recent;
     m_available = available;
     m_count = count;
     m_app = app;

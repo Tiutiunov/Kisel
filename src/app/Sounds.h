@@ -14,7 +14,8 @@ class Preferences;
 // `pw-play` is the fallback). Qt Multimedia was dropped: its FFmpeg backend
 // enumerates every audio device (including Bluetooth inputs) and logged an
 // error per sound. One process per sound at a time, so a sound never overlaps
-// itself; volumes follow motion.md (55 %, hover 25 %).
+// itself; volumes follow motion.md (55 %, hover 25 %), times the user's own
+// (Preferences::soundVolume).
 // On Windows the WAV is scaled to its volume in memory and handed to PlaySound,
 // which plays one sound at a time: a new one cuts the previous short.
 class Sounds : public QObject
@@ -30,6 +31,7 @@ private:
     Preferences *m_prefs;
 #ifdef Q_OS_WIN
     QHash<QString, QByteArray> m_wavs; // scaled once; PlaySound reads them while it plays
+    int m_scaledFor = -1;              // the volume (Preferences::soundVolume) they were scaled for
 #else
     QString fileFor(const QString &name);
     QString m_player;   // "paplay" or "pw-play"; empty = no way to play

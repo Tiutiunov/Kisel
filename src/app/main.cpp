@@ -220,6 +220,11 @@ int main(int argc, char *argv[])
     Media media;
     SysMon sysmon;
     Notices notices;
+    // (what notifications say is read only once the key in Rin's card is pressed)
+    if (!qEnvironmentVariableIsSet("KISEL_DEMO_NOTE")) {
+        notices.setWords(prefs.noteWords());
+        QObject::connect(&prefs, &Preferences::changed, &notices, [&] { notices.setWords(prefs.noteWords()); });
+    }
     NetMon netmon;
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Hub", &hub);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Prefs", &prefs);
