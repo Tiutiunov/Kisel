@@ -10,6 +10,7 @@
 //   KiselSetup.exe                 asks where (by default %LOCALAPPDATA%\Programs\Kisel)
 //   KiselSetup.exe /SILENT         asks nothing (this is how Kisel updates itself)
 //   KiselSetup.exe /DIR=<folder>   installs there
+//   KiselSetup.exe /UNPACK         the files and nothing else (for trying the installer out)
 //   uninstall.exe /UNINSTALL       removes what was installed; settings and saved keys stay
 //
 // Installing over a running Kisel closes it first, and starts the new one after.
@@ -44,6 +45,7 @@ const wchar_t *const kUninstallKey = L"Software\\Microsoft\\Windows\\CurrentVers
 const wchar_t *const kParts[] = {L"bin", L"plugins", L"qml", L"translations", L"licenses", L"mods"}; // what the zip holds
 
 bool g_silent = false;
+bool g_unpackOnly = false; // /UNPACK: the files and nothing else (no shortcut, no "Apps" entry, no start): for trying the installer out
 
 void say(const std::wstring &text, UINT icon = MB_ICONINFORMATION)
 {
@@ -195,6 +197,48 @@ void closeRunning(const std::wstring &dir)
     }
 }
 
+// Makes way for the new files. A file of the old installation that something still holds
+// (a relay Claude Code started this very moment, a Kisel that could not be stopped) cannot
+// be written over, and one such file fails the whole unpacking; but Windows lets a file in
+// use be renamed. So such a file is moved aside as "<name>.old-<n>", and the leftovers of
+// earlier updates are removed when nothing holds them any more. Read-only marks, which
+// stop the unpacking just the same, are taken off.
+void makeWay(const std::wstring &folder, std::wstring *held)
+{
+    WIN32_FIND_DATAW fd {};
+    HANDLE h = FindFirstFileW((folder + L"\\*").c_str(), &fd);
+    if (h == INVALID_HANDLE_VALUE)
+        return;
+    do {
+        const std::wstring name = fd.cFileName;
+        if (name == L"." || name == L"..")
+            continue;
+        const std::wstring path = folder + L"\\" + name;
+        if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+            if (!(fd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT))
+                makeWay(path, held);
+            continue;
+        }
+        if (fd.dwFileAttributes & FILE_ATTRIBUTE_READONLY)
+            SetFileAttributesW(path.c_str(), fd.dwFileAttributes & ~DWORD(FILE_ATTRIBUTE_READONLY));
+        if (name.find(L".old-") != std::wstring::npos) {
+            DeleteFileW(path.c_str());
+            continue;
+        }
+        HANDLE f = CreateFileW(path.c_str(), GENERIC_WRITE | DELETE, 0, nullptr, OPEN_EXISTING, 0, nullptr);
+        if (f != INVALID_HANDLE_VALUE) {
+            CloseHandle(f);
+            continue;
+        }
+        bool moved = false;
+        for (int n = 0; n < 50 && !moved; ++n)
+            moved = MoveFileW(path.c_str(), (path + L".old-" + std::to_wstring(n)).c_str()) != 0;
+        if (!moved && held && held->empty())
+            *held = path;
+    } while (FindNextFileW(h, &fd));
+    FindClose(h);
+}
+
 bool pickFolder(std::wstring *dir)
 {
     IFileOpenDialog *dlg = nullptr;
@@ -298,15 +342,32 @@ int install(std::wstring dir)
     wchar_t sys[MAX_PATH + 1];
     GetSystemDirectoryW(sys, MAX_PATH);
     const std::wstring tar = std::wstring(sys) + L"\\tar.exe";
-    const int code = exists(tar) ? run(L"\"" + tar + L"\" -xf \"" + zip + L"\" -C \"" + dir + L"\"", 10 * 60 * 1000) : -2;
+    int code = exists(tar) ? -1 : -2;
+    std::wstring held;
+    // (Claude Code may start the relay at any moment, between the making of way and the
+    // unpacking too: then both are done again)
+    for (int attempt = 0; attempt < 4 && code != 0 && code != -2; ++attempt) {
+        if (attempt > 0) {
+            Sleep(700);
+            closeRunning(dir);
+        }
+        held.clear();
+        for (const wchar_t *part : kParts)
+            makeWay(dir + L"\\" + part, &held);
+        code = run(L"\"" + tar + L"\" -xf \"" + zip + L"\" -C \"" + dir + L"\"", 10 * 60 * 1000);
+    }
     DeleteFileW(zip.c_str());
     if (code != 0 || !exists(dir + L"\\bin\\kisel.exe")) {
         say(code == -2 ? L"This Windows has no tar.exe to unpack with (Windows 10 version 1803 or newer is needed)."
-                       : L"Could not unpack the files into:\n" + dir + L"\n\nIs Kisel still running from there?",
+                       : L"Could not unpack the files into:\n" + dir
+                             + (held.empty() ? L"\n\nIs there room on the disk, and may this folder be written to?"
+                                             : L"\n\nThis file is in use and would not give way:\n" + held),
             MB_ICONERROR);
         return 1;
     }
 
+    if (g_unpackOnly)
+        return 0;
     // the uninstaller is this program without its load
     copyPart(dir + L"\\uninstall.exe", 0, end);
     makeShortcut(startMenuLink(), dir + L"\\bin\\kisel.exe", dir + L"\\bin");
@@ -384,6 +445,8 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
         const std::wstring a = argv[i];
         if (_wcsicmp(a.c_str(), L"/SILENT") == 0)
             g_silent = true;
+        else if (_wcsicmp(a.c_str(), L"/UNPACK") == 0)
+            g_unpackOnly = true;
         else if (_wcsicmp(a.c_str(), L"/UNINSTALL") == 0)
             remove = true;
         else if (_wcsnicmp(a.c_str(), L"/DIR=", 5) == 0)
