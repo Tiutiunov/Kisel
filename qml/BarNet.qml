@@ -40,6 +40,7 @@ Row {
 
     // the light, and the ping (or the news)
     Row {
+        id: lead
         anchors.verticalCenter: parent.verticalCenter
         spacing: 5
         Rectangle {
@@ -70,6 +71,10 @@ Row {
         Text {
             id: testText
             anchors.centerIn: parent
+            // (never wider than the room that is left: the figure is set smaller instead)
+            width: Math.min(implicitWidth, Math.max(40, root.room - lead.width - root.spacing - 16))
+            horizontalAlignment: Text.AlignHCenter
+            fontSizeMode: Text.HorizontalFit; minimumPixelSize: 8
             text: Speed.phase === "ping" ? Tr.t("Testing") : (Speed.phase === "down" ? Tr.t("Down ") + root.mbps(Speed.down) : Tr.t("Up ") + root.mbps(Speed.up))
             color: "#4a1730"
             font.family: Theme.sans; font.pixelSize: 10; font.weight: Font.ExtraBold
@@ -99,7 +104,10 @@ Row {
             }
             Text {
                 anchors.verticalCenter: parent.verticalCenter
-                text: root.speed(Net.down) + "  \u00B7  " + root.amount(Net.fetched)
+                // (never wider than the room that is left: the figures are set smaller instead)
+                width: Math.min(implicitWidth, Math.max(40, root.room - lead.width - root.spacing - 14 - 12))
+                fontSizeMode: Text.HorizontalFit; minimumPixelSize: 8
+                text: root.speed(Net.down) + " \u00B7 " + root.amount(Net.fetched)
                 color: "#4a1730"
                 font.family: Theme.sans; font.pixelSize: 10; font.weight: Font.ExtraBold
             }

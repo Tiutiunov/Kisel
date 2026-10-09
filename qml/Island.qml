@@ -65,8 +65,13 @@ Item {
     readonly property int sideH: 248     // the standing bar's length
     readonly property int sideBenchH: 4 * 16 + 10
     readonly property int inward: edge === "right" ? -1 : 1 // (which way the screen is from a side edge)
-    readonly property int pillMin: 288 + Math.round(duoW + heraldW) // (a little wider while two sit at its head, or Rin holds up her sign)
-    readonly property int pillMax: 288 + Math.round(duoW + heraldW)
+    readonly property int pillMin: 288 + Math.round(duoW + heraldW + keyW) // (a little wider while two sit at its head, or Rin holds up her sign)
+    readonly property int pillMax: 288 + Math.round(duoW + heraldW + keyW)
+    // (...and while Luka's readings are in it: her Test key stands before the bench, and
+    // took its place out of theirs, so a download's capsule ran under the key)
+    readonly property int keySpace: 26
+    property real keyW: miniNet && !vertical ? keySpace : 0
+    Behavior on keyW { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
     readonly property int labelX: miniLead + mini + 10 + Math.round(duoW + heraldW)
     // The cast. One of them is the mascot; the other four wait at the bar's far end, two
     // by two, as Coucou keeps its other agents, and a click on one swaps her in.
@@ -113,7 +118,12 @@ Item {
     //   partner) is a wish for Miku and Claude's Home, not for whoever rests: the card
     //   opens hers and stays hers until it closes (`mikuAsked`).
     property bool mikuAsked: false
-    readonly property string rest: mikuAsked ? "miku" : idleTune && zundaLive ? "zunda"
+    //   (The line going down, or coming back, is news whoever was chosen: Luka comes out
+    //   to say so, for as long as the bar says it, and then the one who rests is back.)
+    property bool dropNews: false
+    Timer { id: dropOff; interval: 8000; onTriggered: root.dropNews = false }
+    readonly property bool lineNews: Prefs.lukaNet && Net.available && (dropNews || Net.justBack)
+    readonly property string rest: mikuAsked ? "miku" : lineNews ? "luka" : idleTune && zundaLive ? "zunda"
         : Prefs.character !== "miku" || mikuPinned ? Prefs.character
         : tetoLive ? "teto" : lukaLive ? "luka" : zundaLive ? "zunda" : lukaBusy ? "luka" : "miku"
     // (When Kisel starts it is Miku who comes out to say hello, whoever was chosen: she
@@ -967,7 +977,12 @@ Item {
         }
     }
     readonly property bool lineDown: Net.available && !Net.online
-    onLineDownChanged: if (stage === "luka") { if (lineDown) { mascot.play("surprised", 1100); mascot.jump(0.5, true) } else mascot.play("fond", 1600) }
+    onLineDownChanged: {
+        if (opened) { dropNews = lineDown; if (lineDown) dropOff.restart(); else dropOff.stop(); tucked = false }
+        lineReact.restart() // (once she is in her place: she may be on her way from the bench)
+    }
+    Timer { id: lineReact; interval: 760
+        onTriggered: if (root.stage === "luka") { if (root.lineDown) { mascot.play("surprised", 1100); mascot.jump(0.5, true) } else mascot.play("fond", 1600) } }
     readonly property bool barOwn: miniPlayer || miniGauges || miniNet // the bar belongs to the one on stage, not to Claude's label
     readonly property bool miniPlayer: ownAct && Media.active && Media.playing && Hub.pendingCount === 0 && !(doneHold && Hub.chip === "done")
     property bool doneHold: false
@@ -1866,7 +1881,7 @@ Item {
                 BarNet {
                     anchors.verticalCenter: parent.verticalCenter
                     on: root.miniNet
-                    room: root.pillMax - root.labelX - 16 - root.castW
+                    room: root.pillMax - root.labelX - 16 - root.castW - root.keySpace // (up to the Test key, not under it)
                 }
             }
 
