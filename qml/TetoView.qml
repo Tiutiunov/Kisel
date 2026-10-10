@@ -31,24 +31,57 @@ Item {
     // The pointer on a ring: the column beside the rings gives way to all that is known
     // of that part ("" | cpu | gpu). Only what the machine tells is listed.
     property string peek: ""
-    function facts(which) {
-        const out = []
-        const add = (k, v) => out.push({ k: k, v: v })
-        if (which === "cpu") {
-            add(Tr.t("Load"), root.pct(Sys.cpu))
-            if (Sys.cpuMhz > 0) add(Tr.t("Frequency"), Sys.cpuMhz + Tr.t(" MHz"))
-            if (Sys.cpuTemp > 0) add(Tr.t("Temperature"), Sys.cpuTemp + "°C")
-            if (Sys.cpuFan >= 0) add(Tr.t("Fan"), Sys.cpuFan + Tr.t(" rpm"))
-            if (Sys.cpuThreads > 0) add(Tr.t("Threads"), "" + Sys.cpuThreads)
-        } else if (which === "gpu") {
-            add(Tr.t("Load"), root.pct(Sys.gpu))
-            if (Sys.gpuMemTotalMb > 0) add(Tr.t("Memory"), Sys.gpuMemUsedMb + " / " + Sys.gpuMemTotalMb + Tr.t(" MB"))
-            if (Sys.gpuMhz > 0) add(Tr.t("Frequency"), Sys.gpuMhz + Tr.t(" MHz"))
-            if (Sys.gpuTemp > 0) add(Tr.t("Temperature"), Sys.gpuTemp + "°C")
-            if (Sys.gpuWatts >= 0) add(Tr.t("Power (TGP)"), Sys.gpuWatts.toFixed(Sys.gpuWatts < 10 ? 1 : 0) + (Sys.gpuWattsMax > 0 ? " / " + Math.round(Sys.gpuWattsMax) : "") + Tr.t(" W"))
-            if (Sys.gpuFan >= 0) add(Tr.t("Fan"), Sys.gpuFan + Tr.t(" rpm"))
+    // Each thing known is a line with a bar: how far along its own scale it is. The scales:
+    // a load and a memory by their whole; a temperature from 30 to 100 degrees; a clock and
+    // a fan against the most seen since the card was opened; the power against its limit.
+    // `rows` names the lines there are (it changes only when one comes or goes, so the
+    // lines stay and their bars glide); `fact` gives one line its words and its bar.
+    property int cpuMhzTop: 1
+    property int gpuMhzTop: 1
+    property int fanTop: 4000
+    Connections {
+        target: Sys
+        function onChanged() {
+            root.cpuMhzTop = Math.max(root.cpuMhzTop, Sys.cpuMhz)
+            root.gpuMhzTop = Math.max(root.gpuMhzTop, Sys.gpuMhz)
+            root.fanTop = Math.max(root.fanTop, Sys.cpuFan, Sys.gpuFan)
         }
-        return out
+    }
+    readonly property color sky: "#9CD4FF"
+    readonly property color lilac: "#C9A8FF"
+    function rows(which) {
+        const out = ["load"]
+        if (which === "cpu") {
+            if (Sys.cpuMhz > 0) out.push("clock")
+            if (Sys.cpuTemp > 0) out.push("temp")
+            if (Sys.cpuFan >= 0) out.push("fan")
+            if (Sys.cpuThreads > 0) out.push("threads")
+        } else {
+            if (Sys.gpuMemTotalMb > 0 && Sys.gpuMemUsedMb >= 0) out.push("memory")
+            if (Sys.gpuMhz > 0) out.push("clock")
+            if (Sys.gpuTemp > 0) out.push("temp")
+            if (Sys.gpuWatts >= 0) out.push("power")
+            if (Sys.gpuFan >= 0) out.push("fan")
+        }
+        return out.join(",")
+    }
+    function fact(which, id) {
+        const cpu = which === "cpu"
+        const warm = (t) => Math.max(0, Math.min(1, (t - 30) / 70))
+        if (id === "load") { const v = cpu ? Sys.cpu : Sys.gpuCardLoad >= 0 ? Sys.gpuCardLoad : Sys.gpu // (this card's own: the ring is the busiest card's)
+            return { k: Tr.t("Load"), v: root.pct(v), u: v, c: root.heat(v) } }
+        if (id === "clock") { const v = cpu ? Sys.cpuMhz : Sys.gpuMhz
+            return { k: Tr.t("Frequency"), v: v + Tr.t(" MHz"), u: v / Math.max(1, cpu ? root.cpuMhzTop : root.gpuMhzTop), c: root.sky } }
+        if (id === "temp") { const t = cpu ? Sys.cpuTemp : Sys.gpuTemp
+            return { k: Tr.t("Temperature"), v: t + "°C", u: warm(t), c: t >= 90 ? root.red : t >= 75 ? root.lemon : "#B9DC6B" } }
+        if (id === "fan") { const v = cpu ? Sys.cpuFan : Sys.gpuFan
+            return { k: Tr.t("Fan"), v: v + Tr.t(" rpm"), u: v / root.fanTop, c: root.lilac } }
+        if (id === "memory") { const v = Sys.gpuMemUsedMb / Math.max(1, Sys.gpuMemTotalMb)
+            return { k: Tr.t("Memory"), v: Sys.gpuMemUsedMb + " / " + Sys.gpuMemTotalMb + Tr.t(" MB"), u: v, c: root.heat(v) } }
+        if (id === "power") { const top = Sys.gpuWattsMax > 0 ? Sys.gpuWattsMax : 0
+            return { k: "TGP", v: Sys.gpuWatts.toFixed(Sys.gpuWatts < 10 ? 1 : 0) + (top > 0 ? " / " + Math.round(top) : "") + Tr.t(" W"),
+                     u: top > 0 ? Sys.gpuWatts / top : -1, c: root.heat(top > 0 ? Sys.gpuWatts / top : 0) } }
+        return { k: Tr.t("Threads"), v: "" + Sys.cpuThreads, u: -1, c: root.sky }
     }
     function byFullness(list) { return list.slice().sort((a, b) => b.used - a.used) }
     // (the fans, the temperatures and the drives are read only while this card is looked at)
@@ -104,21 +137,41 @@ Item {
             width: parent.width
             spacing: 1.5
             Repeater {
-                model: root.facts(sheet.shown)
+                model: root.rows(sheet.shown).split(",")
                 Item {
-                    id: fact
-                    required property var modelData
+                    id: line
+                    required property string modelData
+                    readonly property var f: root.fact(sheet.shown, modelData)
                     width: sheet.width; height: 14
                     Text {
+                        id: lineName
                         anchors.verticalCenter: parent.verticalCenter
-                        text: fact.modelData.k
+                        width: 66
+                        text: line.f.k
+                        elide: Text.ElideRight
                         color: Theme.inkMuted
                         font.family: Theme.sans; font.pixelSize: 10; font.weight: Font.DemiBold
                     }
+                    Rectangle { // the bar
+                        visible: line.f.u >= 0
+                        x: lineName.width + 4
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: Math.max(12, lineValue.x - x - 8)
+                        height: 6; radius: 3
+                        color: Theme.well
+                        Rectangle {
+                            width: Math.max(parent.height, parent.width * Math.max(0, Math.min(1, line.f.u)))
+                            height: parent.height; radius: parent.radius
+                            color: line.f.c
+                            Behavior on width { NumberAnimation { duration: 500; easing.type: Easing.OutCubic } }
+                            Behavior on color { ColorAnimation { duration: 300 } }
+                        }
+                    }
                     Text {
+                        id: lineValue
                         x: parent.width - width
                         anchors.verticalCenter: parent.verticalCenter
-                        text: fact.modelData.v
+                        text: line.f.v
                         color: Theme.ink
                         font.family: Theme.mono; font.pixelSize: 10
                     }

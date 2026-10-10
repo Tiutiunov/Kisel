@@ -42,6 +42,9 @@ private slots:
         QCOMPARE(shortPartName("NVIDIA GeForce GTX 1660 SUPER"), QString("GTX 1660 SUPER"));
         QCOMPARE(shortPartName("AMD Radeon RX 6700 XT"), QString("Radeon RX 6700 XT"));
         QCOMPARE(shortPartName("Intel(R) UHD Graphics 630"), QString("UHD Graphics 630"));
+        QCOMPARE(shortPartName("Snapdragon(R) X Elite - X1E80100 - Qualcomm(R) Oryon(TM) CPU"), QString("Snapdragon X Elite X1E80100"));
+        QCOMPARE(shortPartName("Qualcomm(R) Adreno(TM) X1-85 GPU"), QString("Adreno X1-85"));
+        QCOMPARE(shortPartName("AMD Radeon(TM) Graphics"), QString("Radeon Graphics"));
         QCOMPARE(shortPartName("  Some   Odd Chip "), QString("Some Odd Chip"));
         QCOMPARE(shortPartName("AMD"), QString("AMD")); // (nothing left of it: as it came)
     }

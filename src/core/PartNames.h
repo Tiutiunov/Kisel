@@ -15,6 +15,8 @@ namespace kisel {
 //   "NVIDIA GeForce RTX 3050 Laptop GPU"            -> "RTX 3050 Laptop"
 //   "AMD Radeon RX 6700 XT"                         -> "Radeon RX 6700 XT"
 //   "Intel(R) UHD Graphics 630"                     -> "UHD Graphics 630"
+//   "Snapdragon(R) X Elite - X1E80100 - Qualcomm(R) Oryon(TM) CPU" -> "Snapdragon X Elite X1E80100"
+//   "Qualcomm(R) Adreno(TM) X1-85 GPU"              -> "Adreno X1-85"
 //
 // A name none of this fits is left as it is, tidied.
 inline QString shortPartName(const QString &full)
@@ -22,10 +24,11 @@ inline QString shortPartName(const QString &full)
     QString s = full;
     static const QRegularExpression marks(QStringLiteral("\\((R|TM|C)\\)"), QRegularExpression::CaseInsensitiveOption);
     s.replace(marks, QStringLiteral(" "));
-    static const QRegularExpression tail(QStringLiteral("\\s+(with\\s+Radeon.*|@.*|w/.*)$"), QRegularExpression::CaseInsensitiveOption);
+    static const QRegularExpression tail(QStringLiteral("\\s+(with\\s+Radeon.*|@.*|w/.*|-\\s+Qualcomm.*)$"), QRegularExpression::CaseInsensitiveOption);
     s.remove(tail);
+    s.replace(QStringLiteral(" - "), QStringLiteral(" "));
     static const QRegularExpression padding(
-        QStringLiteral("\\b(\\d+(st|nd|rd|th)\\s+Gen|\\d+-Core|Processor|CPU|GPU|NVIDIA|GeForce|AMD|Intel|Genuine|Corporation)\\b"),
+        QStringLiteral("\\b(\\d+(st|nd|rd|th)\\s+Gen|\\d+-Core|Processor|CPU|GPU|NVIDIA|GeForce|AMD|Intel|Qualcomm|Genuine|Corporation)\\b"),
         QRegularExpression::CaseInsensitiveOption);
     s.remove(padding);
     s = s.simplified();

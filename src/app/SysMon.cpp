@@ -25,6 +25,25 @@
 #include <QThreadPool>
 #include <QVariantMap>
 
+#ifdef Q_OS_WIN
+#include <wbemidl.h>
+
+namespace {
+// What Windows itself knows of each graphics adapter, whoever made it: the kernel's
+// graphics interface as an ordinary program may call it (gdi32's D3DKMT functions; it is
+// where Task Manager has its figures from). Only what is asked for here is declared.
+struct KmtAdapter { UINT handle; LUID luid; ULONG sources; BOOL precise; };
+struct KmtEnum { ULONG count; KmtAdapter *adapters; };
+struct KmtQuery { UINT handle; UINT type; void *data; UINT size; };
+struct KmtClose { UINT handle; };
+struct KmtNames { WCHAR adapter[MAX_PATH], bios[MAX_PATH], dac[MAX_PATH], chip[MAX_PATH]; };
+struct KmtMemory { ULONGLONG dedicatedVideo, dedicatedSystem, sharedSystem; };
+struct KmtPerf { ULONG index; ULONGLONG memHz, maxMemHz, maxMemHzOc, memBand, pcieBand; ULONG fanRpm, power, deciCelsius; UCHAR powerState; };
+enum { KmtSegmentSize = 3, KmtRegistryInfo = 8, KmtAdapterType = 15, KmtPerfData = 62 };
+enum { KmtRenders = 1, KmtSoftware = 4, KmtDiscrete = 16, KmtIndirect = 64 }; // bits of the adapter's type
+}
+#endif
+
 namespace kisel {
 
 // (see SysMon.h; everything in it is touched by the working thread alone, and its
@@ -40,6 +59,17 @@ struct SysMon::Probe
     bool m_cpuQueryTried = false;
     void *m_zoneQuery = nullptr, *m_zones = nullptr; // PDH: Windows' own thermal zones
     bool m_zoneQueryTried = false;
+    QString m_gpuLuid;            // the card the figures are of, as Windows' counters name it
+    void *m_memQuery = nullptr, *m_memUsed = nullptr; // PDH: the memory in use on each card
+    bool m_memQueryTried = false;
+    void *m_dell = nullptr;       // Dell's own monitoring service (WMI), once reached
+    bool m_dellTried = false;
+    int m_dellAge = 0;
+
+    int m_dellCpu = -1, m_dellGpu = -1; // (kept between its readings)
+
+    void readCard();
+    void readDell();
     void *m_acpi = nullptr;       // the laptop's ACPI device (Windows, ASUS), once opened
     bool m_acpiTried = false;
     void *m_nvml = nullptr;       // NVIDIA's library, once loaded, and its first card
@@ -58,6 +88,10 @@ SysMon::Probe::~Probe()
         PdhCloseQuery(static_cast<PDH_HQUERY>(m_cpuQuery));
     if (m_zoneQuery)
         PdhCloseQuery(static_cast<PDH_HQUERY>(m_zoneQuery));
+    if (m_memQuery)
+        PdhCloseQuery(static_cast<PDH_HQUERY>(m_memQuery));
+    if (m_dell)
+        static_cast<IWbemServices *>(m_dell)->Release();
     if (m_acpi)
         CloseHandle(static_cast<HANDLE>(m_acpi));
     if (m_nvml) {
@@ -185,6 +219,179 @@ void SysMon::Probe::readDisks()
     m_disks = out;
 }
 
+// The graphics card, whoever made it: its name, its memory, its temperature and its own
+// fan, as Windows reports them for every adapter. Of several, the one read is the
+// discrete card of a laptop that has two, else the one with the most memory of its own.
+// Software renderers and the make-believe adapters of remote-display programs are passed over.
+void SysMon::Probe::readCard()
+{
+#ifdef Q_OS_WIN
+    const HMODULE gdi = GetModuleHandleW(L"gdi32.dll");
+    const auto list = reinterpret_cast<LONG (WINAPI *)(KmtEnum *)>(gdi ? GetProcAddress(gdi, "D3DKMTEnumAdapters2") : nullptr);
+    const auto ask = reinterpret_cast<LONG (WINAPI *)(KmtQuery *)>(gdi ? GetProcAddress(gdi, "D3DKMTQueryAdapterInfo") : nullptr);
+    const auto shut = reinterpret_cast<LONG (WINAPI *)(KmtClose *)>(gdi ? GetProcAddress(gdi, "D3DKMTCloseAdapter") : nullptr);
+    if (!list || !ask || !shut)
+        return;
+    KmtAdapter adapters[16] = {};
+    KmtEnum all {16, adapters};
+    if (list(&all) != 0)
+        return;
+    const auto query = [ask](UINT handle, UINT type, void *data, UINT size) {
+        KmtQuery q {handle, type, data, size};
+        return ask(&q) == 0;
+    };
+    int best = -1;
+    bool bestDiscrete = false;
+    ULONGLONG bestMemory = 0;
+    for (ULONG i = 0; i < all.count && i < 16; ++i) {
+        UINT type = 0;
+        KmtMemory memory {};
+        if (!query(adapters[i].handle, KmtAdapterType, &type, sizeof type) || !(type & KmtRenders) || (type & (KmtSoftware | KmtIndirect)))
+            continue;
+        query(adapters[i].handle, KmtSegmentSize, &memory, sizeof memory);
+        const bool discrete = type & KmtDiscrete;
+        if (best < 0 || (discrete && !bestDiscrete) || (discrete == bestDiscrete && memory.dedicatedVideo > bestMemory)) {
+            best = int(i);
+            bestDiscrete = discrete;
+            bestMemory = memory.dedicatedVideo;
+        }
+    }
+    if (best >= 0) {
+        const KmtAdapter &a = adapters[best];
+        m_gpuLuid = QStringLiteral("luid_0x%1_0x%2_phys_0").arg(quint32(a.luid.HighPart), 8, 16, QLatin1Char('0')).arg(quint32(a.luid.LowPart), 8, 16, QLatin1Char('0'));
+        KmtNames names {};
+        if (query(a.handle, KmtRegistryInfo, &names, sizeof names)) {
+            names.adapter[MAX_PATH - 1] = 0;
+            const QString name = shortPartName(QString::fromWCharArray(names.adapter));
+            if (!name.isEmpty())
+                m_gpuName = name;
+        }
+        // (a card with next to no memory of its own lives on the machine's: that is its room)
+        KmtMemory memory {};
+        if (query(a.handle, KmtSegmentSize, &memory, sizeof memory)) {
+            const ULONGLONG room = memory.dedicatedVideo >= (512ull << 20) ? memory.dedicatedVideo : memory.dedicatedVideo + memory.sharedSystem;
+            m_gpuMemTotal = room > 0 ? int(room >> 20) : -1;
+        }
+        KmtPerf perf {};
+        if (query(a.handle, KmtPerfData, &perf, sizeof perf)) {
+            const int c = int(perf.deciCelsius / 10.0 + 0.5);
+            if (m_gpuTemp < 0 && c >= 5 && c <= 125)
+                m_gpuTemp = c;
+            if (m_gpuFan < 0 && perf.fanRpm > 0 && perf.fanRpm < 20000)
+                m_gpuFan = int(perf.fanRpm);
+        }
+    }
+    for (ULONG i = 0; i < all.count && i < 16; ++i) {
+        KmtClose c {adapters[i].handle};
+        shut(&c);
+    }
+
+    // ...and how much of its memory is in use, which Windows counts for each card
+    if (m_gpuLuid.isEmpty())
+        return;
+    if (!m_memQueryTried) {
+        m_memQueryTried = true;
+        PDH_HQUERY q = nullptr;
+        PDH_HCOUNTER c = nullptr;
+        if (PdhOpenQueryW(nullptr, 0, &q) == ERROR_SUCCESS) {
+            if (PdhAddEnglishCounterW(q, L"\\GPU Adapter Memory(*)\\Dedicated Usage", 0, &c) == ERROR_SUCCESS) {
+                m_memQuery = q;
+                m_memUsed = c;
+            } else {
+                PdhCloseQuery(q);
+            }
+        }
+    }
+    DWORD bytes = 0, count = 0;
+    const auto used = static_cast<PDH_HCOUNTER>(m_memUsed);
+    if (m_memQuery && PdhCollectQueryData(static_cast<PDH_HQUERY>(m_memQuery)) == ERROR_SUCCESS
+        && PdhGetFormattedCounterArrayW(used, PDH_FMT_LARGE, &bytes, &count, nullptr) == PDH_MORE_DATA && bytes > 0) {
+        std::vector<char> buffer(bytes);
+        auto *items = reinterpret_cast<PDH_FMT_COUNTERVALUE_ITEM_W *>(buffer.data());
+        if (PdhGetFormattedCounterArrayW(used, PDH_FMT_LARGE, &bytes, &count, items) == ERROR_SUCCESS)
+            for (DWORD i = 0; i < count; ++i)
+                if (items[i].FmtValue.CStatus == ERROR_SUCCESS && QString::fromWCharArray(items[i].szName).startsWith(m_gpuLuid, Qt::CaseInsensitive))
+                    m_gpuMemUsed = int(items[i].FmtValue.largeValue >> 20);
+    }
+#endif
+}
+
+// Dell laptops: the fans, from Dell's own monitoring service where it is installed
+// ("Dell Command | Monitor": the WMI namespace root\dcim\sysman, whose numeric sensors
+// include the tachometers). Dell offers no other way to an ordinary program, so
+// without that service a Dell shows no fan. Asked now and then: the service is slow.
+void SysMon::Probe::readDell()
+{
+#ifdef Q_OS_WIN
+    if (!m_dellTried) {
+        m_dellTried = true;
+        const QString maker = QSettings(QStringLiteral("HKEY_LOCAL_MACHINE\\HARDWARE\\DESCRIPTION\\System\\BIOS"), QSettings::NativeFormat)
+                                  .value(QStringLiteral("SystemManufacturer")).toString();
+        if (!maker.contains(QLatin1String("Dell"), Qt::CaseInsensitive))
+            return;
+        CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+        IWbemLocator *locator = nullptr;
+        if (FAILED(CoCreateInstance(CLSID_WbemLocator, nullptr, CLSCTX_INPROC_SERVER, IID_IWbemLocator, reinterpret_cast<void **>(&locator))) || !locator)
+            return;
+        IWbemServices *services = nullptr;
+        BSTR space = SysAllocString(L"ROOT\\DCIM\\SYSMAN");
+        const HRESULT hr = locator->ConnectServer(space, nullptr, nullptr, nullptr, WBEM_FLAG_CONNECT_USE_MAX_WAIT, nullptr, nullptr, &services);
+        SysFreeString(space);
+        locator->Release();
+        if (FAILED(hr) || !services)
+            return;
+        CoSetProxyBlanket(services, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE, nullptr, RPC_C_AUTHN_LEVEL_CALL, RPC_C_IMP_LEVEL_IMPERSONATE, nullptr, EOAC_NONE);
+        m_dell = services;
+    }
+    if (!m_dell || (m_dellAge++ % 3) != 0) // (every third reading: about five seconds)
+        return;
+    IEnumWbemClassObject *rows = nullptr;
+    BSTR lang = SysAllocString(L"WQL");
+    BSTR text = SysAllocString(L"SELECT ElementName, CurrentReading, UnitModifier FROM DCIM_NumericSensor WHERE SensorType = 5");
+    const HRESULT hr = static_cast<IWbemServices *>(m_dell)->ExecQuery(lang, text, WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY, nullptr, &rows);
+    SysFreeString(lang);
+    SysFreeString(text);
+    if (FAILED(hr) || !rows)
+        return;
+    int cpu = -1, gpu = -1, other = -1;
+    for (;;) {
+        IWbemClassObject *row = nullptr;
+        ULONG got = 0;
+        if (FAILED(rows->Next(3000, 1, &row, &got)) || got == 0 || !row)
+            break;
+        VARIANT name, reading, power;
+        VariantInit(&name); VariantInit(&reading); VariantInit(&power);
+        row->Get(L"ElementName", 0, &name, nullptr, nullptr);
+        row->Get(L"CurrentReading", 0, &reading, nullptr, nullptr);
+        row->Get(L"UnitModifier", 0, &power, nullptr, nullptr);
+        double rpm = -1;
+        if (SUCCEEDED(VariantChangeType(&reading, &reading, 0, VT_R8)))
+            rpm = reading.dblVal;
+        if (rpm >= 0 && SUCCEEDED(VariantChangeType(&power, &power, 0, VT_I4)))
+            for (int i = 0; i < qAbs(power.lVal) && i < 6; ++i)
+                rpm = power.lVal > 0 ? rpm * 10 : rpm / 10;
+        if (rpm >= 0 && rpm < 20000) {
+            const QString label = name.vt == VT_BSTR && name.bstrVal ? QString::fromWCharArray(name.bstrVal).toLower() : QString();
+            if (label.contains(QLatin1String("video")) || label.contains(QLatin1String("gpu")) || label.contains(QLatin1String("graphics")))
+                gpu = qMax(gpu, int(rpm));
+            else if (label.contains(QLatin1String("cpu")) || label.contains(QLatin1String("processor")))
+                cpu = qMax(cpu, int(rpm));
+            else if (other < 0)
+                other = int(rpm);
+            else if (gpu < 0)
+                gpu = int(rpm); // (two unnamed fans: the first is taken for the processor's, the second for the card's)
+        }
+        VariantClear(&name); VariantClear(&reading); VariantClear(&power);
+        row->Release();
+    }
+    rows->Release();
+    if (cpu < 0)
+        cpu = other;
+    m_dellCpu = cpu;
+    m_dellGpu = gpu;
+#endif
+}
+
 // The fans and the temperatures (see SysMon.h for where they come from).
 void SysMon::Probe::readMachine()
 {
@@ -214,6 +421,13 @@ void SysMon::Probe::readMachine()
     m_gpuFan = fan(0x00110014);
     m_cpuTemp = temp(0x00120094);
     m_gpuTemp = temp(0x00120097);
+    if (m_cpuFan < 0 && m_gpuFan < 0) { // (not an ASUS: a Dell, perhaps)
+        readDell();
+        m_cpuFan = m_dellCpu;
+        m_gpuFan = m_dellGpu;
+    }
+    m_gpuMemUsed = -1;
+    readCard();
 
     // The processor's clock: its nominal one, times how much of it Windows says is in
     // use (over 100 % when it is boosted)
@@ -241,8 +455,13 @@ void SysMon::Probe::readMachine()
             m_cpuMhz = int(base.doubleValue * pace.doubleValue / 100.0 + 0.5);
     }
 
-    // NVIDIA: its own library, from the system folder and nowhere else
-    {
+    // NVIDIA: its own library, from the system folder and nowhere else. It adds what
+    // Windows does not tell (the clock, the power drawn and its limit), and only when the
+    // card being read is NVIDIA's.
+    m_gpuMhz = -1; m_gpuWatts = -1; m_gpuWattsMax = -1;
+    if (m_gpuName.isEmpty() || m_gpuName.contains(QLatin1String("RTX")) || m_gpuName.contains(QLatin1String("GTX"))
+        || m_gpuName.contains(QLatin1String("Quadro")) || m_gpuName.contains(QLatin1String("NVIDIA"), Qt::CaseInsensitive)
+        || m_gpuName.contains(QLatin1String("GT ")) || m_gpuName.contains(QLatin1String("MX")) || m_gpuName.contains(QLatin1String("Titan"), Qt::CaseInsensitive)) {
         if (!m_nvmlTried) {
             m_nvmlTried = true;
             if (const HMODULE lib = LoadLibraryExW(L"nvml.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32)) {
@@ -254,7 +473,7 @@ void SysMon::Probe::readMachine()
                     m_nvmlCard = first;
                     char name[96] = {0};
                     const auto named = reinterpret_cast<int (*)(void *, char *, unsigned)>(GetProcAddress(lib, "nvmlDeviceGetName"));
-                    if (named && named(first, name, sizeof name - 1) == 0)
+                    if (m_gpuName.isEmpty() && named && named(first, name, sizeof name - 1) == 0)
                         m_gpuName = shortPartName(QString::fromLatin1(name));
                 } else {
                     FreeLibrary(lib);
@@ -367,6 +586,7 @@ void SysMon::readGpu()
     for (const double v : std::as_const(cards))
         busiest = qMax(busiest, v);
     m_hasGpu = !cards.isEmpty(); // (a machine with no card that Windows counts shows no ring for one)
+    m_cardLoads = cards;
     m_gpu = qBound(0.0, busiest / 100.0, 1.0);
 #endif
 }
@@ -581,10 +801,10 @@ void SysMon::read()
                 p.readDisks();
             QMetaObject::invokeMethod(this, [this, cpuFan = p.m_cpuFan, gpuFan = p.m_gpuFan, cpuTemp = p.m_cpuTemp, gpuTemp = p.m_gpuTemp,
                                              cpuMhz = p.m_cpuMhz, gpuMhz = p.m_gpuMhz, used = p.m_gpuMemUsed, total = p.m_gpuMemTotal,
-                                             watts = p.m_gpuWatts, cap = p.m_gpuWattsMax, name = p.m_gpuName, drives, disks = p.m_disks] {
+                                             watts = p.m_gpuWatts, cap = p.m_gpuWattsMax, name = p.m_gpuName, luid = p.m_gpuLuid, drives, disks = p.m_disks] {
                 m_cpuFan = cpuFan; m_gpuFan = gpuFan; m_cpuTemp = cpuTemp; m_gpuTemp = gpuTemp;
                 m_cpuMhz = cpuMhz; m_gpuMhz = gpuMhz; m_gpuMemUsed = used; m_gpuMemTotal = total;
-                m_gpuWatts = watts; m_gpuWattsMax = cap; m_gpuName = name;
+                m_gpuWatts = watts; m_gpuWattsMax = cap; m_gpuName = name; m_gpuLuid = luid;
                 if (drives)
                     m_disks = disks;
                 emit changed();

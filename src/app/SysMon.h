@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QHash>
 #include <QObject>
 #include <QTimer>
 #include <QVariantList>
@@ -44,7 +45,11 @@ class SysMon : public QObject
     // is open). Each is -1 where this machine does not tell an ordinary program:
     //   the fans and the processor's temperature come from the laptop's own ACPI device,
     //   which so far means ASUS laptops (status queries only, nothing is ever set);
-    //   the graphics card's temperature comes from NVIDIA's library where there is one;
+    //   Dell laptops tell their fans through Dell's own monitoring service, where that
+    //   is installed (Dell Command | Monitor);
+    //   the graphics card, whoever made it, is read from Windows itself (its name, its
+    //   memory, its temperature, its own fan: what Task Manager shows), and NVIDIA's
+    //   library adds the clock and the power where the card is NVIDIA's;
     //   failing those, a temperature comes from Windows' own thermal zones, which any
     //   machine has (an ARM laptop among them). The fans have no such second source:
     //   Windows keeps no figure for them at all.
@@ -66,6 +71,9 @@ class SysMon : public QObject
     Q_PROPERTY(int cpuThreads READ cpuThreads CONSTANT)
     Q_PROPERTY(int cpuMhz READ cpuMhz NOTIFY changed)
     Q_PROPERTY(QString gpuName READ gpuName NOTIFY changed)
+    // 0..1: how busy that card is itself (the ring shows the busiest card of the machine,
+    // which on a laptop with two is often the other one); -1 while it is not known
+    Q_PROPERTY(qreal gpuCardLoad READ gpuCardLoad NOTIFY changed)
     Q_PROPERTY(int gpuMhz READ gpuMhz NOTIFY changed)
     Q_PROPERTY(int gpuMemUsedMb READ gpuMemUsedMb NOTIFY changed)
     Q_PROPERTY(int gpuMemTotalMb READ gpuMemTotalMb NOTIFY changed)
@@ -105,6 +113,7 @@ public:
     int cpuThreads() const { return m_cpuThreads; }
     int cpuMhz() const { return m_cpuMhz; }
     QString gpuName() const { return m_gpuName; }
+    qreal gpuCardLoad() const { return m_gpuLuid.isEmpty() || !m_cardLoads.contains(m_gpuLuid) ? -1 : qBound(0.0, m_cardLoads.value(m_gpuLuid) / 100.0, 1.0); }
     int gpuMhz() const { return m_gpuMhz; }
     int gpuMemUsedMb() const { return m_gpuMemUsed; }
     int gpuMemTotalMb() const { return m_gpuMemTotal; }
@@ -146,7 +155,8 @@ private:
     bool m_watching = false;
     int m_cpuFan = -1, m_gpuFan = -1, m_cpuTemp = -1, m_gpuTemp = -1;
     QVariantList m_disks;
-    QString m_cpuName, m_gpuName;
+    QString m_cpuName, m_gpuName, m_gpuLuid;
+    QHash<QString, double> m_cardLoads; // each card's 3D load, in per cent, by its name in Windows' counters
     int m_cpuThreads = 0, m_cpuMhz = -1, m_gpuMhz = -1, m_gpuMemUsed = -1, m_gpuMemTotal = -1;
     qreal m_gpuWatts = -1, m_gpuWattsMax = -1;
     int m_diskAge = 0;            // readings since the drives were last asked
