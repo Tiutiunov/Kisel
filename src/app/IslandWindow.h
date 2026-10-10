@@ -199,6 +199,10 @@ private:
     bool fullScreenAbove() const;
     void lookForCover();
     void keepPlace();
+    // The computer has come back from sleep or hibernation: the window is shown where it
+    // belongs and drawn afresh (Windows may have hidden or moved it, and a frame drawn
+    // before the screen was back is lost).
+    Q_INVOKABLE void woke();
     quintptr m_lastForeground = 0; // the window that had the keyboard before the island took it
 #endif
     QQuickView *m_view;

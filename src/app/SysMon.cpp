@@ -38,6 +38,8 @@ struct SysMon::Probe
     QVariantList m_disks;
     void *m_cpuQuery = nullptr, *m_cpuBase = nullptr, *m_cpuPace = nullptr; // PDH: the clock, and how much of it is in use
     bool m_cpuQueryTried = false;
+    void *m_zoneQuery = nullptr, *m_zones = nullptr; // PDH: Windows' own thermal zones
+    bool m_zoneQueryTried = false;
     void *m_acpi = nullptr;       // the laptop's ACPI device (Windows, ASUS), once opened
     bool m_acpiTried = false;
     void *m_nvml = nullptr;       // NVIDIA's library, once loaded, and its first card
@@ -54,6 +56,8 @@ SysMon::Probe::~Probe()
 #ifdef Q_OS_WIN
     if (m_cpuQuery)
         PdhCloseQuery(static_cast<PDH_HQUERY>(m_cpuQuery));
+    if (m_zoneQuery)
+        PdhCloseQuery(static_cast<PDH_HQUERY>(m_zoneQuery));
     if (m_acpi)
         CloseHandle(static_cast<HANDLE>(m_acpi));
     if (m_nvml) {
@@ -283,6 +287,56 @@ void SysMon::Probe::readMachine()
             }
         }
     }
+
+    // Where neither of those tells a temperature (any laptop that is not an ASUS, any card
+    // that is not NVIDIA's: an ARM machine has neither), Windows' own thermal zones do,
+    // to anyone who asks: the firmware's sensors, in kelvins, each under the name the
+    // firmware gave it. A zone named for the processor or the graphics card is taken for
+    // it; with no such names, the hottest zone stands for the processor, which is what
+    // it nearly always is.
+    if (m_cpuTemp < 0 || m_gpuTemp < 0) {
+        if (!m_zoneQueryTried) {
+            m_zoneQueryTried = true;
+            PDH_HQUERY q = nullptr;
+            PDH_HCOUNTER c = nullptr;
+            if (PdhOpenQueryW(nullptr, 0, &q) == ERROR_SUCCESS) {
+                if (PdhAddEnglishCounterW(q, L"\\Thermal Zone Information(*)\\Temperature", 0, &c) == ERROR_SUCCESS) {
+                    m_zoneQuery = q;
+                    m_zones = c;
+                } else {
+                    PdhCloseQuery(q);
+                }
+            }
+        }
+        DWORD bytes = 0, count = 0;
+        const auto zones = static_cast<PDH_HCOUNTER>(m_zones);
+        if (m_zoneQuery && PdhCollectQueryData(static_cast<PDH_HQUERY>(m_zoneQuery)) == ERROR_SUCCESS
+            && PdhGetFormattedCounterArrayW(zones, PDH_FMT_DOUBLE, &bytes, &count, nullptr) == PDH_MORE_DATA && bytes > 0) {
+            std::vector<char> buffer(bytes);
+            auto *items = reinterpret_cast<PDH_FMT_COUNTERVALUE_ITEM_W *>(buffer.data());
+            if (PdhGetFormattedCounterArrayW(zones, PDH_FMT_DOUBLE, &bytes, &count, items) == ERROR_SUCCESS) {
+                int cpu = -1, gpu = -1, hottest = -1;
+                for (DWORD i = 0; i < count; ++i) {
+                    if (items[i].FmtValue.CStatus != ERROR_SUCCESS)
+                        continue;
+                    const int c = int(items[i].FmtValue.doubleValue - 273.15 + 0.5);
+                    if (c < 5 || c > 125) // (a zone that is not read answers nought, or nonsense)
+                        continue;
+                    const QString name = QString::fromWCharArray(items[i].szName).toLower();
+                    if (name.contains(QLatin1String("gpu")))
+                        gpu = qMax(gpu, c);
+                    else if (name.contains(QLatin1String("cpu")))
+                        cpu = qMax(cpu, c);
+                    else if (!name.contains(QLatin1String("bat")) && !name.contains(QLatin1String("skin")) && !name.contains(QLatin1String("chg")))
+                        hottest = qMax(hottest, c);
+                }
+                if (m_cpuTemp < 0)
+                    m_cpuTemp = cpu >= 0 ? cpu : hottest;
+                if (m_gpuTemp < 0)
+                    m_gpuTemp = gpu;
+            }
+        }
+    }
 #endif
 }
 
@@ -312,7 +366,7 @@ void SysMon::readGpu()
     double busiest = 0;
     for (const double v : std::as_const(cards))
         busiest = qMax(busiest, v);
-    m_hasGpu = count > 0;
+    m_hasGpu = !cards.isEmpty(); // (a machine with no card that Windows counts shows no ring for one)
     m_gpu = qBound(0.0, busiest / 100.0, 1.0);
 #endif
 }

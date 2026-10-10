@@ -11,6 +11,15 @@ Canvas {
     width: size; height: size
     onKindChanged: requestPaint()
     onTintChanged: requestPaint()
+    // It is drawn once and never again by itself, so a drawing that came too early is
+    // lost for good: made over several frames (a card that is created when first shown),
+    // the canvas may be asked before it can paint, and stayed blank until Kisel was
+    // started anew. So it is asked again when it becomes able, when it comes into sight,
+    // and once more a moment after it is made.
+    onAvailableChanged: if (available) requestPaint()
+    onVisibleChanged: if (visible) requestPaint()
+    Component.onCompleted: requestPaint()
+    Timer { interval: 500; running: true; onTriggered: parent.requestPaint() }
     onPaint: {
         const g = getContext("2d"), s = size
         g.reset(); g.fillStyle = tint; g.strokeStyle = tint; g.lineJoin = "round"

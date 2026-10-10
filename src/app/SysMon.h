@@ -44,7 +44,10 @@ class SysMon : public QObject
     // is open). Each is -1 where this machine does not tell an ordinary program:
     //   the fans and the processor's temperature come from the laptop's own ACPI device,
     //   which so far means ASUS laptops (status queries only, nothing is ever set);
-    //   the graphics card's temperature comes from NVIDIA's library where there is one.
+    //   the graphics card's temperature comes from NVIDIA's library where there is one;
+    //   failing those, a temperature comes from Windows' own thermal zones, which any
+    //   machine has (an ARM laptop among them). The fans have no such second source:
+    //   Windows keeps no figure for them at all.
     // Nothing here needs administrator rights or a driver of Kisel's own. The NVIDIA card
     // of a laptop sleeps when idle and a question wakes it, which is why none is asked
     // while the card is shut.

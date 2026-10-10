@@ -37,8 +37,15 @@
 #include <QtTest/QTest>
 #endif
 #include <QQuickView>
+#include <QElapsedTimer>
+#include <QProcess>
+#include <QThread>
 #include <QTimer>
 #include <qqml.h>
+
+#ifdef Q_OS_WIN
+#include <qt_windows.h>
+#endif
 
 using namespace kisel;
 
@@ -113,6 +120,7 @@ int main(int argc, char *argv[])
 #endif
     cli.addOption({"intro", "Play the first-launch animation now."});
     cli.addOption({"grab", "Save a screenshot of the island to <file> and quit (development).", "file"});
+    cli.addOption({"restarted", "Internal: started again after a fall, for the <n>th time in a row.", "n"});
     cli.addOption({"scroll", "Development: with --grab, scroll Settings down by <px> first.", "px"});
     cli.addOption({"no-hello", "Development: start with the bar in place, without Miku's hello."});
     cli.addOption({"tab", "Development: with --grab, show this tab of Settings (claude, services, cast, look, place, kisel).", "id"});
@@ -154,12 +162,21 @@ int main(int argc, char *argv[])
     }
 
     // One instance: if somebody already answers on the socket, that is Kisel.
+    // (`--restarted <n>`: started by a Kisel that is going down to come up afresh, or by
+    // Windows after one fell. The one before may still be on its way out: it is waited for.)
+    const int restarts = cli.value("restarted").toInt();
     if (!cli.isSet("grab")) {
-        QLocalSocket probe;
-        probe.connectToServer(paths::socketPath());
-        if (probe.waitForConnected(150)) {
-            qInfo("Kisel is already running.");
-            return 0;
+        for (int i = 0; i < (cli.isSet("restarted") ? 40 : 1); ++i) {
+            QLocalSocket probe;
+            probe.connectToServer(paths::socketPath());
+            if (!probe.waitForConnected(150))
+                break;
+            if (!cli.isSet("restarted") || i == 39) {
+                qInfo("Kisel is already running.");
+                return 0;
+            }
+            probe.abort();
+            QThread::msleep(150);
         }
     }
 
@@ -263,6 +280,35 @@ int main(int argc, char *argv[])
     QObject::connect(&shell, &IslandWindow::quitRequested, &app, &QApplication::quit);
     displays.applyInitial();
     shell.show();
+
+    // Kisel is meant to be there all day, so it comes back by itself.
+    //
+    // When the graphics cannot be brought up (it happens on waking from hibernation, when
+    // the card is not there yet: seen on an ARM laptop), Qt's own answer is to end the
+    // program on the spot. Kisel starts a fresh copy of itself first. Three in a row
+    // without a minute of running between them, and it stops trying.
+    // And should it fall for any other reason, Windows is asked to start it again.
+    if (!cli.isSet("grab")) {
+        static QElapsedTimer up;
+        up.start();
+        const auto again = [restarts](const QString &why) {
+            static bool going = false;
+            if (going)
+                return;
+            going = true;
+            const int n = up.elapsed() > 60000 ? 1 : restarts + 1;
+            qWarning("Kisel: %s", qPrintable(why));
+            if (n <= 3)
+                QProcess::startDetached(QCoreApplication::applicationFilePath(), {QStringLiteral("--restarted"), QString::number(n), QStringLiteral("--no-hello")});
+            QTimer::singleShot(0, qApp, [] { QCoreApplication::exit(3); });
+        };
+        QObject::connect(&view, &QQuickWindow::sceneGraphError, &app, [again](QQuickWindow::SceneGraphError, const QString &message) {
+            again(QStringLiteral("the graphics could not be brought up (") + message + QStringLiteral("): starting again"));
+        });
+#ifdef Q_OS_WIN
+        RegisterApplicationRestart(L"--restarted 1 --no-hello", RESTART_NO_PATCH | RESTART_NO_REBOOT);
+#endif
+    }
 
     Tray tray;
     const auto trayLanguage = [&] { tray.setRussian(prefs.language() == QLatin1String("ru")); };

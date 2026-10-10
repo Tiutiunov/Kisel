@@ -143,7 +143,7 @@ Item {
             Spark { anchors.verticalCenter: parent.verticalCenter; size: 11; tint: root.red
                 RotationAnimation on rotation { running: root.visible && !Theme.reduced; from: 0; to: 90; duration: 3000; loops: Animation.Infinite } }
             Text {
-                text: Tr.t("The last minute")
+                text: Tr.t("CPU, the last minute")
                 color: Theme.inkMuted
                 font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.DemiBold
             }

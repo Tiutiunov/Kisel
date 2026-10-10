@@ -145,7 +145,7 @@ Item {
             transform: Translate { y: Motion.lift(root.age, 1) }
             Spark { anchors.verticalCenter: parent.verticalCenter; size: 11; tint: root.deep }
             Text {
-                text: Tr.t("The last minute")
+                text: Tr.t("Ping, the last minute")
                 color: Theme.inkMuted
                 font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.DemiBold
             }

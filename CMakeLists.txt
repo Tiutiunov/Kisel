@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(Kisel VERSION 0.8.3 LANGUAGES CXX)
+project(Kisel VERSION 0.8.4 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

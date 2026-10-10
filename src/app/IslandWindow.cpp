@@ -1,3 +1,4 @@
+#include <QAbstractNativeEventFilter>
 #include "IslandWindow.h"
 
 #include <QCoreApplication>
@@ -66,11 +67,49 @@ void IslandWindow::preInit()
 #endif
 }
 
+#ifdef Q_OS_WIN
+namespace {
+// Windows tells every top-level window when the computer wakes.
+struct WakeFilter : QAbstractNativeEventFilter
+{
+    IslandWindow *window = nullptr;
+    bool nativeEventFilter(const QByteArray &, void *message, qintptr *) override
+    {
+        const MSG *m = static_cast<const MSG *>(message);
+        if (m && m->message == WM_POWERBROADCAST && (m->wParam == PBT_APMRESUMEAUTOMATIC || m->wParam == PBT_APMRESUMESUSPEND) && window)
+            QMetaObject::invokeMethod(window, "woke", Qt::QueuedConnection);
+        return false;
+    }
+};
+}
+#endif
+
+void IslandWindow::woke()
+{
+    // (a moment later: the screens and the graphics card come back one after another)
+    for (const int ms : {1500, 6000})
+        QTimer::singleShot(ms, this, [this] {
+            if (!m_grabbing) {
+                if (!m_view->isVisible())
+                    m_view->show();
+                applyPlacement();
+            }
+            m_view->update();
+        });
+}
+
 IslandWindow::IslandWindow(QQuickView *view, QObject *parent)
     : QObject(parent)
     , m_view(view)
 {
     m_view->setColor(Qt::transparent);
+#ifdef Q_OS_WIN
+    {
+        static WakeFilter filter;
+        filter.window = this;
+        qApp->installNativeEventFilter(&filter);
+    }
+#endif
 #ifdef Q_OS_WIN
     // Tool: no taskbar button. No focus until setKeyboard() asks for it.
     m_view->setFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool | Qt::WindowDoesNotAcceptFocus);
