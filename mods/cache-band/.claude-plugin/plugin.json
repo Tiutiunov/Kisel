@@ -1,7 +1,0 @@
-{
-  "name": "cache-band",
-  "version": "0.2.0",
-  "description": "A graph above the prompt: how much of each response the prompt cache served, and what it holds now",
-  "author": { "name": "Tiutiunov" },
-  "types": "./types/index.d.ts"
-}

@@ -181,16 +181,21 @@ private slots:
         auto list = [](const QJsonArray &a) { return QJsonDocument(a).toJson(); };
         QCOMPARE(ModInstaller::stateFromList("No plugins installed."), QString("none"));
         QCOMPARE(ModInstaller::stateFromList(list({entry("other@elsewhere", true)})), QString("none"));
-        QCOMPARE(ModInstaller::stateFromList(list({entry("kisel-prompts@kisel", true)})), QString("partial"));
-        QCOMPARE(ModInstaller::stateFromList(list({entry("kisel-prompts@kisel", true), entry("cache-band@kisel", false)})), QString("partial"));
-        QCOMPARE(ModInstaller::stateFromList(list({entry("kisel-prompts@kisel", true), entry("cache-band@kisel", true)})), QString("installed"));
-        // an older copy than this Kisel carries: both there, but to be updated
+        QCOMPARE(ModInstaller::stateFromList(list({entry("kisel-prompts@kisel", false)})), QString("none"));
+        QCOMPARE(ModInstaller::stateFromList(list({entry("kisel-prompts@kisel", true)})), QString("installed"));
+        // an older copy than this Kisel carries: there, but to be updated
         auto versioned = [](const QString &id, const QString &v) { return QJsonObject {{"id", id}, {"enabled", true}, {"version", v}}; };
-        const QHash<QString, QString> shipped {{"kisel-prompts", "0.1.1"}, {"cache-band", "0.1.0"}};
-        QCOMPARE(ModInstaller::stateFromList(list({versioned("kisel-prompts@kisel", "0.1.0"), versioned("cache-band@kisel", "0.1.0")}), shipped), QString("outdated"));
-        QCOMPARE(ModInstaller::stateFromList(list({versioned("kisel-prompts@kisel", "0.1.1"), versioned("cache-band@kisel", "0.1.0")}), shipped), QString("installed"));
+        const QHash<QString, QString> shipped {{"kisel-prompts", "0.1.1"}};
+        QCOMPARE(ModInstaller::stateFromList(list({versioned("kisel-prompts@kisel", "0.1.0")}), shipped), QString("outdated"));
+        QCOMPARE(ModInstaller::stateFromList(list({versioned("kisel-prompts@kisel", "0.1.1")}), shipped), QString("installed"));
         // (a warning line printed before the list does not hide it)
-        QCOMPARE(ModInstaller::stateFromList("note: something\n" + list({entry("kisel-prompts@kisel", true), entry("cache-band@kisel", true)})), QString("installed"));
+        QCOMPARE(ModInstaller::stateFromList("note: something\n" + list({entry("kisel-prompts@kisel", true)})), QString("installed"));
+        // the plugin Kisel installed once and ships no more: found in the list by Kisel's own mark, and only by that
+        QCOMPARE(ModInstaller::names(), QStringList {"kisel-prompts"});
+        QCOMPARE(ModInstaller::retiredIn(list({entry("kisel-prompts@kisel", true), entry("cache-band@kisel", true)})), QStringList {"cache-band"});
+        QCOMPARE(ModInstaller::retiredIn(list({entry("cache-band@kisel", false)})), QStringList {"cache-band"});
+        QVERIFY(ModInstaller::retiredIn(list({entry("kisel-prompts@kisel", true), entry("cache-band@elsewhere", true)})).isEmpty());
+        QVERIFY(ModInstaller::retiredIn("No plugins installed.").isEmpty());
     }
 
     void aSessionIsFoundUnderTheNameItsModUses()

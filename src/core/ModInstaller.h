@@ -7,19 +7,24 @@
 
 namespace kisel {
 
-// Installs Kisel's two Claude Code plugins ("mods") for the user: kisel-prompts, which
-// joins a session to Kisel's chat (see PromptRelay), and cache-band. They ship with
-// Kisel, in <install>/mods, which is a Claude Code marketplace of its own.
+// Installs Kisel's Claude Code plugin ("the mod") for the user: kisel-prompts, which
+// joins a session to Kisel's chat (see PromptRelay). It ships with Kisel, in
+// <install>/mods, which is a Claude Code marketplace of its own.
 //
 // Kisel never edits Claude Code's files for this. It runs Claude Code's own command
-// line, the same three commands a person would type, and only on a click:
+// line, the same two commands a person would type, and only on a click:
 //
 //   claude plugin marketplace add <install>/mods
 //   claude plugin install kisel-prompts@kisel --scope user
-//   claude plugin install cache-band@kisel --scope user
 //
-// `commands` is that list as shown in Settings before the click. The plugins load in
+// `commands` is that list as shown in Settings before the click. The plugin loads in
 // sessions started afterwards.
+//
+// One thing is done without a click, once: `retire`. Kisel used to install a second
+// plugin with the first, cache-band, a band of figures about the prompt cache that was
+// never meant for anyone but its author. It ships no more, and Claude Code keeps its
+// own copy of an installed plugin, so a Kisel that finds the copy it installed takes
+// it out again (`claude plugin uninstall cache-band@kisel`).
 class ModInstaller : public QObject
 {
     Q_OBJECT
@@ -44,11 +49,16 @@ public:
     // a newer Kisel brings newer mods, and this hands them over.
     Q_INVOKABLE void update();
 
-    // Pure, unit-tested: what `claude plugin list --json` says about our two.
+    // Takes out what an earlier Kisel installed and this one no longer ships (see above).
+    void retire();
+
+    // Pure, unit-tested: what `claude plugin list --json` says about ours.
     // (`shipped`: the version of each that this Kisel carries; none given, versions are not compared)
     static QString stateFromList(const QByteArray &json, const QHash<QString, QString> &shipped = {});
     QHash<QString, QString> shipped() const;
     static const QStringList &names();
+    // ...and which of the plugins Kisel no longer ships that list still holds
+    static QStringList retiredIn(const QByteArray &json);
 
 signals:
     void changed();
@@ -62,6 +72,7 @@ private:
     QProcess m_proc;
     QList<QStringList> m_steps;
     bool m_listing = false, m_tolerant = false;
+    bool m_retiring = false; // the list was asked for by `retire`
 };
 
 } // namespace kisel

@@ -114,12 +114,9 @@ After that Claude Code calls a tiny `kisel-hook` on every event, which passes it
 
 ### Mods: the chat and the limits
 
-In the same place there is an **Install mods** button. It installs two Claude Code plugins that ship with Kisel:
+In the same place there is an **Install mods** button. It installs the Claude Code plugin `kisel-prompts`, which ships with Kisel: it joins a session to Kisel's chat, prompts in, answers and limits back.
 
-- `kisel-prompts` joins a session to Kisel's chat: prompts in, answers and limits back.
-- `cache-band` shows, above the prompt box in Claude Code, how many tokens sit in the cache.
-
-Kisel runs Claude Code's own `claude plugin ...` commands for this and shows them first, so the `claude` command line has to be installed. The mods load in sessions started after that.
+Kisel runs Claude Code's own `claude plugin ...` commands for this and shows them first, so the `claude` command line has to be installed. The mod loads in sessions started after that.
 
 ## Discord
 

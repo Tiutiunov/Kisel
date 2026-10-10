@@ -1,17 +1,14 @@
 {
   "name": "kisel",
-  "description": "Kisel's Claude Code plugins, as installed with Kisel (Settings installs them from here)",
-  "owner": { "name": "Tiutiunov" },
+  "description": "Kisel's Claude Code plugin, as installed with Kisel (Settings installs it from here)",
+  "owner": {
+    "name": "Tiutiunov"
+  },
   "plugins": [
     {
       "name": "kisel-prompts",
       "source": "./kisel-prompts",
       "description": "Connects a Claude Code session to Kisel: prompts typed in Kisel's chat go to the session, Claude's replies and the account's limits come back"
-    },
-    {
-      "name": "cache-band",
-      "source": "./cache-band",
-      "description": "A line above the prompt: how many tokens the prompt cache holds for this conversation"
     }
   ]
 }

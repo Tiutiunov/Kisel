@@ -207,7 +207,7 @@ Item {
                     }
                 }
 
-                // ---- the mods: Kisel's two plugins for Claude Code ----
+                // ---- the mods: Kisel's plugin for Claude Code ----
                 // (They are what the chat talks to a session through, so they stand where the
                 // API key used to: with them the chat needs no key. Kisel runs Claude Code's own
                 // command line for this, only on the click, and shows the commands first.)
@@ -245,14 +245,14 @@ Item {
                         spacing: 8
                         Repeater {
                             model: [
-                            { head: Tr.t("What they are"), body: Tr.t("Two plugins that Kisel installs into Claude Code. kisel-prompts joins a session to this chat. cache-band adds a line about the prompt cache above the prompt box.") },
+                            { head: Tr.t("What they are"), body: Tr.t("A plugin that Kisel installs into Claude Code. kisel-prompts joins a session to this chat.") },
                             { head: Tr.t("1. You need the claude command"), body: Tr.t("Open a terminal and run: claude --version. If it is not found, install Claude Code's command line first: npm install -g @anthropic-ai/claude-code. The desktop app alone is not enough for the button.") },
-                            { head: Tr.t("2. Press Install mods"), body: Tr.t("Kisel runs the three commands shown under the button. Nothing else on your computer is changed. It takes a few seconds; the line above turns to Installed.") },
+                            { head: Tr.t("2. Press Install mods"), body: Tr.t("Kisel runs the two commands shown under the button. Nothing else on your computer is changed. It takes a few seconds; the line above turns to Installed.") },
                             { head: Tr.t("3. Start a new session"), body: Tr.t("Plugins load when a session starts. Close the Claude Code chat or terminal you had open and start it again.") },
                             { head: Tr.t("4. Write from Kisel"), body: Tr.t("Click the bar, open Chat. Within a couple of seconds the field reads Write to Claude Code. What you send goes to the session as your own prompt; Claude's replies appear here too.") },
                             { head: Tr.t("What else shows up"), body: Tr.t("The rings in the chat are your limits: the five-hour window, the week, and how full the session's context is. Miku holds Claude's little one there.") },
                             { head: Tr.t("If the field still says Message Claude"), body: Tr.t("No session is listening. Check that the session was started after installing, and that Kisel sees it (Miku reacts when Claude works). The session and Kisel must run under the same Windows user.") },
-                            { head: Tr.t("Doing it by hand"), body: Tr.t("The same three commands work in any terminal. To take the mods out: Remove mods here, or claude plugin uninstall kisel-prompts@kisel and cache-band@kisel.") },
+                            { head: Tr.t("Doing it by hand"), body: Tr.t("The same two commands work in any terminal. To take the mod out: Remove mods here, or claude plugin uninstall kisel-prompts@kisel.") },
                             { head: Tr.t("What it can and cannot do"), body: Tr.t("It only passes text: your prompts in, Claude's words and the limit figures out, through a folder in your home folder (.kisel, inbox). It never answers a permission for you.") }
                             ]
                             Column {
@@ -312,7 +312,7 @@ Item {
                     width: parent.width
                     wrapMode: Text.Wrap
                     color: Theme.inkFaint; font.family: Theme.sans; font.pixelSize: 11
-                    text: Tr.t("Two plugins for Claude Code. One joins your session to the chat here: what you write goes to it as your prompt, and Claude's replies and your limits come back. The other shows the prompt cache above the prompt. They load in sessions started after this.")
+                    text: Tr.t("A plugin for Claude Code. It joins your session to the chat here: what you write goes to it as your prompt, and Claude's replies and your limits come back. It loads in sessions started after this.")
                 }
                 Column { // the commands, as they will be run
                     visible: Mods.state === "none" || Mods.state === "partial" || Mods.state === "failed"

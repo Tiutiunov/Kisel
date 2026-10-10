@@ -366,6 +366,9 @@ int install(std::wstring dir)
         return 1;
     }
 
+    // (a plugin earlier versions carried and this one does not: its folder is not left lying there)
+    if (exists(dir + L"\\mods\\cache-band"))
+        run(L"cmd.exe /c rmdir /s /q \"" + dir + L"\\mods\\cache-band\"", 15000);
     if (g_unpackOnly)
         return 0;
     // the uninstaller is this program without its load

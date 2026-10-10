@@ -215,6 +215,9 @@ int main(int argc, char *argv[])
                                         : paths::inboxDir());
     // (installed: <prefix>/bin/kisel.exe and <prefix>/mods; from a build tree there are none beside it)
     ModInstaller mods(QCoreApplication::applicationDirPath() + QStringLiteral("/../mods"));
+    // (the plugin Kisel once installed and ships no more is taken out again: see ModInstaller.h)
+    if (!cli.isSet("grab"))
+        QTimer::singleShot(45000, &mods, &ModInstaller::retire);
     QuickAsk quick; // (the chat's temporary talk: one `claude -p` a question, see QuickAsk.h)
     DiscordPresence discord(&prefs, &hub, !cli.isSet("grab")); // (off unless switched on in Settings)
     Media media;

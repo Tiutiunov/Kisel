@@ -16,8 +16,30 @@ const QString kMarket = QStringLiteral("kisel");
 
 const QStringList &ModInstaller::names()
 {
-    static const QStringList n {QStringLiteral("kisel-prompts"), QStringLiteral("cache-band")};
+    static const QStringList n {QStringLiteral("kisel-prompts")};
     return n;
+}
+
+QStringList ModInstaller::retiredIn(const QByteArray &json)
+{
+    static const QStringList gone {QStringLiteral("cache-band")};
+    const QJsonDocument doc = QJsonDocument::fromJson(json.mid(qMax(0, int(json.indexOf('[')))));
+    QStringList found;
+    for (const QJsonValue &v : doc.array())
+        for (const QString &n : gone)
+            if (v.toObject().value("id").toString() == n + QLatin1Char('@') + kMarket)
+                found.append(n);
+    return found;
+}
+
+void ModInstaller::retire()
+{
+    if (m_proc.state() != QProcess::NotRunning || QStandardPaths::findExecutable(QStringLiteral("claude")).isEmpty())
+        return;
+    m_retiring = true;
+    m_listing = true;
+    m_steps = {{QStringLiteral("plugin"), QStringLiteral("list"), QStringLiteral("--json")}};
+    next();
 }
 
 ModInstaller::ModInstaller(const QString &modsDir, QObject *parent)
@@ -26,6 +48,16 @@ ModInstaller::ModInstaller(const QString &modsDir, QObject *parent)
     m_proc.setProcessChannelMode(QProcess::MergedChannels);
     connect(&m_proc, &QProcess::finished, this, [this](int code, QProcess::ExitStatus status) {
         const QByteArray out = m_proc.readAll();
+        if (m_listing && m_retiring) {
+            m_listing = false;
+            m_retiring = false;
+            m_steps.clear();
+            if (status == QProcess::NormalExit && code == 0)
+                for (const QString &n : retiredIn(out))
+                    m_steps.append({QStringLiteral("plugin"), QStringLiteral("uninstall"), n + QLatin1Char('@') + kMarket});
+            next(); // (quietly: nothing in Settings changes for it)
+            return;
+        }
         if (m_listing) {
             m_listing = false;
             set(status == QProcess::NormalExit && code == 0 ? stateFromList(out, shipped()) : QStringLiteral("noclaude"));
@@ -45,6 +77,10 @@ ModInstaller::ModInstaller(const QString &modsDir, QObject *parent)
             return;
         m_steps.clear();
         m_listing = false;
+        if (m_retiring) {
+            m_retiring = false;
+            return;
+        }
         set(QStringLiteral("noclaude"));
     });
 }
@@ -137,7 +173,8 @@ void ModInstaller::next()
         return;
     }
     const QStringList args = m_steps.takeFirst();
-    m_tolerant = args.contains(QStringLiteral("marketplace")) || args.contains(QStringLiteral("update"));
+    m_tolerant = args.contains(QStringLiteral("marketplace")) || args.contains(QStringLiteral("update"))
+              || (args.contains(QStringLiteral("uninstall")) && m_state != QLatin1String("working")); // (a retiring that fails is let be)
 #ifdef Q_OS_WIN
     // (npm installs `claude` as a .cmd: that is run by the command interpreter, not by itself)
     m_proc.start(QStringLiteral("cmd.exe"), QStringList {QStringLiteral("/c"), QStringLiteral("claude")} + args);
