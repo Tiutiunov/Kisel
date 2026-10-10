@@ -1,0 +1,70 @@
+# Builds Kisel for ARM processors, on one of GitHub's own ARM machines, and runs the
+# tests there. What comes out is `payload.zip`: the application as the installer
+# carries it. The installer itself is made on the developer's machine, which builds
+# for ordinary processors and puts this zip in beside its own
+# (-DKISEL_ARM64_PAYLOAD=<payload.zip>: see packaging/windows/make-installer.cmake).
+#
+# It runs for the public repository only: the other remote this branch is pushed to is
+# somebody else's, and must not be made to build anything.
+name: ARM64 build
+
+on:
+  push:
+    branches: [windows]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: arm64-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    if: github.repository == 'Tiutiunov/Kisel'
+    runs-on: windows-11-arm
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Qt for ARM64
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.10.3'
+          host: windows_arm64
+          target: desktop
+          arch: win64_msvc2022_arm64
+          cache: true
+
+      - name: The compiler's environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: arm64
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Tests
+        run: ctest --test-dir build --output-on-failure
+
+      - name: The application, as the installer carries it
+        run: cmake --build build --target payload
+
+      - name: What was built, and for which processor
+        shell: pwsh
+        run: |
+          Get-Item build/installer/payload.zip | Select-Object Name, Length
+          $bytes = [System.IO.File]::ReadAllBytes("build/installer/stage/bin/kisel.exe")
+          $pe = [BitConverter]::ToInt32($bytes, 0x3c)
+          "machine: 0x{0:X4} (0xAA64 is ARM64)" -f [BitConverter]::ToUInt16($bytes, $pe + 4)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kisel-arm64-payload
+          path: build/installer/payload.zip
+          if-no-files-found: error
+          retention-days: 30

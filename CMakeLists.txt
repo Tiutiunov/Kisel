@@ -214,12 +214,22 @@ if(WIN32)
     add_executable(kisel-setup WIN32 packaging/windows/setup.cpp packaging/windows/kisel.rc packaging/windows/setup.manifest)
     target_compile_definitions(kisel-setup PRIVATE KISEL_VERSION="${PROJECT_VERSION}")
     target_compile_options(kisel-setup PRIVATE ${KISEL_WARNINGS})
-    target_link_libraries(kisel-setup PRIVATE shell32 ole32 advapi32 user32 uuid)
+    target_link_libraries(kisel-setup PRIVATE shell32 ole32 advapi32 user32 uuid comctl32)
     # (it must run where nothing is installed yet: the runtime is linked in)
     set_target_properties(kisel-setup PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    # One installer for both kinds of machine: -DKISEL_ARM64_PAYLOAD=<payload.zip of a build
+    # for ARM processors> puts that build in beside this one (see make-installer.cmake).
+    # Such a build makes its zip with the `payload` target.
+    set(KISEL_ARM64_PAYLOAD "" CACHE FILEPATH "The payload.zip of a build for ARM processors, to carry in the installer")
     add_custom_target(installer
         COMMAND ${CMAKE_COMMAND} -DBUILD_DIR=${CMAKE_BINARY_DIR} -DSTUB=$<TARGET_FILE:kisel-setup> -DVERSION=${PROJECT_VERSION} -DCONFIG=$<CONFIG>
+                -DARM_ZIP=${KISEL_ARM64_PAYLOAD}
                 -P ${CMAKE_SOURCE_DIR}/packaging/windows/make-installer.cmake
         DEPENDS kisel kisel-hook kisel-setup
+        VERBATIM)
+    add_custom_target(payload
+        COMMAND ${CMAKE_COMMAND} -DBUILD_DIR=${CMAKE_BINARY_DIR} -DVERSION=${PROJECT_VERSION} -DCONFIG=$<CONFIG> -DONLY_ZIP=ON
+                -P ${CMAKE_SOURCE_DIR}/packaging/windows/make-installer.cmake
+        DEPENDS kisel kisel-hook
         VERBATIM)
 endif()

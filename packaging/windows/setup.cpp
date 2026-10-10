@@ -11,6 +11,14 @@
 //   KiselSetup.exe /SILENT         asks nothing (this is how Kisel updates itself)
 //   KiselSetup.exe /DIR=<folder>   installs there
 //   KiselSetup.exe /UNPACK         the files and nothing else (for trying the installer out)
+//   KiselSetup.exe /ARCH=arm64     the build for ARM processors (or /ARCH=x64), whatever it would pick
+//
+// One installer serves both kinds of machine. It may carry two zips, the application
+// built for ordinary processors and the one built for ARM ones, and after them a line
+// saying how long each is. On an ARM machine it installs the ARM one; asked aloud, it
+// offers the choice there (the ordinary build runs on ARM too, translated by Windows:
+// slower and heavier, but some may want it). What was chosen is remembered, so an
+// update done without asking installs the same kind again.
 //   uninstall.exe /UNINSTALL       removes what was installed; settings and saved keys stay
 //
 // Installing over a running Kisel closes it first, and starts the new one after.
@@ -23,6 +31,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
+#include <commctrl.h>
 #include <shellapi.h>
 #include <shlobj.h>
 #include <shobjidl.h>
@@ -45,6 +54,7 @@ const wchar_t *const kUninstallKey = L"Software\\Microsoft\\Windows\\CurrentVers
 const wchar_t *const kParts[] = {L"bin", L"plugins", L"qml", L"translations", L"licenses", L"mods"}; // what the zip holds
 
 bool g_silent = false;
+std::wstring g_arch; // /ARCH=: "x64", "arm64", or empty for "whatever suits"
 bool g_unpackOnly = false; // /UNPACK: the files and nothing else (no shortcut, no "Apps" entry, no start): for trying the installer out
 
 void say(const std::wstring &text, UINT icon = MB_ICONINFORMATION)
@@ -293,6 +303,85 @@ void regSet(HKEY key, const wchar_t *name, const std::wstring &value)
 
 std::wstring startMenuLink() { return knownFolder(FOLDERID_Programs) + L"\\Kisel.lnk"; }
 
+// Is this computer's own processor an ARM one? (This program is built for ordinary
+// processors and runs on either.) KISEL_SETUP_PRETEND_ARM=1 says yes, for trying out.
+bool onArm()
+{
+    wchar_t pretend[4];
+    if (GetEnvironmentVariableW(L"KISEL_SETUP_PRETEND_ARM", pretend, 4) > 0)
+        return true;
+    using Fn = BOOL (WINAPI *)(HANDLE, USHORT *, USHORT *);
+    const auto ask = reinterpret_cast<Fn>(reinterpret_cast<void *>(GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "IsWow64Process2")));
+    USHORT process = 0, machine = 0;
+    return ask && ask(GetCurrentProcess(), &process, &machine) && machine == 0xAA64; // IMAGE_FILE_MACHINE_ARM64
+}
+
+// The two zips' lengths, from the line at the very end of the file:
+// "KISELPK2" + sixteen hex digits (the ordinary build's zip) + sixteen more (the ARM one's).
+// False where there is no such line: then all that follows the program is one zip.
+bool twoLoads(HANDLE file, ULONGLONG size, ULONGLONG *plain, ULONGLONG *arm)
+{
+    char tail[40] = {};
+    LARGE_INTEGER at;
+    DWORD got = 0;
+    if (size < 40)
+        return false;
+    at.QuadPart = LONGLONG(size - 40);
+    if (!SetFilePointerEx(file, at, nullptr, FILE_BEGIN) || !ReadFile(file, tail, 40, &got, nullptr) || got != 40
+        || memcmp(tail, "KISELPK2", 8) != 0)
+        return false;
+    const auto hex = [&tail](int from, ULONGLONG *out) {
+        ULONGLONG v = 0;
+        for (int i = from; i < from + 16; ++i) {
+            const char c = tail[i];
+            const int d = c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1;
+            if (d < 0)
+                return false;
+            v = v * 16 + ULONGLONG(d);
+        }
+        *out = v;
+        return true;
+    };
+    return hex(8, plain) && hex(24, arm);
+}
+
+// Asked aloud on an ARM machine: which build, and where. Returns false for "cancel".
+bool askOnArm(std::wstring *dir, std::wstring *arch)
+{
+    const std::wstring heading = std::wstring(L"Install Kisel ") + kVersion;
+    const std::wstring where = L"Into this folder:\n" + *dir;
+    const TASKDIALOG_BUTTON kinds[] = {
+        {101, L"For this computer's ARM processor (recommended)"},
+        {102, L"For ordinary processors (x64). It runs here through Windows' translation: slower, and it takes more memory"},
+    };
+    const TASKDIALOG_BUTTON keys[] = {{201, L"Install"}, {202, L"Choose another folder..."}};
+    TASKDIALOGCONFIG c {};
+    c.cbSize = sizeof c;
+    c.dwFlags = TDF_ALLOW_DIALOG_CANCELLATION | TDF_POSITION_RELATIVE_TO_WINDOW;
+    c.dwCommonButtons = TDCBF_CANCEL_BUTTON;
+    c.pszWindowTitle = kTitle;
+    c.pszMainIcon = TD_INFORMATION_ICON;
+    c.pszMainInstruction = heading.c_str();
+    c.pszContent = where.c_str();
+    c.cRadioButtons = 2;
+    c.pRadioButtons = kinds;
+    c.nDefaultRadioButton = *arch == L"x64" ? 102 : 101;
+    c.cButtons = 2;
+    c.pButtons = keys;
+    c.nDefaultButton = 201;
+    int key = 0, kind = 0;
+    if (FAILED(TaskDialogIndirect(&c, &key, &kind, nullptr))) {
+        // (no such dialog on this Windows: the plain question, and the ARM build)
+        const std::wstring q = heading + L" here?\n\n" + *dir + L"\n\nYes: install here.   No: choose another folder.";
+        const int a = MessageBoxW(nullptr, q.c_str(), kTitle, MB_YESNOCANCEL | MB_ICONQUESTION | MB_SETFOREGROUND);
+        return a == IDYES || (a == IDNO && pickFolder(dir));
+    }
+    if (key != 201 && key != 202)
+        return false;
+    *arch = kind == 102 ? L"x64" : L"arm64";
+    return key == 201 || pickFolder(dir);
+}
+
 int install(std::wstring dir)
 {
     const std::wstring self = selfPath();
@@ -302,11 +391,31 @@ int install(std::wstring dir)
     const ULONGLONG end = imageEnd(f);
     LARGE_INTEGER size {};
     GetFileSizeEx(f, &size);
+    // one zip, or two and the line that says how long each is
+    ULONGLONG plainLen = 0, armLen = 0;
+    const bool two = end != 0 && twoLoads(f, ULONGLONG(size.QuadPart), &plainLen, &armLen)
+                     && end + plainLen + armLen + 40 == ULONGLONG(size.QuadPart) && plainLen > 22;
     CloseHandle(f);
     if (end == 0 || ULONGLONG(size.QuadPart) <= end + 22) {
         say(L"This installer is incomplete: it carries no application.", MB_ICONERROR);
         return 1;
     }
+    const bool hasArm = two && armLen > 22;
+    const bool arm = onArm();
+    if (g_arch == L"arm64" && (!hasArm || !arm)) {
+        say(!hasArm ? L"This installer carries no build for ARM processors." : L"This computer's processor is not an ARM one: the ARM build cannot run here.", MB_ICONERROR);
+        return 1;
+    }
+    // which build: as told on the command line; else as chosen the last time; else the one made for this machine
+    std::wstring arch = g_arch;
+    if (arch.empty() && arm && hasArm) {
+        wchar_t was[16];
+        DWORD n = sizeof was;
+        if (RegGetValueW(HKEY_CURRENT_USER, kUninstallKey, L"KiselArch", RRF_RT_REG_SZ, nullptr, was, &n) == ERROR_SUCCESS && wcscmp(was, L"x64") == 0)
+            arch = L"x64";
+    }
+    if (arch.empty())
+        arch = arm && hasArm ? L"arm64" : L"x64";
 
     if (dir.empty()) {
         // (an earlier installation is updated where it is)
@@ -316,7 +425,10 @@ int install(std::wstring dir)
             dir = trimSlash(was);
         else
             dir = knownFolder(FOLDERID_LocalAppData) + L"\\Programs\\Kisel";
-        if (!g_silent) {
+        if (!g_silent && arm && hasArm && g_arch.empty()) {
+            if (!askOnArm(&dir, &arch))
+                return 2;
+        } else if (!g_silent) {
             const std::wstring q = std::wstring(L"Install Kisel ") + kVersion + L" here?\n\n" + dir + L"\n\nYes: install here.   No: choose another folder.";
             const int a = MessageBoxW(nullptr, q.c_str(), kTitle, MB_YESNOCANCEL | MB_ICONQUESTION | MB_SETFOREGROUND);
             if (a == IDCANCEL || (a == IDNO && !pickFolder(&dir)))
@@ -335,7 +447,7 @@ int install(std::wstring dir)
     wchar_t tmp[MAX_PATH + 1];
     GetTempPathW(MAX_PATH, tmp);
     const std::wstring zip = std::wstring(tmp) + L"kisel-payload-" + std::to_wstring(GetCurrentProcessId()) + L".zip";
-    if (!copyPart(zip, end, 0)) {
+    if (!copyPart(zip, arch == L"arm64" ? end + plainLen : end, !two ? 0 : arch == L"arm64" ? armLen : plainLen)) {
         say(L"Could not write to the temporary folder.", MB_ICONERROR);
         return 1;
     }
@@ -380,6 +492,7 @@ int install(std::wstring dir)
         regSet(key, L"DisplayVersion", kVersion);
         regSet(key, L"Publisher", L"Kisel");
         regSet(key, L"InstallLocation", dir);
+        regSet(key, L"KiselArch", arch); // (the next update, done without asking, installs the same kind)
         regSet(key, L"DisplayIcon", dir + L"\\bin\\kisel.exe");
         regSet(key, L"UninstallString", L"\"" + dir + L"\\uninstall.exe\" /UNINSTALL");
         regSet(key, L"QuietUninstallString", L"\"" + dir + L"\\uninstall.exe\" /UNINSTALL /SILENT");
@@ -452,6 +565,10 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
             g_unpackOnly = true;
         else if (_wcsicmp(a.c_str(), L"/UNINSTALL") == 0)
             remove = true;
+        else if (_wcsicmp(a.c_str(), L"/ARCH=arm64") == 0)
+            g_arch = L"arm64";
+        else if (_wcsicmp(a.c_str(), L"/ARCH=x64") == 0)
+            g_arch = L"x64";
         else if (_wcsnicmp(a.c_str(), L"/DIR=", 5) == 0)
             dir = trimSlash(a.substr(5));
     }
