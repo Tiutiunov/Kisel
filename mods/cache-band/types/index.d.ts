@@ -10,6 +10,10 @@ export type CacheCount = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'cache-band': { last: CacheCount | null }
+    'cache-band': {
+      last: CacheCount | null
+      /** of each of the last responses' input, the part the cache served (0..100), newest last */
+      history: number[]
+    }
   }
 }

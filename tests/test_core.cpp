@@ -8,6 +8,7 @@
 #include "Preferences.h"
 #include "PromptRelay.h"
 #include "DiscordPresence.h"
+#include "PartNames.h"
 #include "HookInstaller.h"
 #include "HookServer.h"
 #include "ModInstaller.h"
@@ -30,6 +31,21 @@ class CoreTest : public QObject
     Q_OBJECT
 
 private slots:
+    void partNamesAreCutToWhatAPersonCallsThem()
+    {
+        QCOMPARE(shortPartName("AMD Ryzen 5 5600H with Radeon Graphics"), QString("Ryzen 5 5600H"));
+        QCOMPARE(shortPartName("12th Gen Intel(R) Core(TM) i7-12700H"), QString("Core i7-12700H"));
+        QCOMPARE(shortPartName("Intel(R) Core(TM) i5-9400F CPU @ 2.90GHz"), QString("Core i5-9400F"));
+        QCOMPARE(shortPartName("AMD Ryzen 7 5800X 8-Core Processor"), QString("Ryzen 7 5800X"));
+        QCOMPARE(shortPartName("Intel(R) Core(TM) Ultra 7 155H"), QString("Core Ultra 7 155H"));
+        QCOMPARE(shortPartName("NVIDIA GeForce RTX 3050 Laptop GPU"), QString("RTX 3050 Laptop"));
+        QCOMPARE(shortPartName("NVIDIA GeForce GTX 1660 SUPER"), QString("GTX 1660 SUPER"));
+        QCOMPARE(shortPartName("AMD Radeon RX 6700 XT"), QString("Radeon RX 6700 XT"));
+        QCOMPARE(shortPartName("Intel(R) UHD Graphics 630"), QString("UHD Graphics 630"));
+        QCOMPARE(shortPartName("  Some   Odd Chip "), QString("Some Odd Chip"));
+        QCOMPARE(shortPartName("AMD"), QString("AMD")); // (nothing left of it: as it came)
+    }
+
     void ruleKeyForPlainCommandUsesFirstTwoWords()
     {
         QCOMPARE(AgentHub::ruleKey("Bash", {{"command", "npm test -- --watch"}}), QString("Bash:npm test"));

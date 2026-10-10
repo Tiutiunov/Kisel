@@ -1,10 +1,15 @@
 #include "SysMon.h"
 
+#include "PartNames.h"
+
 #ifdef Q_OS_WIN
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QHash>
+#include <QSettings>
+#include <QStorageInfo>
+#include <QThread>
 #include <qt_windows.h>
 #include <pdh.h>
 #include <pdhmsg.h>
@@ -13,7 +18,10 @@
 #include <vector>
 #else
 #include <QFile>
+#include <QStorageInfo>
 #endif
+
+#include <QVariantMap>
 
 namespace kisel {
 
@@ -24,6 +32,10 @@ SysMon::SysMon(QObject *parent)
         m_history.append(0.0);
     readCpu(m_lastIdle, m_lastTotal);
 #ifdef Q_OS_WIN
+    m_cpuThreads = QThread::idealThreadCount();
+    m_cpuName = QSettings(QStringLiteral("HKEY_LOCAL_MACHINE\\HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0"), QSettings::NativeFormat)
+                    .value(QStringLiteral("ProcessorNameString")).toString().simplified();
+    m_cpuName = shortPartName(m_cpuName);
     for (const char *var : {"ProgramW6432", "ProgramFiles", "ProgramFiles(x86)"}) {
         const QString path = qEnvironmentVariable(var) + QStringLiteral("/Mem Reduct/memreduct.exe");
         if (QFileInfo::exists(path)) { m_cleaner = QDir::toNativeSeparators(path); break; }
@@ -67,6 +79,169 @@ SysMon::~SysMon()
 #ifdef Q_OS_WIN
     if (m_gpuQuery)
         PdhCloseQuery(static_cast<PDH_HQUERY>(m_gpuQuery));
+    if (m_cpuQuery)
+        PdhCloseQuery(static_cast<PDH_HQUERY>(m_cpuQuery));
+    if (m_acpi)
+        CloseHandle(static_cast<HANDLE>(m_acpi));
+    if (m_nvml) {
+        if (const auto stop = reinterpret_cast<int (*)()>(GetProcAddress(static_cast<HMODULE>(m_nvml), "nvmlShutdown")))
+            stop();
+        FreeLibrary(static_cast<HMODULE>(m_nvml));
+    }
+#endif
+}
+
+void SysMon::setWatching(bool on)
+{
+    if (on == m_watching)
+        return;
+    m_watching = on;
+    if (on) {
+        m_diskAge = 1000; // (the drives at once)
+        QTimer::singleShot(0, this, &SysMon::read);
+    }
+    emit changed();
+}
+
+// The fixed drives and how full each is. Asked now and then: it changes slowly.
+void SysMon::readDisks()
+{
+    QVariantList out;
+    const double gb = 1024.0 * 1024.0 * 1024.0;
+    // KISEL_DEMO_DISKS=<n>: n made-up drives, to look at a machine with many (development)
+    if (const int n = qEnvironmentVariableIntValue("KISEL_DEMO_DISKS"); n > 0) {
+        const double used[] = {0.98, 0.74, 0.35, 0.91, 0.12, 0.6, 0.83, 0.5};
+        for (int i = 0; i < qMin(n, 8); ++i) {
+            const double total = i == 0 ? 476 : i % 2 ? 931 : 1863;
+            out.append(QVariantMap {{QStringLiteral("name"), QString(QChar('C' + i)) + QLatin1Char(':')}, {QStringLiteral("used"), used[i]},
+                                    {QStringLiteral("freeGb"), total * (1 - used[i])}, {QStringLiteral("totalGb"), total}});
+        }
+        m_disks = out;
+        return;
+    }
+    for (const QStorageInfo &v : QStorageInfo::mountedVolumes()) {
+        if (!v.isValid() || !v.isReady() || v.bytesTotal() <= 0)
+            continue;
+#ifdef Q_OS_WIN
+        const QString root = QDir::toNativeSeparators(v.rootPath());
+        if (GetDriveTypeW(reinterpret_cast<LPCWSTR>(root.utf16())) != DRIVE_FIXED)
+            continue;
+        const QString name = root.left(2);
+#else
+        if (v.isReadOnly() || !v.device().startsWith("/dev/"))
+            continue;
+        const QString name = v.rootPath();
+#endif
+        out.append(QVariantMap {{QStringLiteral("name"), name},
+                                {QStringLiteral("used"), 1.0 - double(v.bytesAvailable()) / double(v.bytesTotal())},
+                                {QStringLiteral("freeGb"), double(v.bytesAvailable()) / gb},
+                                {QStringLiteral("totalGb"), double(v.bytesTotal()) / gb}});
+    }
+    m_disks = out;
+}
+
+// The fans and the temperatures (see SysMon.h for where they come from).
+void SysMon::readMachine()
+{
+#ifdef Q_OS_WIN
+    // ASUS laptops: \\.\ATKACPI answers "what is the state of device N" (the method DSTS).
+    // A value under 65536 means "no such device here".
+    if (!m_acpiTried) {
+        m_acpiTried = true;
+        const HANDLE h = CreateFileW(L"\\\\.\\ATKACPI", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
+                                     OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (h != INVALID_HANDLE_VALUE)
+            m_acpi = h;
+    }
+    const auto state = [this](quint32 device) -> int {
+        if (!m_acpi)
+            return -1;
+        const quint32 in[4] = {0x53545344 /* "DSTS" */, 8, device, 0};
+        quint32 out[4] = {0, 0, 0, 0};
+        DWORD got = 0;
+        if (!DeviceIoControl(static_cast<HANDLE>(m_acpi), 0x0022240C, const_cast<quint32 *>(in), sizeof in, out, sizeof out, &got, nullptr))
+            return -1;
+        return out[0] >= 65536 ? int(out[0] - 65536) : -1;
+    };
+    const auto fan = [&state](quint32 device) { const int v = state(device); return v >= 0 && v <= 150 ? v * 100 : -1; };
+    const auto temp = [&state](quint32 device) { const int v = state(device); return v > 0 && v < 130 ? v : -1; };
+    m_cpuFan = fan(0x00110013);
+    m_gpuFan = fan(0x00110014);
+    m_cpuTemp = temp(0x00120094);
+    m_gpuTemp = temp(0x00120097);
+
+    // The processor's clock: its nominal one, times how much of it Windows says is in
+    // use (over 100 % when it is boosted)
+    if (!m_cpuQueryTried) {
+        m_cpuQueryTried = true;
+        PDH_HQUERY q = nullptr;
+        PDH_HCOUNTER base = nullptr, pace = nullptr;
+        if (PdhOpenQueryW(nullptr, 0, &q) == ERROR_SUCCESS) {
+            if (PdhAddEnglishCounterW(q, L"\\Processor Information(_Total)\\Processor Frequency", 0, &base) == ERROR_SUCCESS
+                && PdhAddEnglishCounterW(q, L"\\Processor Information(_Total)\\% Processor Performance", 0, &pace) == ERROR_SUCCESS) {
+                m_cpuQuery = q;
+                m_cpuBase = base;
+                m_cpuPace = pace;
+                PdhCollectQueryData(q);
+            } else {
+                PdhCloseQuery(q);
+            }
+        }
+    }
+    if (m_cpuQuery && PdhCollectQueryData(static_cast<PDH_HQUERY>(m_cpuQuery)) == ERROR_SUCCESS) {
+        PDH_FMT_COUNTERVALUE base {}, pace {};
+        if (PdhGetFormattedCounterValue(static_cast<PDH_HCOUNTER>(m_cpuBase), PDH_FMT_DOUBLE, nullptr, &base) == ERROR_SUCCESS
+            && PdhGetFormattedCounterValue(static_cast<PDH_HCOUNTER>(m_cpuPace), PDH_FMT_DOUBLE, nullptr, &pace) == ERROR_SUCCESS
+            && base.doubleValue > 100 && pace.doubleValue > 1)
+            m_cpuMhz = int(base.doubleValue * pace.doubleValue / 100.0 + 0.5);
+    }
+
+    // NVIDIA: its own library, from the system folder and nowhere else
+    {
+        if (!m_nvmlTried) {
+            m_nvmlTried = true;
+            if (const HMODULE lib = LoadLibraryExW(L"nvml.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32)) {
+                const auto init = reinterpret_cast<int (*)()>(GetProcAddress(lib, "nvmlInit_v2"));
+                const auto card = reinterpret_cast<int (*)(unsigned, void **)>(GetProcAddress(lib, "nvmlDeviceGetHandleByIndex_v2"));
+                void *first = nullptr;
+                if (init && card && GetProcAddress(lib, "nvmlDeviceGetTemperature") && init() == 0 && card(0, &first) == 0 && first) {
+                    m_nvml = lib;
+                    m_nvmlCard = first;
+                    char name[96] = {0};
+                    const auto named = reinterpret_cast<int (*)(void *, char *, unsigned)>(GetProcAddress(lib, "nvmlDeviceGetName"));
+                    if (named && named(first, name, sizeof name - 1) == 0)
+                        m_gpuName = shortPartName(QString::fromLatin1(name));
+                } else {
+                    FreeLibrary(lib);
+                }
+            }
+        }
+        if (m_nvml) {
+            const auto read = reinterpret_cast<int (*)(void *, int, unsigned *)>(GetProcAddress(static_cast<HMODULE>(m_nvml), "nvmlDeviceGetTemperature"));
+            unsigned t = 0;
+            if (m_gpuTemp < 0 && read && read(m_nvmlCard, 0, &t) == 0 && t > 0 && t < 130)
+                m_gpuTemp = int(t);
+            const HMODULE lib = static_cast<HMODULE>(m_nvml);
+            // one unsigned figure about the card, by the name of the function that gives it
+            const auto figure = [this, lib](const char *fn) -> qint64 {
+                const auto f = reinterpret_cast<int (*)(void *, unsigned *)>(GetProcAddress(lib, fn));
+                unsigned v = 0;
+                return f && f(m_nvmlCard, &v) == 0 ? qint64(v) : -1;
+            };
+            unsigned mhz = 0;
+            const auto clock = reinterpret_cast<int (*)(void *, int, unsigned *)>(GetProcAddress(lib, "nvmlDeviceGetClockInfo"));
+            m_gpuMhz = clock && clock(m_nvmlCard, 0, &mhz) == 0 && mhz > 0 ? int(mhz) : -1;
+            const qint64 mw = figure("nvmlDeviceGetPowerUsage"), cap = figure("nvmlDeviceGetEnforcedPowerLimit");
+            m_gpuWatts = mw >= 0 ? mw / 1000.0 : -1;
+            m_gpuWattsMax = cap > 0 ? cap / 1000.0 : -1;
+            struct { quint64 total, free, used; } mem {0, 0, 0};
+            const auto room = reinterpret_cast<int (*)(void *, void *)>(GetProcAddress(lib, "nvmlDeviceGetMemoryInfo"));
+            if (room && room(m_nvmlCard, &mem) == 0 && mem.total > 0) {
+                m_gpuMemUsed = int(mem.used >> 20);
+                m_gpuMemTotal = int(mem.total >> 20);
+            }
+        }
+    }
 #endif
 }
 
@@ -298,6 +473,14 @@ void SysMon::read()
         }
     }
 #endif
+
+    if (m_watching) {
+        readMachine();
+        if (++m_diskAge >= 20) {
+            m_diskAge = 0;
+            readDisks();
+        }
+    }
 
     m_history.removeFirst();
     m_history.append(m_cpu);

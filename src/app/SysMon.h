@@ -37,6 +37,36 @@ class SysMon : public QObject
     Q_PROPERTY(bool hasGpu READ hasGpu NOTIFY changed)        // the system reports the graphics card's load
     Q_PROPERTY(qreal gpu READ gpu NOTIFY changed)             // 0..1: the busiest card's 3D engine
     Q_PROPERTY(QVariantList history READ history NOTIFY changed) // the last 36 readings of cpu, oldest first
+    // More about the machine, read only while someone is looking (`watching`: Teto's card
+    // is open). Each is -1 where this machine does not tell an ordinary program:
+    //   the fans and the processor's temperature come from the laptop's own ACPI device,
+    //   which so far means ASUS laptops (status queries only, nothing is ever set);
+    //   the graphics card's temperature comes from NVIDIA's library where there is one.
+    // Nothing here needs administrator rights or a driver of Kisel's own. The NVIDIA card
+    // of a laptop sleeps when idle and a question wakes it, which is why none is asked
+    // while the card is shut.
+    Q_PROPERTY(bool watching READ watching WRITE setWatching NOTIFY changed)
+    Q_PROPERTY(int cpuFan READ cpuFan NOTIFY changed)   // turns a minute
+    Q_PROPERTY(int gpuFan READ gpuFan NOTIFY changed)
+    Q_PROPERTY(int cpuTemp READ cpuTemp NOTIFY changed) // degrees Celsius
+    Q_PROPERTY(int gpuTemp READ gpuTemp NOTIFY changed)
+    // What else is told, for the list a ring shows when the pointer is on it (-1 or
+    // empty where it is not told). The processor's clock is Windows' own counter. The
+    // graphics card's clock, memory and power are NVIDIA's (`gpuWattsMax` is the limit
+    // the card is allowed, its TGP). The voltages are not here: no ordinary program
+    // can read them, only a driver with the system's own rights.
+    // (the names are the short ones a person uses: see PartNames.h)
+    Q_PROPERTY(QString cpuName READ cpuName CONSTANT)
+    Q_PROPERTY(int cpuThreads READ cpuThreads CONSTANT)
+    Q_PROPERTY(int cpuMhz READ cpuMhz NOTIFY changed)
+    Q_PROPERTY(QString gpuName READ gpuName NOTIFY changed)
+    Q_PROPERTY(int gpuMhz READ gpuMhz NOTIFY changed)
+    Q_PROPERTY(int gpuMemUsedMb READ gpuMemUsedMb NOTIFY changed)
+    Q_PROPERTY(int gpuMemTotalMb READ gpuMemTotalMb NOTIFY changed)
+    Q_PROPERTY(qreal gpuWatts READ gpuWatts NOTIFY changed)
+    Q_PROPERTY(qreal gpuWattsMax READ gpuWattsMax NOTIFY changed)
+    // The fixed drives: [{name: "C:", used: 0..1, freeGb, totalGb}], by letter
+    Q_PROPERTY(QVariantList disks READ disks NOTIFY changed)
     // something is wrong enough to say so: the processor flat out for several readings, or
     // the memory nearly full (a graphics card flat out is a game running, not a worry)
     Q_PROPERTY(bool strain READ strain NOTIFY changed)
@@ -58,6 +88,22 @@ public:
     bool hasGpu() const { return m_hasGpu; }
     qreal gpu() const { return m_gpu; }
     QVariantList history() const { return m_history; }
+    bool watching() const { return m_watching; }
+    void setWatching(bool on);
+    int cpuFan() const { return m_cpuFan; }
+    int gpuFan() const { return m_gpuFan; }
+    int cpuTemp() const { return m_cpuTemp; }
+    int gpuTemp() const { return m_gpuTemp; }
+    QVariantList disks() const { return m_disks; }
+    QString cpuName() const { return m_cpuName; }
+    int cpuThreads() const { return m_cpuThreads; }
+    int cpuMhz() const { return m_cpuMhz; }
+    QString gpuName() const { return m_gpuName; }
+    int gpuMhz() const { return m_gpuMhz; }
+    int gpuMemUsedMb() const { return m_gpuMemUsed; }
+    int gpuMemTotalMb() const { return m_gpuMemTotal; }
+    qreal gpuWatts() const { return m_gpuWatts; }
+    qreal gpuWattsMax() const { return m_gpuWattsMax; }
     bool strain() const { return !m_worry.isEmpty(); }
     QString worry() const { return m_worry; }
     bool canClean() const;
@@ -74,6 +120,8 @@ private:
     void read();
     bool readCpu(quint64 &idle, quint64 &total) const;
     void readGpu();
+    void readMachine();
+    void readDisks();
     QByteArray cleanerSetting(const char *key) const;
     qint64 lastReduct() const;
     void announce(qreal freed);
@@ -84,6 +132,20 @@ private:
     bool m_hasGpu = false;
     void *m_gpuQuery = nullptr, *m_gpuCounter = nullptr; // PDH handles (Windows)
     int m_hot = 0; // readings in a row with the processor above 90 %
+    bool m_watching = false;
+    int m_cpuFan = -1, m_gpuFan = -1, m_cpuTemp = -1, m_gpuTemp = -1;
+    QVariantList m_disks;
+    QString m_cpuName, m_gpuName;
+    int m_cpuThreads = 0, m_cpuMhz = -1, m_gpuMhz = -1, m_gpuMemUsed = -1, m_gpuMemTotal = -1;
+    qreal m_gpuWatts = -1, m_gpuWattsMax = -1;
+    void *m_cpuQuery = nullptr, *m_cpuBase = nullptr, *m_cpuPace = nullptr; // PDH: the clock, and how much of it is in use
+    bool m_cpuQueryTried = false;
+    int m_diskAge = 0;            // readings since the drives were last asked
+    void *m_acpi = nullptr;       // the laptop's ACPI device (Windows, ASUS), once opened
+    bool m_acpiTried = false;
+    void *m_nvml = nullptr;       // NVIDIA's library, once loaded, and its first card
+    void *m_nvmlCard = nullptr;
+    bool m_nvmlTried = false;
     QVariantList m_history;
     QString m_worry;
     QString m_cleaner; // Mem Reduct's program, or empty

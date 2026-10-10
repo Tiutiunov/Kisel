@@ -196,15 +196,16 @@ Item {
             transform: Translate { y: Motion.lift(root.age, 3) }
             Text {
                 anchors.fill: parent
-                anchors.leftMargin: 12; anchors.rightMargin: 12
+                anchors.leftMargin: 10; anchors.rightMargin: 10; anchors.topMargin: 3; anchors.bottomMargin: 3
                 verticalAlignment: Text.AlignVCenter
                 text: root.line
                 wrapMode: Text.WordWrap
-                maximumLineCount: 2
+                // (a long remark, or a long language: it goes to three lines and smaller letters before it is cut)
+                maximumLineCount: 3
+                fontSizeMode: Text.Fit; minimumPixelSize: 9
                 elide: Text.ElideRight
                 color: Theme.ink
                 font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.DemiBold
-                lineHeight: 14; lineHeightMode: Text.FixedHeight
             }
         }
     }
