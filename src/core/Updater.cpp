@@ -1,7 +1,10 @@
 #include "Updater.h"
 
+#include "Paths.h"
+
 #include <QCoreApplication>
 #include <QDir>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -10,6 +13,8 @@
 #include <QProcess>
 #include <QStandardPaths>
 #include <QTimer>
+
+#include <cstdio>
 
 namespace kisel {
 
@@ -26,12 +31,16 @@ Updater::Updater(Secrets *secrets, QObject *parent)
 {
 }
 
+// Windows: always (the installer puts the new files in). Plasma: where Kisel runs from an
+// AppImage that it may write over: the new file takes the old one's place. A Kisel that
+// a package installed is updated by its package.
 bool Updater::available() const
 {
 #ifdef Q_OS_WIN
     return true;
 #else
-    return false;
+    const QString image = paths::appImage();
+    return !image.isEmpty() && QFileInfo(QFileInfo(image).absolutePath()).isWritable() && QFileInfo(image).isWritable();
 #endif
 }
 
@@ -53,7 +62,7 @@ int Updater::compare(const QString &a, const QString &b)
     return 0;
 }
 
-bool Updater::pick(const QByteArray &body, Release *out, QString *error)
+bool Updater::pick(const QByteArray &body, Release *out, QString *error, bool appImage)
 {
     QJsonParseError pe;
     const QJsonDocument doc = QJsonDocument::fromJson(body, &pe);
@@ -74,7 +83,8 @@ bool Updater::pick(const QByteArray &body, Release *out, QString *error)
         for (const QJsonValue &av : r.value("assets").toArray()) {
             const QJsonObject a = av.toObject();
             const QString name = a.value("name").toString();
-            if (!name.startsWith(QLatin1String("KiselSetup")) || !name.endsWith(QLatin1String(".exe")))
+            if (appImage ? !name.startsWith(QLatin1String("Kisel-")) || !name.endsWith(QLatin1String("-x86_64.AppImage"))
+                         : !name.startsWith(QLatin1String("KiselSetup")) || !name.endsWith(QLatin1String(".exe")))
                 continue;
             out->version = version;
             out->name = name;
@@ -87,7 +97,7 @@ bool Updater::pick(const QByteArray &body, Release *out, QString *error)
         }
     }
     if (!found)
-        *error = QStringLiteral("There is no Windows release yet");
+        *error = appImage ? QStringLiteral("There is no release for Plasma yet") : QStringLiteral("There is no Windows release yet");
     return found;
 }
 
@@ -161,7 +171,7 @@ void Updater::check(bool quiet)
         }
         Release rel;
         QString err;
-        if (!pick(body, &rel, &err)) {
+        if (!pick(body, &rel, &err, !paths::appImage().isEmpty())) {
             fail( err);
             return;
         }
@@ -201,8 +211,11 @@ void Updater::update()
 // The file itself, from where GitHub keeps it: no token goes there.
 void Updater::fetch(const QUrl &url)
 {
+    // (an AppImage: beside the one that is running, so that it can take its place in one move)
+    const QString image = paths::appImage();
     const QString dir = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
-    m_file = std::make_unique<QFile>(dir + QStringLiteral("/KiselSetup-%1.exe").arg(m_release.version));
+    m_file = std::make_unique<QFile>(image.isEmpty() ? dir + QStringLiteral("/KiselSetup-%1.exe").arg(m_release.version)
+                                                     : QFileInfo(image).absolutePath() + QStringLiteral("/.kisel-%1.part").arg(m_release.version));
     if (!m_file->open(QIODevice::WriteOnly | QIODevice::Truncate)) {
         m_file.reset();
         set(QStringLiteral("failed"), QStringLiteral("Could not write to the temporary folder"));
@@ -260,6 +273,26 @@ void Updater::finishDownload()
         return;
     }
     m_file.reset();
+
+    // An AppImage is the whole of Kisel in one file: the new one is put where the old one
+    // is (the one running goes on from what it has open), and started.
+    if (const QString image = paths::appImage(); !image.isEmpty() && !m_launch) {
+        QFile::setPermissions(path, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner | QFileDevice::ReadGroup
+                                        | QFileDevice::ExeGroup | QFileDevice::ReadOther | QFileDevice::ExeOther);
+        if (::rename(QFile::encodeName(path).constData(), QFile::encodeName(image).constData()) != 0) {
+            QFile::remove(path);
+            set(QStringLiteral("failed"), QStringLiteral("Could not put the new version in place"));
+            return;
+        }
+        if (!QProcess::startDetached(image, {QStringLiteral("--restarted"), QStringLiteral("0"), QStringLiteral("--no-hello")})) {
+            set(QStringLiteral("failed"), QStringLiteral("The new version is in place, but could not be started. Start Kisel again."));
+            return;
+        }
+        m_progress = 1;
+        set(QStringLiteral("starting"));
+        QTimer::singleShot(400, qApp, &QCoreApplication::quit);
+        return;
+    }
 
     // The installer puts the new files where this copy is (<prefix>/bin/kisel.exe), and
     // starts Kisel again when it is done.

@@ -2,6 +2,7 @@
 
 #ifdef KISEL_WITH_KWALLET
 #include <KWallet>
+#include <QElapsedTimer>
 #include <memory>
 #endif
 #ifdef Q_OS_WIN
@@ -17,17 +18,37 @@ const QString kFolder = QStringLiteral("Kisel");
 #ifdef KISEL_WITH_KWALLET
 // Opened lazily: the first call may show KWallet's unlock dialog, so it must
 // happen when the user did something that needs a key, never at startup.
-KWallet::Wallet *wallet()
+//
+// Reading is asked for at any time (is there a key? the interface wants to know when it
+// draws), so reading alone never brings the dialog up for nothing: a wallet that has no
+// folder of ours has no key of ours, which KWallet tells without opening it; and a
+// wallet the user would not open just now is not asked for again for five minutes.
+// Storing a key is the user's own doing and always asks.
+KWallet::Wallet *wallet(bool storing = false)
 {
     static std::unique_ptr<KWallet::Wallet> w;
-    if (!w || !w->isOpen()) {
-        w.reset(KWallet::Wallet::openWallet(KWallet::Wallet::LocalWallet(), 0, KWallet::Wallet::Synchronous));
-        if (w && !w->hasFolder(kFolder))
-            w->createFolder(kFolder);
-        if (w)
-            w->setFolder(kFolder);
+    static QElapsedTimer refused;
+    if (w && w->isOpen())
+        return w.get();
+    if (!storing) {
+        if (KWallet::Wallet::folderDoesNotExist(KWallet::Wallet::LocalWallet(), kFolder))
+            return nullptr;
+        if (refused.isValid() && refused.elapsed() < 5 * 60 * 1000)
+            return nullptr;
     }
-    return (w && w->isOpen()) ? w.get() : nullptr;
+    w.reset(KWallet::Wallet::openWallet(KWallet::Wallet::LocalWallet(), 0, KWallet::Wallet::Synchronous));
+    if (!w || !w->isOpen()) {
+        refused.start();
+        return nullptr;
+    }
+    refused.invalidate();
+    if (!w->hasFolder(kFolder)) {
+        if (!storing) // (nothing of ours after all)
+            return nullptr;
+        w->createFolder(kFolder);
+    }
+    w->setFolder(kFolder);
+    return w.get();
 }
 #endif
 
@@ -80,7 +101,7 @@ QString Secrets::read(const QString &name)
 bool Secrets::store(const QString &name, const QString &value)
 {
 #ifdef KISEL_WITH_KWALLET
-    if (auto *w = wallet()) {
+    if (auto *w = wallet(true)) {
         const bool ok = w->writePassword(name, value) == 0;
         if (ok)
             emit changed();

@@ -177,6 +177,8 @@ void Media::playPause() { m_worker->post(Worker::Toggle); }
 void Media::next() { m_worker->post(Worker::Next); }
 void Media::previous() { m_worker->post(Worker::Previous); }
 void Media::seek(qreal fraction) { m_worker->post(Worker::Seek, qBound(0.0, double(fraction), 1.0)); }
+#elif defined(__linux__)
+// (see MediaLinux.cpp: MPRIS over the session bus)
 #else
 struct Media::Worker {};
 Media::Media(QObject *parent) : QObject(parent) {}

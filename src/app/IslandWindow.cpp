@@ -1,6 +1,8 @@
 #include <QAbstractNativeEventFilter>
 #include "IslandWindow.h"
 
+#include "Paths.h"
+
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
@@ -82,7 +84,6 @@ struct WakeFilter : QAbstractNativeEventFilter
     }
 };
 }
-#endif
 
 void IslandWindow::woke()
 {
@@ -97,6 +98,7 @@ void IslandWindow::woke()
             m_view->update();
         });
 }
+#endif
 
 IslandWindow::IslandWindow(QQuickView *view, QObject *parent)
     : QObject(parent)
@@ -183,6 +185,40 @@ QString autostartFile()
 #endif
 } // namespace
 
+#ifndef Q_OS_WIN
+// An AppImage is one file the user has put somewhere: nothing has told the desktop of it.
+// Kisel does so itself when it starts from one: an entry in the launcher and its icon,
+// both in the user's own folders, and the autostart entry kept pointing at the file
+// should it have been moved. A Kisel installed by a package has all this from the package.
+void IslandWindow::settleIn()
+{
+    const QString image = paths::appImage();
+    if (image.isEmpty())
+        return;
+    const QString data = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
+    const QString icon = data + QStringLiteral("/icons/hicolor/scalable/apps/kisel.svg");
+    if (!QFile::exists(icon)) {
+        QDir().mkpath(QFileInfo(icon).absolutePath());
+        QFile::copy(QStringLiteral(":/qt/qml/Kisel/resources/logo/kisel-mark.svg"), icon);
+        QFile::setPermissions(icon, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ReadGroup | QFileDevice::ReadOther);
+    }
+    const auto write = [&image](const QString &file, const QString &more) {
+        const QByteArray want = QStringLiteral("[Desktop Entry]\nType=Application\nName=Kisel\nComment=Desktop companion for Claude Code\n"
+                                               "Exec=\"%1\"\nIcon=kisel\n%2").arg(image, more).toUtf8();
+        QFile f(file);
+        if (f.open(QIODevice::ReadOnly) && f.readAll() == want)
+            return;
+        f.close();
+        QDir().mkpath(QFileInfo(file).absolutePath());
+        if (f.open(QIODevice::WriteOnly | QIODevice::Truncate))
+            f.write(want);
+    };
+    write(data + QStringLiteral("/applications/kisel.desktop"), QStringLiteral("Categories=Development;Utility;\nX-KDE-StartupNotify=false\n"));
+    if (QFile::exists(autostartFile()))
+        write(autostartFile(), QStringLiteral("X-GNOME-Autostart-enabled=true\n"));
+}
+#endif
+
 bool IslandWindow::autostart() const
 {
 #ifdef Q_OS_WIN
@@ -209,8 +245,8 @@ void IslandWindow::setAutostart(bool on)
         QDir().mkpath(QFileInfo(autostartFile()).absolutePath());
         QFile f(autostartFile());
         if (f.open(QIODevice::WriteOnly | QIODevice::Truncate))
-            f.write(QStringLiteral("[Desktop Entry]\nType=Application\nName=Kisel\nExec=%1\nX-GNOME-Autostart-enabled=true\n")
-                        .arg(QCoreApplication::applicationFilePath()).toUtf8());
+            f.write(QStringLiteral("[Desktop Entry]\nType=Application\nName=Kisel\nComment=Desktop companion for Claude Code\n"
+                                   "Exec=\"%1\"\nIcon=kisel\nX-GNOME-Autostart-enabled=true\n").arg(paths::selfPath()).toUtf8());
     } else {
         QFile::remove(autostartFile());
     }

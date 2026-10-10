@@ -1,0 +1,2 @@
+# Shell scripts are run on Linux, wherever they were checked out.
+*.sh text eol=lf

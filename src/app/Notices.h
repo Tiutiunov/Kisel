@@ -26,6 +26,10 @@ namespace kisel {
 // A click on the sign goes to the notifications: if they are all from one program,
 // that program is brought up (the way its Start menu entry would); if from several,
 // the notification centre opens.
+//
+// On Plasma the notifications are heard on the session bus as programs send them (see
+// Notices.cpp): one counts as looked at when Rin's sign is clicked, or when the user
+// shuts it or clicks it on the desktop. Which window is in front is not known there.
 // Elsewhere `available` is false and nothing happens.
 //
 // The listener is read on a thread of its own; QML sees plain properties.

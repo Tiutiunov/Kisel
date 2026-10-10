@@ -18,8 +18,12 @@
 #include <vector>
 #else
 #include <QFile>
+#include <QSet>
 #include <QStorageInfo>
 #include <QThread>
+#endif
+#ifdef Q_OS_LINUX
+#include "SysMonLinux.h"
 #endif
 
 #include <QThreadPool>
@@ -75,6 +79,12 @@ struct SysMon::Probe
     void *m_nvml = nullptr;       // NVIDIA's library, once loaded, and its first card
     void *m_nvmlCard = nullptr;
     bool m_nvmlTried = false;
+    // Linux: the card's load comes with the rest (see SysMonLinux.h)
+    double m_gpuLoad = -1;
+    bool m_hasCard = false;
+#ifdef Q_OS_LINUX
+    linuxmon::Reader m_linux;
+#endif
 
     void readMachine();
     void readDisks();
@@ -123,6 +133,9 @@ SysMon::SysMon(QObject *parent)
         m_iniStamp = QFileInfo(m_cleanerIni).lastModified().toMSecsSinceEpoch();
         m_lastReduct = lastReduct();
     }
+#elif defined(Q_OS_LINUX)
+    m_cpuThreads = QThread::idealThreadCount();
+    m_cpuName = shortPartName(linuxmon::cpuName());
 #endif
 #ifdef Q_OS_WIN
     // every engine of every graphics card, per process; summed up in readGpu()
@@ -174,10 +187,12 @@ void SysMon::setWatching(bool on)
     } else {
         // Nobody is looking: a minute on, what the probe holds is let go (NVIDIA's library
         // above all: loaded, it keeps a few megabytes and a line to the card open).
+#ifndef Q_OS_LINUX // (there the probe is what tells the card's load, and is read all along)
         QTimer::singleShot(60000, this, [this] {
             if (!m_watching && !m_probing.load())
                 m_probe = std::make_unique<Probe>();
         });
+#endif
     }
     emit changed();
 }
@@ -198,6 +213,9 @@ void SysMon::Probe::readDisks()
         m_disks = out;
         return;
     }
+#ifndef Q_OS_WIN
+    QSet<QByteArray> met;
+#endif
     for (const QStorageInfo &v : QStorageInfo::mountedVolumes()) {
         if (!v.isValid() || !v.isReady() || v.bytesTotal() <= 0)
             continue;
@@ -207,9 +225,16 @@ void SysMon::Probe::readDisks()
             continue;
         const QString name = root.left(2);
 #else
-        if (v.isReadOnly() || !v.device().startsWith("/dev/"))
+        // a real partition, once (a btrfs volume is mounted in several places), and not
+        // the small ones the system boots from
+        const QString at = v.rootPath();
+        if (v.isReadOnly() || !v.device().startsWith("/dev/") || at.startsWith(QLatin1String("/boot")) || at.startsWith(QLatin1String("/efi"))
+            || at.startsWith(QLatin1String("/var/lib/")) || at.startsWith(QLatin1String("/snap")) || at.startsWith(QLatin1String("/nix"))
+            || met.contains(v.device()))
             continue;
-        const QString name = v.rootPath();
+        met.insert(v.device());
+        // "/" and "/home" as they are; a drive mounted deeper by its folder's name
+        const QString name = at.count(QLatin1Char('/')) <= 1 ? at : at.mid(at.lastIndexOf(QLatin1Char('/')) + 1);
 #endif
         out.append(QVariantMap {{QStringLiteral("name"), name},
                                 {QStringLiteral("used"), 1.0 - double(v.bytesAvailable()) / double(v.bytesTotal())},
@@ -556,6 +581,13 @@ void SysMon::Probe::readMachine()
             }
         }
     }
+#elif defined(Q_OS_LINUX)
+    const linuxmon::Machine m = m_linux.read();
+    m_cpuFan = m.cpuFan; m_gpuFan = m.gpuFan; m_cpuTemp = m.cpuTemp; m_gpuTemp = m.gpuTemp;
+    m_cpuMhz = m.cpuMhz; m_gpuMhz = m.gpuMhz; m_gpuMemUsed = m.gpuMemUsed; m_gpuMemTotal = m.gpuMemTotal;
+    m_gpuWatts = m.gpuWatts; m_gpuWattsMax = m.gpuWattsMax; m_gpuName = m.gpuName;
+    m_gpuLoad = m.gpuLoad; m_hasCard = m.hasCard;
+    m_gpuLuid = m.hasCard ? QStringLiteral("card") : QString();
 #endif
 }
 
@@ -776,8 +808,12 @@ void SysMon::read()
     QFile f(QStringLiteral("/proc/meminfo"));
     if (f.open(QIODevice::ReadOnly)) {
         double totalKb = 0, availKb = 0;
-        while (!f.atEnd()) {
+        // (a file under /proc has no size to go by, and so no end that can be asked for:
+        // it is read until a line comes back empty)
+        for (int n = 0; n < 80 && (totalKb <= 0 || availKb <= 0); ++n) {
             const QByteArray line = f.readLine();
+            if (line.isEmpty())
+                break;
             if (line.startsWith("MemTotal:")) totalKb = line.mid(9).simplified().split(' ').value(0).toDouble();
             else if (line.startsWith("MemAvailable:")) availKb = line.mid(13).simplified().split(' ').value(0).toDouble();
         }
@@ -790,8 +826,13 @@ void SysMon::read()
 #endif
 
     // (off this thread: see Probe. One reading at a time; a slow one makes the next wait its turn.)
-    if (m_watching && !m_probing.exchange(true)) {
-        const bool drives = ++m_diskAge >= 20;
+#ifdef Q_OS_LINUX
+    const bool probe = true; // (the card's load is read there, and the bar shows it all along)
+#else
+    const bool probe = m_watching;
+#endif
+    if (probe && !m_probing.exchange(true)) {
+        const bool drives = m_watching && ++m_diskAge >= 20;
         if (drives)
             m_diskAge = 0;
         QThreadPool::globalInstance()->start([this, drives] {
@@ -801,7 +842,17 @@ void SysMon::read()
                 p.readDisks();
             QMetaObject::invokeMethod(this, [this, cpuFan = p.m_cpuFan, gpuFan = p.m_gpuFan, cpuTemp = p.m_cpuTemp, gpuTemp = p.m_gpuTemp,
                                              cpuMhz = p.m_cpuMhz, gpuMhz = p.m_gpuMhz, used = p.m_gpuMemUsed, total = p.m_gpuMemTotal,
-                                             watts = p.m_gpuWatts, cap = p.m_gpuWattsMax, name = p.m_gpuName, luid = p.m_gpuLuid, drives, disks = p.m_disks] {
+                                             watts = p.m_gpuWatts, cap = p.m_gpuWattsMax, name = p.m_gpuName, luid = p.m_gpuLuid, drives, disks = p.m_disks,
+                                             load = p.m_gpuLoad, card = p.m_hasCard] {
+#ifdef Q_OS_LINUX
+                m_hasGpu = card && load >= 0;
+                m_gpu = load >= 0 ? load : 0;
+                m_cardLoads.clear();
+                if (load >= 0)
+                    m_cardLoads.insert(luid, load * 100.0);
+#else
+                Q_UNUSED(load); Q_UNUSED(card);
+#endif
                 m_cpuFan = cpuFan; m_gpuFan = gpuFan; m_cpuTemp = cpuTemp; m_gpuTemp = gpuTemp;
                 m_cpuMhz = cpuMhz; m_gpuMhz = gpuMhz; m_gpuMemUsed = used; m_gpuMemTotal = total;
                 m_gpuWatts = watts; m_gpuWattsMax = cap; m_gpuName = name; m_gpuLuid = luid;

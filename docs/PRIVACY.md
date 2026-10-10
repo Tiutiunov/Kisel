@@ -20,6 +20,7 @@ Only for the features below. Each can be switched off in Settings or simply not 
 | GitHub view | api.github.com | Your own token, to read your repositories and pull requests. |
 | Luka's connection reading | 1.1.1.1 (Cloudflare) | A ping. |
 | Luka's speed test | speed.cloudflare.com | Test data, when you start the test. |
+| The cover of the track playing (Plasma only) | The address the player itself gives for the cover: for Spotify, its image server (i.scdn.co) | A request for that picture. On Windows the cover comes from the system and nothing is fetched. |
 | Chat with an API key saved in an older version | api.anthropic.com | Your message and your key. Newer versions talk to your local Claude Code session instead. |
 
 These services see your IP address, as any site you visit does, and handle it under their own policies.
@@ -52,6 +53,7 @@ Kisel — программа, которая работает на твоём к
 | Экран GitHub | api.github.com | Твой собственный токен, чтобы прочитать твои репозитории и пулл-реквесты. |
 | Показания связи у Луки | 1.1.1.1 (Cloudflare) | Пинг. |
 | Замер скорости у Луки | speed.cloudflare.com | Тестовые данные, когда ты запускаешь замер. |
+| Обложка играющего трека (только Plasma) | Адрес обложки, который даёт сам плеер: у Spotify это его сервер картинок (i.scdn.co) | Запрос этой картинки. На Windows обложку отдаёт система, и ничего не скачивается. |
 | Чат с API-ключом, сохранённым в старой версии | api.anthropic.com | Твоё сообщение и твой ключ. Новые версии вместо этого говорят с локальной сессией Claude Code. |
 
 Эти сервисы видят твой IP-адрес, как любой сайт, и обращаются с ним по своим правилам.

@@ -10,10 +10,11 @@ namespace kisel {
 // What Spotify is playing, and its three buttons. On Windows this is the system's own
 // media session (the one behind the volume flyout and the keyboard's media keys), so
 // there is no sign-in, no key and no network call: Spotify publishes the track, we
-// read it and ask it to play, pause or skip. Elsewhere `available` is false and
-// nothing happens (MPRIS over D-Bus would be the Plasma side of this).
+// read it and ask it to play, pause or skip. On Plasma it is MPRIS on the session bus
+// (MediaLinux.cpp): the same, save that the cover comes as an address and is fetched.
+// Elsewhere `available` is false and nothing happens.
 //
-// The session is read on a thread of its own; QML sees plain properties.
+// On Windows the session is read on a thread of its own; QML sees plain properties.
 class Media : public QObject
 {
     Q_OBJECT

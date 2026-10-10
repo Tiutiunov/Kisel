@@ -9,10 +9,17 @@
 #include <windows.h>
 #include <shellapi.h>
 #endif
+#ifdef KISEL_WITH_DBUS1
+#include <dbus/dbus.h>
+#endif
 
 #include "Notices.h"
 
 #include <QDateTime>
+#include <QFile>
+#include <QProcess>
+#include <QRegularExpression>
+#include <QStandardPaths>
 #include <QTimer>
 #include <QVariantMap>
 
@@ -299,10 +306,320 @@ struct Notices::Worker
             wake.wait_for(lock, std::chrono::milliseconds(1200), [this, wantWords] { return stop.load() || dismissed.load() || words.load() != wantWords; });
         }
     }
+#elif defined(KISEL_WITH_DBUS1)
+    // Plasma: every program shows a notification by calling Notify on the session bus,
+    // and the bus lets a program of the same user listen in (as `dbus-monitor` does).
+    // That is all this is: a second connection that only listens. It sends nothing after
+    // asking to listen, and the bus would cut it off if it tried.
+    //
+    //   Notify            a notification: its program, and (only with `words` on) what it says
+    //   its answer        the number the desktop gave it
+    //   NotificationClosed(number, 2)   the user shut it: looked at
+    //   ActionInvoked(number, ...)      the user clicked it: looked at
+    //
+    // One that merely runs out of time goes to Plasma's own list unread, and stays
+    // unread here. Wayland tells nobody which window is in front, so "its program was
+    // brought up" is not known here as it is on Windows.
+    struct Note
+    {
+        quint32 id = 0;       // the desktop's number for it, once its answer has been seen
+        quint32 serial = 0;   // the call's own number, by which the answer is matched
+        QString from;         // ...and who made it
+        QString name, entry;  // the program, and its desktop file's name (what starts it)
+        QString title, text;
+        qint64 at = 0;
+        bool unseen = true;
+    };
+    static constexpr int kKept = 48;
+    static constexpr int kRecent = 8;
+
+    static QString plain(QString s)
+    {
+        static const QRegularExpression tag(QStringLiteral("<[^>]{1,200}>"));
+        s.remove(tag);
+        s.replace(QLatin1String("&amp;"), QLatin1String("&")).replace(QLatin1String("&lt;"), QLatin1String("<"))
+            .replace(QLatin1String("&gt;"), QLatin1String(">")).replace(QLatin1String("&quot;"), QLatin1String("\""));
+        return s.simplified();
+    }
+
+    static QString text(DBusMessageIter *it)
+    {
+        if (dbus_message_iter_get_arg_type(it) != DBUS_TYPE_STRING)
+            return {};
+        const char *s = nullptr;
+        dbus_message_iter_get_basic(it, &s);
+        return QString::fromUtf8(s);
+    }
+
+    // Notify(s program, u replaces, s icon, s summary, s body, as actions, a{sv} hints, i timeout)
+    void noted(DBusMessage *m, std::vector<Note> &notes)
+    {
+        DBusMessageIter it;
+        if (!dbus_message_iter_init(m, &it))
+            return;
+        Note n;
+        n.name = text(&it).simplified();
+        dbus_message_iter_next(&it);
+        quint32 replaces = 0;
+        if (dbus_message_iter_get_arg_type(&it) == DBUS_TYPE_UINT32)
+            dbus_message_iter_get_basic(&it, &replaces);
+        dbus_message_iter_next(&it); // (the icon)
+        dbus_message_iter_next(&it);
+        const QString summary = text(&it);
+        dbus_message_iter_next(&it);
+        const QString body = text(&it);
+        dbus_message_iter_next(&it); // (the actions)
+        dbus_message_iter_next(&it);
+        bool passing = false;
+        if (dbus_message_iter_get_arg_type(&it) == DBUS_TYPE_ARRAY) {
+            DBusMessageIter hints;
+            dbus_message_iter_recurse(&it, &hints);
+            for (; dbus_message_iter_get_arg_type(&hints) == DBUS_TYPE_DICT_ENTRY; dbus_message_iter_next(&hints)) {
+                DBusMessageIter pair, value;
+                dbus_message_iter_recurse(&hints, &pair);
+                const QString key = text(&pair);
+                dbus_message_iter_next(&pair);
+                if (dbus_message_iter_get_arg_type(&pair) != DBUS_TYPE_VARIANT)
+                    continue;
+                dbus_message_iter_recurse(&pair, &value);
+                const int type = dbus_message_iter_get_arg_type(&value);
+                if (key == QLatin1String("desktop-entry") && type == DBUS_TYPE_STRING) {
+                    n.entry = text(&value);
+                } else if (key == QLatin1String("transient") && type == DBUS_TYPE_BOOLEAN) {
+                    dbus_bool_t b = 0;
+                    dbus_message_iter_get_basic(&value, &b);
+                    passing = passing || b;
+                } else if (key == QLatin1String("urgency") && type == DBUS_TYPE_BYTE) {
+                    unsigned char u = 1;
+                    dbus_message_iter_get_basic(&value, &u);
+                    passing = passing || u == 0; // (low: a track that changed, a volume that moved)
+                }
+            }
+        }
+        if (n.name.isEmpty())
+            n.name = n.entry.mid(n.entry.lastIndexOf(QLatin1Char('.')) + 1);
+        // (our own are not news; nor is what the program itself calls passing)
+        if (passing || n.name.isEmpty() || n.name.compare(QLatin1String("Kisel"), Qt::CaseInsensitive) == 0)
+            return;
+        if (!n.name.isEmpty())
+            n.name[0] = n.name.at(0).toUpper();
+        if (words.load()) {
+            n.title = plain(summary).left(80);
+            n.text = plain(body).left(200);
+        }
+        n.at = QDateTime::currentMSecsSinceEpoch();
+        n.serial = dbus_message_get_serial(m);
+        n.from = QString::fromLatin1(dbus_message_get_sender(m));
+        // one that takes the place of an earlier one is that one, new again
+        if (replaces != 0) {
+            for (Note &old : notes) {
+                if (old.id == replaces) {
+                    n.id = replaces;
+                    old = n;
+                    return;
+                }
+            }
+        }
+        notes.push_back(n);
+        if (int(notes.size()) > kKept)
+            notes.erase(notes.begin());
+    }
+
+    DBusConnection *listen()
+    {
+        DBusError err;
+        dbus_error_init(&err);
+        DBusConnection *c = dbus_bus_get_private(DBUS_BUS_SESSION, &err);
+        if (!c) {
+            dbus_error_free(&err);
+            return nullptr;
+        }
+        dbus_connection_set_exit_on_disconnect(c, false);
+        DBusMessage *ask = dbus_message_new_method_call("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus.Monitoring", "BecomeMonitor");
+        const char *rules[] = {"type='method_call',interface='org.freedesktop.Notifications',member='Notify'",
+                               "type='method_return',sender='org.freedesktop.Notifications'",
+                               "type='signal',interface='org.freedesktop.Notifications'"};
+        DBusMessageIter it, list;
+        dbus_message_iter_init_append(ask, &it);
+        dbus_message_iter_open_container(&it, DBUS_TYPE_ARRAY, "s", &list);
+        for (const char *&rule : rules)
+            dbus_message_iter_append_basic(&list, DBUS_TYPE_STRING, &rule);
+        dbus_message_iter_close_container(&it, &list);
+        const dbus_uint32_t flags = 0;
+        dbus_message_iter_append_basic(&it, DBUS_TYPE_UINT32, &flags);
+        DBusMessage *answer = dbus_connection_send_with_reply_and_block(c, ask, 3000, &err);
+        dbus_message_unref(ask);
+        if (!answer) {
+            dbus_error_free(&err);
+            dbus_connection_close(c);
+            dbus_connection_unref(c);
+            return nullptr;
+        }
+        dbus_message_unref(answer);
+        return c;
+    }
+
+    void run()
+    {
+        DBusConnection *c = listen();
+        if (!c) {
+            report(false, 0, {});
+            return;
+        }
+        std::vector<Note> notes; // oldest first
+        bool told = false;
+        int lastCount = -1;
+        QStringList lastApps;
+        QVariantList lastCounts, lastRecent;
+        QString lastTarget;
+        bool hadWords = false;
+        auto retryAt = std::chrono::steady_clock::now();
+        while (!stop) {
+            if (c && !dbus_connection_get_is_connected(c)) { // (the session's bus went: asked for again now and then)
+                dbus_connection_close(c);
+                dbus_connection_unref(c);
+                c = nullptr;
+                retryAt = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+            }
+            if (!c) {
+                if (std::chrono::steady_clock::now() >= retryAt) {
+                    c = listen();
+                    retryAt = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+                }
+                if (!c) {
+                    std::unique_lock lock(mutex);
+                    wake.wait_for(lock, std::chrono::milliseconds(500), [this] { return stop.load(); });
+                    continue;
+                }
+            }
+            dbus_connection_read_write(c, 400);
+            while (DBusMessage *m = dbus_connection_pop_message(c)) {
+                const int type = dbus_message_get_type(m);
+                if (type == DBUS_MESSAGE_TYPE_METHOD_CALL && dbus_message_is_method_call(m, "org.freedesktop.Notifications", "Notify")) {
+                    noted(m, notes);
+                } else if (type == DBUS_MESSAGE_TYPE_METHOD_RETURN) {
+                    const quint32 serial = dbus_message_get_reply_serial(m);
+                    const char *to = dbus_message_get_destination(m);
+                    quint32 id = 0;
+                    if (to && dbus_message_get_args(m, nullptr, DBUS_TYPE_UINT32, &id, DBUS_TYPE_INVALID))
+                        for (Note &n : notes)
+                            if (n.serial == serial && n.serial != 0 && n.from == QLatin1String(to)) {
+                                n.id = id;
+                                n.serial = 0;
+                            }
+                } else if (type == DBUS_MESSAGE_TYPE_SIGNAL) {
+                    quint32 id = 0, why = 0;
+                    const bool shut = dbus_message_is_signal(m, "org.freedesktop.Notifications", "NotificationClosed")
+                                   && dbus_message_get_args(m, nullptr, DBUS_TYPE_UINT32, &id, DBUS_TYPE_UINT32, &why, DBUS_TYPE_INVALID) && why == 2;
+                    DBusMessageIter it;
+                    bool clicked = false;
+                    if (dbus_message_is_signal(m, "org.freedesktop.Notifications", "ActionInvoked") && dbus_message_iter_init(m, &it)
+                        && dbus_message_iter_get_arg_type(&it) == DBUS_TYPE_UINT32) {
+                        dbus_message_iter_get_basic(&it, &id);
+                        clicked = true;
+                    }
+                    if ((shut || clicked) && id != 0)
+                        for (Note &n : notes)
+                            if (n.id == id)
+                                n.unseen = false;
+                }
+                dbus_message_unref(m);
+            }
+            const bool wantWords = words.load();
+            if (hadWords && !wantWords) // (switched off: what was read is let go)
+                for (Note &n : notes) {
+                    n.title.clear();
+                    n.text.clear();
+                }
+            hadWords = wantWords;
+            if (dismissed.exchange(false))
+                for (Note &n : notes)
+                    n.unseen = false;
+
+            int count = 0;
+            QString app, target;
+            bool oneTarget = true;
+            QStringList apps;      // by program, newest first
+            QVariantList counts;
+            for (auto n = notes.rbegin(); n != notes.rend(); ++n) {
+                if (!n->unseen)
+                    continue;
+                if (count++ == 0) {
+                    app = n->name;
+                    target = n->entry;
+                } else if (n->entry != target) {
+                    oneTarget = false;
+                }
+                const int at = int(apps.indexOf(n->name));
+                if (at < 0) {
+                    apps.append(n->name);
+                    counts.append(1);
+                } else {
+                    counts[at] = counts[at].toInt() + 1;
+                }
+            }
+            if (!oneTarget)
+                target.clear();
+            QVariantList recentNow;
+            for (auto n = notes.rbegin(); n != notes.rend() && recentNow.size() < kRecent; ++n)
+                recentNow.append(QVariantMap {{QStringLiteral("app"), n->name}, {QStringLiteral("aumid"), n->entry},
+                                              {QStringLiteral("title"), n->title}, {QStringLiteral("text"), n->text},
+                                              {QStringLiteral("at"), n->at}, {QStringLiteral("fresh"), n->unseen}});
+            if (!told || count != lastCount || apps != lastApps || counts != lastCounts || target != lastTarget || recentNow != lastRecent) {
+                told = true;
+                lastCount = count;
+                lastApps = apps;
+                lastCounts = counts;
+                lastTarget = target;
+                lastRecent = recentNow;
+                report(true, count, app, apps, counts, target, recentNow);
+            }
+        }
+        if (c) {
+            dbus_connection_close(c);
+            dbus_connection_unref(c);
+        }
+    }
 #else
     void run() { report(false, 0, {}); }
 #endif
 };
+
+#ifndef Q_OS_WIN
+namespace {
+// Start the program a desktop file names (a notification says which is its own), the
+// way the launcher would. One that is running already shows its window.
+void launch(const QString &entry)
+{
+    if (entry.isEmpty() || entry.contains(QLatin1Char('/')))
+        return;
+    const QString file = QStandardPaths::locate(QStandardPaths::ApplicationsLocation, entry + QStringLiteral(".desktop"));
+    if (file.isEmpty())
+        return;
+    QFile f(file);
+    if (!f.open(QIODevice::ReadOnly))
+        return;
+    bool main = false;
+    while (!f.atEnd()) {
+        const QString line = QString::fromUtf8(f.readLine()).trimmed();
+        if (line.startsWith(QLatin1Char('['))) {
+            main = line == QLatin1String("[Desktop Entry]");
+            continue;
+        }
+        if (!main || !line.startsWith(QLatin1String("Exec=")))
+            continue;
+        QStringList words = QProcess::splitCommand(line.mid(5));
+        // (the places for files and addresses, of which there are none)
+        words.removeIf([](const QString &w) { return w.size() == 2 && w.at(0) == QLatin1Char('%'); });
+        if (!words.isEmpty()) {
+            const QString program = words.takeFirst();
+            QProcess::startDetached(program, words);
+        }
+        return;
+    }
+}
+} // namespace
+#endif
 
 Notices::Notices(QObject *parent)
     : QObject(parent)
@@ -363,7 +680,7 @@ void Notices::openRecent(int index)
     const QString entry = QStringLiteral("shell:AppsFolder\\") + aumid;
     ShellExecuteW(nullptr, L"open", L"explorer.exe", reinterpret_cast<LPCWSTR>(entry.utf16()), nullptr, SW_SHOWNORMAL);
 #else
-    Q_UNUSED(index)
+    launch(m_recent.value(index).toMap().value(QStringLiteral("aumid")).toString());
 #endif
 }
 
@@ -427,6 +744,11 @@ void Notices::open()
     in[3].ki.wVk = VK_LWIN;
     in[3].ki.dwFlags = KEYEVENTF_KEYUP;
     SendInput(4, in, sizeof(INPUT));
+#else
+    // all from one program: that program is brought up (Plasma has no call that opens its
+    // own list of notifications, so from several nothing more is done)
+    if (!m_demo)
+        launch(target);
 #endif
 }
 

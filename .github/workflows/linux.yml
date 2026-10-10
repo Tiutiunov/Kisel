@@ -1,0 +1,49 @@
+# Builds Kisel for KDE Plasma and packs it as an AppImage (packaging/linux/make-appimage.sh),
+# in KDE neon's own image: Qt 6, LayerShellQt and the KDE Frameworks as KDE builds them,
+# on an Ubuntu LTS, so the file starts on any distribution as new as that. The tests run
+# there as well. A release carries the file this leaves as its artifact.
+#
+# It runs for the public repository only: the other remote this branch is pushed to is
+# somebody else's, and must not be made to build anything.
+name: Plasma build
+
+on:
+  push:
+    branches: [windows]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linux-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    if: github.repository == 'Tiutiunov/Kisel'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    container:
+      image: invent-registry.kde.org/neon/docker-images/plasma:user
+      options: --user root
+    steps:
+      - name: What the build needs
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            git ca-certificates curl cmake ninja-build g++ pkg-config patchelf squashfs-tools python3 file \
+            qt6-base-dev qt6-declarative-dev qt6-svg-dev qt6-wayland \
+            liblayershellqtinterface-dev kf6-kwallet-dev kf6-kstatusnotifieritem-dev kf6-extra-cmake-modules libdbus-1-dev
+
+      - uses: actions/checkout@v4
+
+      - name: Build, test and pack
+        run: bash packaging/linux/make-appimage.sh "$PWD" "$PWD/out"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kisel-appimage
+          path: out/Kisel-*-x86_64.AppImage
+          if-no-files-found: error
+          retention-days: 30

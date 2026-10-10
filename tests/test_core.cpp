@@ -310,8 +310,10 @@ private slots:
         QCOMPARE(again.home("C:/work/kisel/src/core"), QString("C:/work/kisel"));
         QCOMPARE(again.home("C:/work/kisel"), QString("C:/work/kisel"));
         QCOMPARE(again.home("C:/elsewhere/app"), QString("C:/elsewhere/app"));
+#ifdef Q_OS_WIN // (a backslash parts folders on Windows alone)
         again.remember("C:\\win\\proj", "user", "x");
         QCOMPARE(again.home("C:\\win\\proj\\sub"), QString("C:\\win\\proj"));
+#endif
     }
 
     void repliesComeBackOnceAndInOrder()

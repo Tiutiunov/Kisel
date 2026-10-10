@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(Kisel VERSION 1.0.0 LANGUAGES CXX)
+project(Kisel VERSION 1.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -12,6 +12,15 @@ find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Netwo
 find_package(LayerShellQt QUIET)
 find_package(KF6StatusNotifierItem QUIET)
 find_package(KF6Wallet QUIET)
+if(UNIX AND NOT APPLE)
+    # The session bus: what is playing (MPRIS) through Qt's own D-Bus module, and the
+    # notifications through libdbus itself, which alone can listen to a bus as a monitor.
+    find_package(Qt6 6.5 REQUIRED COMPONENTS DBus)
+    find_package(PkgConfig QUIET)
+    if(PkgConfig_FOUND)
+        pkg_check_modules(DBUS1 IMPORTED_TARGET dbus-1)
+    endif()
+endif()
 
 # ---- core: everything that is not UI glue, so tests can link it -------------
 add_library(kisel_core STATIC
@@ -56,6 +65,12 @@ target_link_libraries(kisel-hook PRIVATE Qt6::Core)
 target_compile_options(kisel-hook PRIVATE ${KISEL_WARNINGS})
 if(WIN32)
     target_link_libraries(kisel-hook PRIVATE advapi32)
+else()
+    # The relay is copied out to the user's data folder and run from there. Where Kisel
+    # carries its own Qt (packaging/linux), that library is copied beside it, and this is
+    # what makes the relay look there first; where there is none beside it, the system's
+    # is found as ever.
+    set_target_properties(kisel-hook PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE INSTALL_RPATH "$ORIGIN")
 endif()
 
 # ---- the app ----------------------------------------------------------------
@@ -77,6 +92,14 @@ if(WIN32)
     # No console window; started from a terminal it still prints (IslandWindow::preInit).
     set_target_properties(kisel PROPERTIES WIN32_EXECUTABLE TRUE)
     target_link_libraries(kisel PRIVATE winmm WindowsApp pdh shell32 iphlpapi ws2_32 ole32 oleaut32 wbemuuid) # PlaySound; the media session (Media.cpp)
+endif()
+if(UNIX AND NOT APPLE)
+    target_sources(kisel PRIVATE src/app/SysMonLinux.cpp src/app/MediaLinux.cpp)
+    target_link_libraries(kisel PRIVATE Qt6::DBus)
+    if(DBUS1_FOUND)
+        target_link_libraries(kisel PRIVATE PkgConfig::DBUS1)
+        target_compile_definitions(kisel PRIVATE KISEL_WITH_DBUS1)
+    endif()
 endif()
 if(LayerShellQt_FOUND)
     target_link_libraries(kisel PRIVATE LayerShellQt::Interface)
@@ -204,6 +227,7 @@ if(WIN32)
     install(SCRIPT ${KISEL_DEPLOY_SCRIPT})
 else()
     install(FILES packaging/kisel.desktop DESTINATION share/applications)
+    install(FILES resources/logo/kisel-mark.svg DESTINATION share/icons/hicolor/scalable/apps RENAME kisel.svg)
 endif()
 
 # ---- the Windows installer --------------------------------------------------

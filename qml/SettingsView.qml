@@ -251,7 +251,7 @@ Item {
                             { head: Tr.t("3. Start a new session"), body: Tr.t("Plugins load when a session starts. Close the Claude Code chat or terminal you had open and start it again.") },
                             { head: Tr.t("4. Write from Kisel"), body: Tr.t("Click the bar, open Chat. Within a couple of seconds the field reads Write to Claude Code. What you send goes to the session as your own prompt; Claude's replies appear here too.") },
                             { head: Tr.t("What else shows up"), body: Tr.t("The rings in the chat are your limits: the five-hour window, the week, and how full the session's context is. Miku holds Claude's little one there.") },
-                            { head: Tr.t("If the field still says Message Claude"), body: Tr.t("No session is listening. Check that the session was started after installing, and that Kisel sees it (Miku reacts when Claude works). The session and Kisel must run under the same Windows user.") },
+                            { head: Tr.t("If the field still says Message Claude"), body: Tr.t("No session is listening. Check that the session was started after installing, and that Kisel sees it (Miku reacts when Claude works). The session and Kisel must run under the same user.") },
                             { head: Tr.t("Doing it by hand"), body: Tr.t("The same two commands work in any terminal. To take the mod out: Remove mods here, or claude plugin uninstall kisel-prompts@kisel.") },
                             { head: Tr.t("What it can and cannot do"), body: Tr.t("It only passes text: your prompts in, Claude's words and the limit figures out, through a folder in your home folder (.kisel, inbox). It never answers a permission for you.") }
                             ]

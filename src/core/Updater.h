@@ -65,7 +65,8 @@ public:
     };
     // Pure and unit-tested: the body of `GET /repos/.../releases` -> the newest Windows
     // release that has an installer (false if there is none).
-    static bool pick(const QByteArray &body, Release *out, QString *error);
+    // (`appImage`: the release's AppImage for Plasma instead of the Windows installer)
+    static bool pick(const QByteArray &body, Release *out, QString *error, bool appImage = false);
     // <0, 0, >0 as `a` is older than, the same as, newer than `b` ("0.10.0" > "0.9.3")
     static int compare(const QString &a, const QString &b);
 

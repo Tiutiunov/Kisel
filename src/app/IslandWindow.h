@@ -83,6 +83,10 @@ public:
 
     // Call before QGuiApplication exists.
     static void preInit();
+#ifndef Q_OS_WIN
+    // Call once at start (not from a trial run): see IslandWindow.cpp.
+    static void settleIn();
+#endif
 
     void show();
     QScreen *screen() const { return m_view->screen(); }
@@ -190,11 +194,7 @@ private:
     void applyPassThrough();
     QRectF m_hit;
     bool m_passThrough = false;
-    // Where the bar is docked, as a share of its edge: the edge can change its length
-    // under us (another resolution, the taskbar), and the bar keeps its place along it.
-    qreal m_frac = 0.5;
     int m_polls = 0;
-    bool m_covered = false;
     int m_coverCount = 0; // how many looks in a row have disagreed with `m_covered`
     bool fullScreenAbove() const;
     void lookForCover();
@@ -205,6 +205,10 @@ private:
     Q_INVOKABLE void woke();
     quintptr m_lastForeground = 0; // the window that had the keyboard before the island took it
 #endif
+    // Where the bar is docked, as a share of its edge: the edge can change its length
+    // under us (another resolution, the taskbar), and the bar keeps its place along it.
+    qreal m_frac = 0.5;
+    bool m_covered = false; // (told on Windows only: a layer surface is over full-screen windows anyway)
     QQuickView *m_view;
     bool m_floating = false;
     bool m_grabbing = false;

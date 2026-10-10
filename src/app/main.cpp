@@ -26,6 +26,9 @@
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QDir>
+#include <QDirIterator>
+#include <QFile>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QLocalSocket>
@@ -187,7 +190,11 @@ int main(int argc, char *argv[])
     ChatClient chat(&prefs, &secrets);
 
     // The relay ships next to the app; hooks point at a stable copy in the data dir.
-    const QString bundledRelay = QCoreApplication::applicationDirPath() + QLatin1Char('/') + paths::hookFileName();
+    // (A package that carries its own Qt has the relay in a folder of its own, with the one
+    // library it needs: the copy must take that along. See HookInstaller::ensureRelay.)
+    const QString ownRelay = QCoreApplication::applicationDirPath() + QStringLiteral("/../libexec/kisel-hook/") + paths::hookFileName();
+    const QString bundledRelay = QFile::exists(ownRelay) ? QDir::cleanPath(ownRelay)
+                                                         : QCoreApplication::applicationDirPath() + QLatin1Char('/') + paths::hookFileName();
     hooks.ensureRelay(bundledRelay);
     if (!cli.isSet("grab")) // a grab run must not watch (or touch) the real settings
         hooks.watch(&prefs, bundledRelay);
@@ -205,6 +212,10 @@ int main(int argc, char *argv[])
         ticker.install();
 #endif
 
+#ifndef Q_OS_WIN
+    if (!cli.isSet("grab"))
+        IslandWindow::settleIn();
+#endif
     QQuickView view;
     IslandWindow shell(&view);
     shell.setAvoidPanels(prefs.avoidPanels());
@@ -235,7 +246,30 @@ int main(int argc, char *argv[])
     PromptRelay relay(cli.isSet("grab") ? qEnvironmentVariable("KISEL_INBOX", QDir::tempPath() + QStringLiteral("/kisel-grab-inbox-%1").arg(QCoreApplication::applicationPid()))
                                         : paths::inboxDir());
     // (installed: <prefix>/bin/kisel.exe and <prefix>/mods; from a build tree there are none beside it)
-    ModInstaller mods(QCoreApplication::applicationDirPath() + QStringLiteral("/../mods"));
+    QString modsDir = QCoreApplication::applicationDirPath() + QStringLiteral("/../mods");
+    // An AppImage's own folder is gone when Kisel stops, and Claude Code is told where the
+    // mods are once: they are copied to a place that stays.
+    if (!paths::appImage().isEmpty() && !cli.isSet("grab")) {
+        const QString kept = paths::dataDir() + QStringLiteral("/mods");
+        const QString from = QDir::cleanPath(modsDir);
+        bool whole = true;
+        QDirIterator it(from, QDir::Files | QDir::Hidden, QDirIterator::Subdirectories);
+        while (it.hasNext()) {
+            const QString file = it.next();
+            const QString to = kept + file.mid(from.size());
+            QFile have(to), want(file);
+            if (have.open(QIODevice::ReadOnly) && want.open(QIODevice::ReadOnly) && have.readAll() == want.readAll())
+                continue;
+            have.close();
+            QDir().mkpath(QFileInfo(to).absolutePath());
+            QFile::remove(to);
+            whole = QFile::copy(file, to) && whole;
+            QFile::setPermissions(to, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ReadGroup | QFileDevice::ReadOther);
+        }
+        if (whole && QFile::exists(kept + QStringLiteral("/.claude-plugin/marketplace.json")))
+            modsDir = kept;
+    }
+    ModInstaller mods(modsDir);
     // (the plugin Kisel once installed and ships no more is taken out again: see ModInstaller.h)
     if (!cli.isSet("grab"))
         QTimer::singleShot(45000, &mods, &ModInstaller::retire);
@@ -299,7 +333,7 @@ int main(int argc, char *argv[])
             const int n = up.elapsed() > 60000 ? 1 : restarts + 1;
             qWarning("Kisel: %s", qPrintable(why));
             if (n <= 3)
-                QProcess::startDetached(QCoreApplication::applicationFilePath(), {QStringLiteral("--restarted"), QString::number(n), QStringLiteral("--no-hello")});
+                QProcess::startDetached(paths::selfPath(), {QStringLiteral("--restarted"), QString::number(n), QStringLiteral("--no-hello")});
             QTimer::singleShot(0, qApp, [] { QCoreApplication::exit(3); });
         };
         QObject::connect(&view, &QQuickWindow::sceneGraphError, &app, [again](QQuickWindow::SceneGraphError, const QString &message) {

@@ -3,7 +3,9 @@
 // socketPath() by hand because it must not depend on this library: keep both
 // in sync.
 
+#include <QCoreApplication>
 #include <QDir>
+#include <QFileInfo>
 #include <QStandardPaths>
 #include <QString>
 
@@ -58,6 +60,24 @@ inline QString socketPath() { return runtimeDir() + QStringLiteral("/kisel.sock"
 inline QString scratchSocketPath(qint64 pid) { return QStringLiteral("/tmp/kisel-grab-%1.sock").arg(pid); }
 #endif
 
+// The file that starts Kisel. Run from an AppImage, the program itself sits in a folder
+// that is there only while it runs, under another name each time: what starts Kisel then
+// is the AppImage, which says where it is in APPIMAGE.
+inline QString appImage()
+{
+#ifdef Q_OS_LINUX
+    const QString file = qEnvironmentVariable("APPIMAGE");
+    if (!file.isEmpty() && QFileInfo(file).isFile())
+        return file;
+#endif
+    return {};
+}
+inline QString selfPath()
+{
+    const QString image = appImage();
+    return image.isEmpty() ? QCoreApplication::applicationFilePath() : image;
+}
+
 inline QString dataDir()
 {
     return QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/kisel");
@@ -67,13 +87,11 @@ inline QString dataDir()
 // Windows keeps what such an app (and the Claude Code it runs) writes under AppData in a
 // private copy that Kisel never sees. The home folder is the same for both.
 // (mods/kisel-prompts/hooks/inbox.ts names the same folder: keep the two in step.)
+// (On Plasma it is the same folder for the same reason of keeping the two in step: the
+// mod names one place, whatever the system.)
 inline QString inboxDir()
 {
-#ifdef Q_OS_WIN
     return QDir::homePath() + QStringLiteral("/.kisel/inbox");
-#else
-    return dataDir() + QStringLiteral("/inbox");
-#endif
 }
 inline QString configDir()
 {

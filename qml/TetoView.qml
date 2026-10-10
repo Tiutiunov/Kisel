@@ -226,14 +226,16 @@ Item {
                 Text {
                     id: driveName
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 16
+                    // ("C:" on Windows; on Plasma a mount point, which can be a word long)
+                    width: Math.max(16, Math.min(implicitWidth, drives.pairs ? 34 : 60))
+                    elide: Text.ElideRight
                     text: drive.modelData.name
                     textFormat: Text.PlainText
                     color: Theme.ink
                     font.family: Theme.sans; font.pixelSize: 10; font.weight: Font.ExtraBold
                 }
                 Rectangle {
-                    x: 20
+                    x: driveName.width + 4
                     anchors.verticalCenter: parent.verticalCenter
                     width: driveFree.x - x - 6
                     height: 7; radius: 3.5

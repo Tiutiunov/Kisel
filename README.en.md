@@ -102,6 +102,17 @@ The installer isn't code-signed (certificates cost money), so SmartScreen will c
 
 It updates itself. Once a day it asks GitHub whether anything new is out, and if so Rin holds up a sign with the version number. After that it's one button in Settings: download, checksum, install, restart. You can turn the check off there as well.
 
+**KDE Plasma.** The same page has `Kisel-<version>-x86_64.AppImage`: one file with everything in it. Download it, allow it to run, and open it:
+
+```bash
+chmod +x Kisel-*-x86_64.AppImage
+./Kisel-*-x86_64.AppImage
+```
+
+It wants Plasma 6 on Wayland and a distribution no older than Ubuntu 24.04 (Fedora 40+, Arch, openSUSE Tumbleweed, KDE neon, Debian 13). On its first start Kisel adds itself to the application menu. Put the file where it is going to live (`~/Applications`, say): it updates in place, by replacing itself.
+
+What Plasma does not have: Kisel cannot tell where the pointer is outside its own window (Wayland does not say), so the character does not watch it; and Teto has no button for cleaning memory.
+
 Uninstall from "Installed apps" in Windows settings. That also takes Kisel's hooks out of Claude Code's settings; your own settings stay.
 
 The interface is English by default. Russian is in Settings if you want it.
@@ -124,7 +135,7 @@ If you want, Kisel shows "Working with Claude Code" with a timer in your Discord
 
 ## Your data
 
-Secrets (a GitHub token for the widget) live in the Windows Credential Manager and are never written to files.
+Secrets (a GitHub token for the widget) live in the Windows Credential Manager (in KWallet on Plasma) and are never written to files.
 
 No telemetry. Kisel goes online for the GitHub widget, to ping `1.1.1.1` for Luka, to check for updates once a day, and to measure speed through Cloudflare when you press the button. All of it can be switched off or never starts by itself. The chat goes through your local Claude Code session, not through any network of Kisel's.
 
@@ -132,7 +143,7 @@ Point by point: [docs/PRIVACY.md](docs/PRIVACY.md). Terms of use: [docs/TERMS.md
 
 From notifications it reads the app's name, how many there are and when they came. The text is read only if you press "Show text" in Rin's card (off by default): it is shown in that card, kept in memory, and never saved or sent anywhere.
 
-Settings are in `%LOCALAPPDATA%\kisel\kisel.conf`, a plain text file.
+Settings are in `%LOCALAPPDATA%\kisel\kisel.conf` (`~/.config/kisel/kisel.conf` on Plasma), a plain text file.
 
 ## Building it yourself
 
@@ -147,13 +158,16 @@ dist\bin\kisel.exe
 
 The installer: `cmake --build build --target installer`. A release is that file attached to a tag named `win-v<version>`.
 
-**Linux (KDE Plasma 6).** This is where Kisel began, and the code for it is still here, but this branch has only been run on Windows lately. It needs `qtbase`, `qtdeclarative`, `qtsvg`, `qtwayland`, `layer-shell-qt`, `kwallet` and `kstatusnotifieritem`:
+**KDE Plasma 6.** It needs `qtbase`, `qtdeclarative`, `qtsvg`, `qtwayland`, `layer-shell-qt`, `kwallet`, `kstatusnotifieritem` and `dbus`:
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j"$(nproc)"
 ctest --test-dir build --output-on-failure
+./build/kisel
 ```
+
+The AppImage is made by `packaging/linux/make-appimage.sh <source folder> <work folder>`; on GitHub `.github/workflows/linux.yml` runs it in KDE neon's image.
 
 Handy while working on it:
 
@@ -179,7 +193,7 @@ Sounds are regenerated with `python scripts/gen_sounds.py`. How it all fits toge
 
 ## Where it came from
 
-Kisel was started by Anton Kuklin as a companion for KDE Plasma. This branch is the Windows version, which has grown all the rest since. The characters' shape was borrowed from Coucou's Mochi.
+Kisel was started by Anton Kuklin as a companion for KDE Plasma. This branch grew out of the Windows version, which has grown all the rest since, and builds for Plasma again. The characters' shape was borrowed from Coucou's Mochi.
 
 ## Licences and rights
 

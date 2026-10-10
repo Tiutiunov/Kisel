@@ -16,6 +16,7 @@ UI check without touching the screen: `QT_QPA_PLATFORM=offscreen KISEL_LAYER_SHE
 - Never approve a permission without an explicit click. "Always" rules are per pattern (`AgentHub::ruleKey`) and clearable.
 - Never overwrite `~/.claude/settings.json` blindly: preview diff, dated backup, atomic write (`HookInstaller`).
 - Secrets only in KWallet (Credential Manager on Windows). No telemetry. Model output is plain text.
-- Platform-specific code stays in `IslandWindow`, `Tray`, `Secrets`, `Sounds`, `Paths` and the relay's transport. QML never knows the platform.
+- Platform-specific code stays in `IslandWindow`, `Tray`, `Secrets`, `Sounds`, `Paths`, the relay's transport, and the readers of the system (`SysMon`, `NetMon`, `Media`, `Notices`; their Plasma halves are `SysMonLinux`, `MediaLinux` and the `Q_OS_LINUX` / `KISEL_WITH_DBUS1` parts). QML never knows the platform.
+- Both systems are built from this one branch. A change to shared code is built and tested on both before it is called done (Plasma: any Linux with the packages the README names, or `packaging/linux/make-appimage.sh`).
 - `socketPath()` exists twice (`Paths.h`, `hook/main.cpp`): change both.
 - Copy is English, sentence case, one verb per button, no emoji. It is written where it is used as `Tr.t("...")`; the Russian for it goes into `qml/Tr.qml` under the same English text (text that arrives at run time goes through `Tr.d`).

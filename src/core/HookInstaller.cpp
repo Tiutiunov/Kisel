@@ -283,6 +283,23 @@ bool HookInstaller::ensureRelay(const QString &bundledPath) const
         if (!QFile::copy(from.filePath(dll), to))
             return false;
     }
+#else
+    // Where Kisel carries its own Qt (an AppImage), the relay has the libraries it needs
+    // beside it in its folder, and looks for them beside itself: they go along.
+    const QDir own = QFileInfo(bundledPath).dir();
+    for (const QFileInfo &lib : own.entryInfoList({QStringLiteral("*.so*")}, QDir::Files)) {
+        const QString to = QFileInfo(dest).path() + QLatin1Char('/') + lib.fileName();
+        if (QFileInfo(to).size() == lib.size())
+            continue;
+        const QString part = to + QStringLiteral(".new");
+        QFile::remove(part);
+        if (!QFile::copy(lib.filePath(), part))
+            return false;
+        QFile::setPermissions(part, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
+        QFile::remove(to);
+        if (!QFile::rename(part, to))
+            return false;
+    }
 #endif
     // Replace only when different, and via rename so a running hook is never cut.
     QFile src(bundledPath);

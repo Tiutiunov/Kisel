@@ -12,8 +12,9 @@ namespace kisel {
 //
 // On Windows: one small echo ("ping", 32 bytes) every two seconds to a public name
 // server (1.1.1.1; nothing else is ever sent anywhere), and the byte counters of the
-// network adapters that are up, read from the system. Elsewhere `available` is false
-// and nothing happens.
+// network adapters that are up, read from the system. On Plasma the same: the echo goes
+// through the socket Linux keeps for it, the counters come from /proc/net/dev. Elsewhere
+// `available` is false and nothing happens.
 //
 // The measuring is done on a thread of its own; QML sees plain properties.
 class NetMon : public QObject

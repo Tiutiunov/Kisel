@@ -7,6 +7,19 @@
 #include <icmpapi.h>
 #include <windows.h>
 #endif
+#ifdef Q_OS_LINUX
+#include <QFile>
+#include <QFileInfo>
+#include <arpa/inet.h>
+#include <cerrno>
+#include <cstring>
+#include <fcntl.h>
+#include <netinet/in.h>
+#include <netinet/ip_icmp.h>
+#include <poll.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#endif
 
 #include "NetMon.h"
 
@@ -99,6 +112,121 @@ struct NetMon::Worker
         if (icmp != INVALID_HANDLE_VALUE)
             IcmpCloseHandle(icmp);
     }
+#elif defined(Q_OS_LINUX)
+    // bytes in and out over every adapter there is in hardware (not the loopback, not
+    // the bridges and tunnels laid over them, where the same bytes are counted again)
+    static bool counters(quint64 &in, quint64 &out)
+    {
+        QFile f(QStringLiteral("/proc/net/dev"));
+        if (!f.open(QIODevice::ReadOnly))
+            return false;
+        in = out = 0;
+        for (int n = 0; n < 200; ++n) {
+            const QByteArray line = f.readLine();
+            if (line.isEmpty())
+                break;
+            const int colon = line.indexOf(':');
+            if (colon < 0)
+                continue;
+            const QString name = QString::fromLatin1(line.left(colon)).trimmed();
+            if (!QFileInfo::exists(QStringLiteral("/sys/class/net/%1/device").arg(name)))
+                continue;
+            const QList<QByteArray> p = line.mid(colon + 1).simplified().split(' '); // 8 figures received, then 8 sent
+            if (p.size() < 9)
+                continue;
+            in += p[0].toULongLong();
+            out += p[8].toULongLong();
+        }
+        return true;
+    }
+
+    // One echo to 1.1.1.1 and how long its answer took, in ms; -1 if none came. Linux
+    // lets an ordinary program send an echo through a socket made for just that. Where
+    // a system does not (it is a setting), the time it takes to be let in at the same
+    // address's door stands for it: one handshake there and back.
+    int sock = -1;
+    bool viaDoor = false;
+    quint16 seq = 0;
+
+    int echo()
+    {
+        using clock = std::chrono::steady_clock;
+        sockaddr_in to {};
+        to.sin_family = AF_INET;
+        inet_pton(AF_INET, "1.1.1.1", &to.sin_addr);
+        if (sock < 0 && !viaDoor) {
+            sock = ::socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, IPPROTO_ICMP);
+            if (sock < 0)
+                viaDoor = true;
+        }
+        const auto began = clock::now();
+        const auto since = [&began] { return int(std::chrono::duration_cast<std::chrono::milliseconds>(clock::now() - began).count()); };
+        if (!viaDoor) {
+            struct { icmphdr head; char body[32]; } packet {};
+            packet.head.type = ICMP_ECHO;
+            packet.head.un.echo.sequence = htons(++seq);
+            std::memcpy(packet.body, "kisel", 5);
+            if (::sendto(sock, &packet, sizeof packet, 0, reinterpret_cast<sockaddr *>(&to), sizeof to) < 0)
+                return -1; // (no network at all just now)
+            while (since() < 1500) {
+                pollfd p {sock, POLLIN, 0};
+                if (::poll(&p, 1, 1500 - since()) <= 0)
+                    return -1;
+                char answer[128];
+                const ssize_t got = ::recv(sock, answer, sizeof answer, 0);
+                if (got < ssize_t(sizeof(icmphdr)))
+                    continue;
+                icmphdr head;
+                std::memcpy(&head, answer, sizeof head);
+                if (head.type == ICMP_ECHOREPLY && ntohs(head.un.echo.sequence) == seq)
+                    return qMax(1, since());
+            }
+            return -1;
+        }
+        to.sin_port = htons(443);
+        const int s = ::socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
+        if (s < 0)
+            return -1;
+        int ms = -1;
+        if (::connect(s, reinterpret_cast<sockaddr *>(&to), sizeof to) == 0 || errno == EINPROGRESS) {
+            pollfd p {s, POLLOUT, 0};
+            int err = 0;
+            socklen_t len = sizeof err;
+            if (::poll(&p, 1, 1500) > 0 && ::getsockopt(s, SOL_SOCKET, SO_ERROR, &err, &len) == 0 && err == 0)
+                ms = qMax(1, since());
+        }
+        ::close(s);
+        return ms;
+    }
+
+    void run()
+    {
+        quint64 lastIn = 0, lastOut = 0;
+        bool have = counters(lastIn, lastOut);
+        auto lastAt = std::chrono::steady_clock::now();
+        while (!stop) {
+            const int ping = echo();
+            quint64 in = 0, out = 0;
+            qreal down = 0, up = 0;
+            const auto now = std::chrono::steady_clock::now();
+            if (counters(in, out)) {
+                const qreal dt = std::chrono::duration<qreal>(now - lastAt).count();
+                if (have && dt > 0.2 && in >= lastIn && out >= lastOut) {
+                    down = qreal(in - lastIn) / dt;
+                    up = qreal(out - lastOut) / dt;
+                }
+                lastIn = in;
+                lastOut = out;
+                lastAt = now;
+                have = true;
+            }
+            QMetaObject::invokeMethod(owner, [o = owner, ping, down, up] { o->apply(ping, down, up); }, Qt::QueuedConnection);
+            std::unique_lock lock(mutex);
+            wake.wait_for(lock, std::chrono::milliseconds(2000), [this] { return stop.load(); });
+        }
+        if (sock >= 0)
+            ::close(sock);
+    }
 #else
     void run() {}
 #endif
@@ -146,7 +274,7 @@ NetMon::~NetMon()
 
 bool NetMon::available() const
 {
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN) || defined(Q_OS_LINUX)
     return true;
 #else
     return m_demo;
