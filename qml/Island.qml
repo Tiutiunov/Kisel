@@ -292,6 +292,8 @@ Item {
     // (Each of the five has a double that does the flying, kept ready and out of sight:
     // one made on the spot would first play its own coming-in. `flying` names those in the air.)
     property var flying: []
+    // (where the flights happen at all: the bar, lying shut on its edge)
+    readonly property bool flightsOn: !expanded && !floating && !mfree && !tucked && !greeting && !Theme.reduced
     function launch(who, fromX) {
         if (who === "" || expanded || floating || mfree || tucked || greeting || Theme.reduced) return
         if (head.includes(who) || flying.includes(who)) return // (`head` is fresh here; other bindings may not have caught up)
@@ -366,7 +368,7 @@ Item {
         view = "settings"
         autoOpened = false
         open()
-        settingsView.showUpdates()
+        if (settingsLoader.item) settingsLoader.item.showUpdates(); else settingsToUpdates = true // (not made yet: it goes there as it is made)
     }
     readonly property bool note: noteAny
         && !expanded && !floating && !mfree && !greeting
@@ -1013,11 +1015,19 @@ Item {
     readonly property int enterDelay: shrinking ? 200 : 120
     onCardHChanged: { shrinking = cardH < animH - 0.5; animH = cardH }
     onCardWChanged: animW = cardW
-    Behavior on animW { enabled: !root.snapSize; SequentialAnimation { PauseAnimation { duration: root.shrinking ? 80 : 0 } NumberAnimation { duration: root.shrinking ? Theme.tClose : Theme.tOpen; easing.type: Easing.BezierSpline; easing.bezierCurve: root.shrinking ? Theme.easeClose : Theme.springOpen } } }
+    // (The spring is for the card. When only the bar changes width, for another character or
+    // a partner at its head, it goes there plainly: on the spring it overshot and swung back.)
+    Behavior on animW { enabled: !root.snapSize; SequentialAnimation { PauseAnimation { duration: root.cardish && root.shrinking ? 80 : 0 }
+        NumberAnimation { duration: !root.cardish ? 240 : root.shrinking ? Theme.tClose : Theme.tOpen
+                          easing.type: root.cardish ? Easing.BezierSpline : Easing.OutCubic
+                          easing.bezierCurve: root.shrinking ? Theme.easeClose : Theme.springOpen } } }
     Behavior on animH { enabled: !root.snapSize; SequentialAnimation { PauseAnimation { duration: root.shrinking ? 80 : 0 } NumberAnimation { duration: root.shrinking ? Theme.tClose : Theme.tOpen; easing.type: Easing.BezierSpline; easing.bezierCurve: root.shrinking ? Theme.easeClose : Theme.springOpen } } }
 
     // how far the card has opened, 0 (pill) .. 1 (card)
-    readonly property real openU: Math.max(0, Math.min(1, (animW - closedW) / Math.max(1, 660 - closedW)))
+    // (A bar that is only getting narrower, after a change of character, has not opened at all:
+    // counted as a little open, it was drawn a little toward the middle of the surface and
+    // slid back, a dozen pixels of it for a bar at the screen's corner.)
+    readonly property real openU: !cardish ? 0 : Math.max(0, Math.min(1, (animW - closedW) / Math.max(1, 660 - closedW)))
     function mix(a, b, u) { return a + (b - a) * u }
     // The card's place inside the surface. Top and bottom: centred on the pill, settling to
     // the surface's centre as it opens; bottom grows upward. Left and right: flush with the
@@ -1025,10 +1035,20 @@ Item {
     readonly property real cardX: floating ? (width - animW) / 2
         : edge === "left" ? -tuckA
         : edge === "right" ? width - animW + tuckA
-        : mix(Math.max(0, Shell.pillAlong - animW / 2 - grownW / 2), (width - animW) / 2, openU)
-    // (When the bar grows for a partner or for Rin it grows to the left: its right end
-    // stays where it is. Only at the surface's left end does it grow rightward instead.)
+        : mix(Math.max(0, barX), (width - animW) / 2, openU)
+    // Whatever makes the bar wider (a partner at its head, Rin's sign, the room one
+    // character's readings need and another's do not), it grows to the left: its right
+    // end stays where the plain 288 px bar has it. It used to grow half each way for a
+    // change of character, and at the screen's right corner ran off the screen. Only at
+    // the surface's left end does it grow rightward instead. The card, as it opens and
+    // as it shuts, is centred on the bar it comes from.
     readonly property real grownW: duoW + heraldW
+    readonly property bool cardish: expanded || animH > closedH + 0.5
+    // (what stands at the bar's far end is placed from the width the bar has now, not the
+    // one it is growing to: placed from that, the bench stood past the bar's end, cut off,
+    // for as long as the bar took to grow)
+    readonly property real barNowW: cardish ? pillW : animW
+    readonly property real barX: cardish ? Shell.pillAlong - animW / 2 - (closedW - 288) / 2 : Shell.pillAlong + 144 - animW
     readonly property real cardY: floating ? 8
         : edge === "top" ? -tuckA
         : edge === "bottom" ? height - animH + tuckA
@@ -1040,7 +1060,13 @@ Item {
     readonly property real shapeH: animH + (dockSide === "top" || dockSide === "bottom" ? radius : 0)
 
     // ---- behaviour -------------------------------------------------------------
-    readonly property bool typing: chatView.inputFocus || settingsView.inputFocus || sessionView.inputFocus
+    readonly property bool typing: chatView.inputFocus || (settingsLoader.item ? settingsLoader.item.inputFocus : false) || sessionView.inputFocus
+    // (Settings exists only while it is wanted, and for a while after: see `settingsLoader`)
+    readonly property bool settingsWanted: expanded && view === "settings"
+    property bool settingsKept: false
+    property bool settingsToUpdates: false
+    onSettingsWantedChanged: if (settingsWanted) settingsKept = true
+    Timer { interval: 30000; running: root.settingsKept && !root.settingsWanted; onTriggered: { root.settingsKept = false; restSoon.restart() } }
     readonly property bool holdOpen: Hub.pendingCount > 0 || dropActive || peek.running || typing || dragArea.dragging
     readonly property bool wantsKeys: expanded && (view === "chat" || view === "settings" || view === "permission" || view === "session")
     onWantsKeysChanged: Shell.setKeyboard(wantsKeys)
@@ -1867,27 +1893,40 @@ Item {
                 PillBars { visible: Hub.mood === "work" && Hub.chip === "" && !root.barOwn; running: visible; anchors.verticalCenter: parent.verticalCenter }
                 PillDots { visible: Hub.mood === "think" && Hub.chip === "" && !root.barOwn; running: visible; anchors.verticalCenter: parent.verticalCenter }
                 PillChip { id: pillChip; kind: root.barOwn || Hub.chip === "done" ? "" : Hub.chip } // ("Done" has a chip of its own, below)
-                BarPlayer {
+                // What the bar shows for the one on stage: her player, her gauges or her
+                // readings. The three stand in one place and fade into each other. They used
+                // to stand side by side in the row, so while one was fading out the next was
+                // already there and pushed it along the bar, over the bench.
+                Item {
                     anchors.verticalCenter: parent.verticalCenter
-                    on: root.miniPlayer
-                    still: root.tucked
-                    room: root.pillMax - root.labelX - 16 - root.castW
-                }
-                BarGauges {
-                    anchors.verticalCenter: parent.verticalCenter
-                    on: root.miniGauges
-                    room: root.pillMax - root.labelX - 16 - root.castW + 10 // (the gauges take the gap before the bench as well)
-                }
-                BarNet {
-                    anchors.verticalCenter: parent.verticalCenter
-                    on: root.miniNet
-                    room: root.pillMax - root.labelX - 16 - root.castW - root.keySpace // (up to the Test key, not under it)
+                    height: 24
+                    width: root.miniPlayer ? barPlayer.width : root.miniGauges ? barGauges.width : root.miniNet ? barNet.width : 0
+                    visible: barPlayer.opacity > 0.01 || barGauges.opacity > 0.01 || barNet.opacity > 0.01 // (not their `visible`: that follows this one's)
+                    BarPlayer {
+                        id: barPlayer
+                        anchors.verticalCenter: parent.verticalCenter
+                        on: root.miniPlayer
+                        still: root.tucked
+                        room: root.pillMax - root.labelX - 16 - root.castW
+                    }
+                    BarGauges {
+                        id: barGauges
+                        anchors.verticalCenter: parent.verticalCenter
+                        on: root.miniGauges
+                        room: root.pillMax - root.labelX - 16 - root.castW + 10 // (the gauges take the gap before the bench as well)
+                    }
+                    BarNet {
+                        id: barNet
+                        anchors.verticalCenter: parent.verticalCenter
+                        on: root.miniNet
+                        room: root.pillMax - root.labelX - 16 - root.castW - root.keySpace // (up to the Test key, not under it)
+                    }
                 }
             }
 
             // Luka's Test key, at the far end before the bench: it stays put while her readings change
             BarNet.TestKey {
-                x: root.pillW - 8 - 40 - 6 - width
+                x: root.barNowW - 8 - 40 - 6 - width
                 y: (root.pillT - height) / 2
                 opacity: root.miniNet && !root.expanded && !root.floating && !root.vertical && !root.mfree ? (Net.online || Speed.running ? 1 : 0.4) : 0
                 visible: opacity > 0
@@ -1896,7 +1935,7 @@ Item {
 
             // "Done", in the middle of the bar, glowing and throwing stars
             DoneChip {
-                x: (root.pillW - width) / 2
+                x: (root.barNowW - width) / 2
                 y: (root.pillT - height) / 2
                 on: Hub.chip === "done" && !root.doneSeen && !root.barOwn && !root.expanded && !root.floating && !root.vertical && !root.mfree
             }
@@ -1910,7 +1949,7 @@ Item {
                 id: tuneLine
                 x: 0
                 y: root.dockSide === "bottom" ? root.pillT - height : 0
-                width: root.pillW
+                width: root.barNowW
                 height: tuneScrub.containsMouse || tuneScrub.pressed ? 4 : 2
                 Behavior on height { NumberAnimation { duration: 120 } }
                 opacity: root.miniPlayer && !root.expanded && !root.floating && !root.vertical && !root.mfree && !root.barAir ? 1 : 0 // (in the hand the bar is round all over: the line would stick out of its corners)
@@ -1964,24 +2003,33 @@ Item {
                 columns: 2
                 columnSpacing: 2
                 rowSpacing: 0
-                x: root.pillW - width - 8
+                x: root.barNowW - width - 8
                 y: (root.pillT - height) / 2
                 opacity: root.expanded || root.floating || root.vertical || root.mfree ? 0 : 1
                 visible: opacity > 0
                 Behavior on opacity { NumberAnimation { duration: 120 } }
+                // (the others close up, or make room, without a jump)
+                move: Transition { NumberAnimation { properties: "x,y"; duration: 200; easing.type: Easing.OutCubic } }
+                // Every one of the five has a seat of her own here for good, shown while she
+                // sits. The seats used to be made anew, all of them, each time anyone sat down
+                // or got up: for a frame the bench stood empty, then all four popped in at
+                // once, and making four drawings in one frame showed as a stutter.
                 Repeater {
-                    model: root.bench
+                    model: root.cast
                     Item {
                         id: seat
                         required property string modelData
+                        readonly property bool sat: root.bench.includes(modelData)
+                        visible: sat
                         width: 19; height: 15 // (they are wider than tall: two rows fit the bar)
-                        // whoever has just sat down here pops in
-                        NumberAnimation on scale { from: 0.2; to: 1; duration: 340; easing.type: Easing.OutBack; running: !Theme.reduced }
+                        // whoever has just sat down here pops in, and nobody else
+                        onSatChanged: if (sat && !Theme.reduced) seatPop.restart()
+                        NumberAnimation { id: seatPop; target: seat; property: "scale"; from: 0.3; to: 1; duration: 300; easing.type: Easing.OutBack; easing.overshoot: 1.0 }
                         Mascot {
                             anchors.centerIn: parent
                             size: 18
                             bench: true
-                            paused: root.tucked
+                            paused: root.tucked || !seat.sat
                             character: root.face(seat.modelData)
                             scale: seatArea.containsMouse ? 1.15 : 1
                             Behavior on scale { NumberAnimation { duration: Theme.tHover; easing.type: Easing.OutCubic } }
@@ -2215,17 +2263,23 @@ Item {
                     anchors.rightMargin: 10
                     y: 11
                     spacing: 4
+                    move: Transition { NumberAnimation { properties: "x,y"; duration: 200; easing.type: Easing.OutCubic } }
+                    // (a chair each, for good, as on the bar's bench: see there)
                     Repeater {
-                        model: root.bench
+                        model: root.cast
                         Item {
                             id: chair
                             required property string modelData
+                            readonly property bool sat: root.bench.includes(modelData)
+                            visible: sat
                             width: 26; height: 26
-                            NumberAnimation on scale { from: 0.2; to: 1; duration: 340; easing.type: Easing.OutBack; running: !Theme.reduced }
+                            onSatChanged: if (sat && !Theme.reduced) chairPop.restart()
+                            NumberAnimation { id: chairPop; target: chair; property: "scale"; from: 0.3; to: 1; duration: 300; easing.type: Easing.OutBack; easing.overshoot: 1.0 }
                             Mascot {
                                 anchors.centerIn: parent
                                 size: 24
                                 bench: true
+                                paused: !chair.sat || !root.expanded
                                 character: root.face(chair.modelData)
                                 scale: chairArea.containsMouse ? 1.2 : 1
                                 Behavior on scale { NumberAnimation { duration: Theme.tHover; easing.type: Easing.OutCubic } }
@@ -2315,11 +2369,21 @@ Item {
                     active: root.expanded && root.view === "settings"
                     enterDelay: root.enterDelay
                     rises: false
-                    SettingsView {
-                        id: settingsView
-                        active: hostSettings.active
-                        height: 440 - 62
-                        onToast: (text) => root.showToast(text)
+                    // Settings is the heaviest of the views by far (six tabs of switches and
+                    // fields: a sixth of all Kisel holds) and the least looked at, so it is
+                    // made when it is first opened and let go a while after it is shut.
+                    // It is made over a few frames, not in one, so that the card's opening
+                    // does not catch on it.
+                    Loader {
+                        id: settingsLoader
+                        active: root.settingsKept || root.settingsWanted
+                        asynchronous: true
+                        sourceComponent: SettingsView {
+                            active: hostSettings.active
+                            height: 440 - 62
+                            onToast: (text) => root.showToast(text)
+                        }
+                        onLoaded: if (root.settingsToUpdates) { root.settingsToUpdates = false; item.showUpdates() }
                     }
                 }
             }
@@ -2398,9 +2462,11 @@ Item {
             // docked on a side it leans 8 degrees toward the screen
             inwardTilt: (root.vertical && !root.expanded ? (root.edge === "left" ? 8 : -8) : 0) + root.sway
             Behavior on inwardTilt { NumberAnimation { duration: 200 } }
-            opacity: root.slotDip
-                     * (root.arriving.includes(root.stage) ? 0 : 1) // (still on her way from the bench)
-            Behavior on opacity { NumberAnimation { duration: 120 } }
+            // Still on her way from the bench: her place is empty, and she is there, whole,
+            // the moment her double lands. No fade (she came up dim and brightened, right
+            // after landing bright), and not by `visible` either: a drawing out of sight is
+            // not redrawn, so she turned up for a frame as whoever sat there before.
+            opacity: root.slotDip * (root.arriving.includes(root.stage) ? 0 : 1)
             skin: root.expanded && root.view === "github" ? "github" : ""
             holdPal: root.inChat
             // (a quick question: she peers through her glass while Claude searches the web, and is at the keys once its words come)
@@ -2409,7 +2475,10 @@ Item {
             walkDir: root.walkDir
             character: root.face(root.stage)
             rotation: root.lean
-            instant: root.duo
+            // In the bar a change of character is acted by the flight from the bench and back,
+            // so she does not act it again herself: she used to shrink away and spring up
+            // anew out of sight, and landed half grown, to finish springing after.
+            instant: root.duo || root.flightsOn
             music: root.tune
             // Claude's working and thinking are Miku's to act out. Anyone else on stage is
             // herself while Claude works: at ease, or (Teto) the way the computer feels.

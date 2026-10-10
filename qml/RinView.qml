@@ -15,7 +15,6 @@ Item {
     height: 138
 
     readonly property color orange: "#FFB13B"
-    readonly property color lemon: "#FFE08A"
     readonly property var list: Notes.recent
 
     // how long ago, in a word; `tick` moves it on while the card is open

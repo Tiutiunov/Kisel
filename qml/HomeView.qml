@@ -452,28 +452,24 @@ Item {
         Keys.onSpacePressed: k.clicked()
     }
 
+    // Each of the four keeps a Home of her own, and only one of them is ever shown: the
+    // one on stage. So each is made when it is first shown and let go when another takes
+    // its place (the four together were five megabytes, held for nothing). They are made
+    // over a few frames, so a change of character does not catch on it.
+    component Own: Loader {
+        property string whose: ""
+        active: root.shownOwn === whose
+        asynchronous: true
+        visible: root.ownU > 0.01 && active
+        opacity: root.ownU
+        onLoaded: item.age = Qt.binding(() => root.age)
+    }
     // ---- Zundamon's Home is her player ----
-    PlayerView {
-        visible: root.ownU > 0.01 && root.shownOwn === "zunda"
-        opacity: root.ownU
-        age: root.age
-    }
+    Own { whose: "zunda"; sourceComponent: PlayerView { } }
     // ---- Teto's is how the computer is doing ----
-    TetoView {
-        visible: root.ownU > 0.01 && root.shownOwn === "teto"
-        opacity: root.ownU
-        age: root.age
-    }
+    Own { whose: "teto"; sourceComponent: TetoView { } }
     // ---- Rin's is the notifications that came last ----
-    RinView {
-        visible: root.ownU > 0.01 && root.shownOwn === "rin"
-        opacity: root.ownU
-        age: root.age
-    }
+    Own { whose: "rin"; sourceComponent: RinView { } }
     // ---- Luka's is how the connection is doing ----
-    LukaView {
-        visible: root.ownU > 0.01 && root.shownOwn === "luka"
-        opacity: root.ownU
-        age: root.age
-    }
+    Own { whose: "luka"; sourceComponent: LukaView { } }
 }

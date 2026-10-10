@@ -19,14 +19,54 @@
 #else
 #include <QFile>
 #include <QStorageInfo>
+#include <QThread>
 #endif
 
+#include <QThreadPool>
 #include <QVariantMap>
 
 namespace kisel {
 
+// (see SysMon.h; everything in it is touched by the working thread alone, and its
+// figures are handed to the interface's thread as a copy)
+struct SysMon::Probe
+{
+    int m_cpuFan = -1, m_gpuFan = -1, m_cpuTemp = -1, m_gpuTemp = -1;
+    int m_cpuMhz = -1, m_gpuMhz = -1, m_gpuMemUsed = -1, m_gpuMemTotal = -1;
+    qreal m_gpuWatts = -1, m_gpuWattsMax = -1;
+    QString m_gpuName;
+    QVariantList m_disks;
+    void *m_cpuQuery = nullptr, *m_cpuBase = nullptr, *m_cpuPace = nullptr; // PDH: the clock, and how much of it is in use
+    bool m_cpuQueryTried = false;
+    void *m_acpi = nullptr;       // the laptop's ACPI device (Windows, ASUS), once opened
+    bool m_acpiTried = false;
+    void *m_nvml = nullptr;       // NVIDIA's library, once loaded, and its first card
+    void *m_nvmlCard = nullptr;
+    bool m_nvmlTried = false;
+
+    void readMachine();
+    void readDisks();
+    ~Probe();
+};
+
+SysMon::Probe::~Probe()
+{
+#ifdef Q_OS_WIN
+    if (m_cpuQuery)
+        PdhCloseQuery(static_cast<PDH_HQUERY>(m_cpuQuery));
+    if (m_acpi)
+        CloseHandle(static_cast<HANDLE>(m_acpi));
+    if (m_nvml) {
+        if (const auto stop = reinterpret_cast<int (*)()>(GetProcAddress(static_cast<HMODULE>(m_nvml), "nvmlShutdown")))
+            stop();
+        FreeLibrary(static_cast<HMODULE>(m_nvml));
+    }
+#endif
+}
+
 SysMon::SysMon(QObject *parent)
     : QObject(parent)
+    , m_probe(std::make_unique<Probe>())
 {
     for (int i = 0; i < 36; ++i)
         m_history.append(0.0);
@@ -76,18 +116,12 @@ SysMon::SysMon(QObject *parent)
 
 SysMon::~SysMon()
 {
+    // (a reading under way still holds the probe: it is let finish)
+    for (int i = 0; i < 300 && m_probing.load(); ++i)
+        QThread::msleep(10);
 #ifdef Q_OS_WIN
     if (m_gpuQuery)
         PdhCloseQuery(static_cast<PDH_HQUERY>(m_gpuQuery));
-    if (m_cpuQuery)
-        PdhCloseQuery(static_cast<PDH_HQUERY>(m_cpuQuery));
-    if (m_acpi)
-        CloseHandle(static_cast<HANDLE>(m_acpi));
-    if (m_nvml) {
-        if (const auto stop = reinterpret_cast<int (*)()>(GetProcAddress(static_cast<HMODULE>(m_nvml), "nvmlShutdown")))
-            stop();
-        FreeLibrary(static_cast<HMODULE>(m_nvml));
-    }
 #endif
 }
 
@@ -99,12 +133,19 @@ void SysMon::setWatching(bool on)
     if (on) {
         m_diskAge = 1000; // (the drives at once)
         QTimer::singleShot(0, this, &SysMon::read);
+    } else {
+        // Nobody is looking: a minute on, what the probe holds is let go (NVIDIA's library
+        // above all: loaded, it keeps a few megabytes and a line to the card open).
+        QTimer::singleShot(60000, this, [this] {
+            if (!m_watching && !m_probing.load())
+                m_probe = std::make_unique<Probe>();
+        });
     }
     emit changed();
 }
 
 // The fixed drives and how full each is. Asked now and then: it changes slowly.
-void SysMon::readDisks()
+void SysMon::Probe::readDisks()
 {
     QVariantList out;
     const double gb = 1024.0 * 1024.0 * 1024.0;
@@ -141,7 +182,7 @@ void SysMon::readDisks()
 }
 
 // The fans and the temperatures (see SysMon.h for where they come from).
-void SysMon::readMachine()
+void SysMon::Probe::readMachine()
 {
 #ifdef Q_OS_WIN
     // ASUS laptops: \\.\ATKACPI answers "what is the state of device N" (the method DSTS).
@@ -474,12 +515,28 @@ void SysMon::read()
     }
 #endif
 
-    if (m_watching) {
-        readMachine();
-        if (++m_diskAge >= 20) {
+    // (off this thread: see Probe. One reading at a time; a slow one makes the next wait its turn.)
+    if (m_watching && !m_probing.exchange(true)) {
+        const bool drives = ++m_diskAge >= 20;
+        if (drives)
             m_diskAge = 0;
-            readDisks();
-        }
+        QThreadPool::globalInstance()->start([this, drives] {
+            Probe &p = *m_probe;
+            p.readMachine();
+            if (drives)
+                p.readDisks();
+            QMetaObject::invokeMethod(this, [this, cpuFan = p.m_cpuFan, gpuFan = p.m_gpuFan, cpuTemp = p.m_cpuTemp, gpuTemp = p.m_gpuTemp,
+                                             cpuMhz = p.m_cpuMhz, gpuMhz = p.m_gpuMhz, used = p.m_gpuMemUsed, total = p.m_gpuMemTotal,
+                                             watts = p.m_gpuWatts, cap = p.m_gpuWattsMax, name = p.m_gpuName, drives, disks = p.m_disks] {
+                m_cpuFan = cpuFan; m_gpuFan = gpuFan; m_cpuTemp = cpuTemp; m_gpuTemp = gpuTemp;
+                m_cpuMhz = cpuMhz; m_gpuMhz = gpuMhz; m_gpuMemUsed = used; m_gpuMemTotal = total;
+                m_gpuWatts = watts; m_gpuWattsMax = cap; m_gpuName = name;
+                if (drives)
+                    m_disks = disks;
+                emit changed();
+            }, Qt::QueuedConnection);
+            m_probing = false;
+        });
     }
 
     m_history.removeFirst();

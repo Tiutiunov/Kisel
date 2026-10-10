@@ -81,7 +81,7 @@ QtObject {
         "Previous track": "Предыдущий трек", "Pause": "Пауза", "Play": "Играть", "Next track": "Следующий трек",
 
         // ---- Teto's monitor ----
-        "Memory": "Память", "RAM": "ОЗУ", "The last minute": "Последняя минута", "Clean memory": "Очистить память", "Clean": "Чистка",
+        "Memory": "Память", "RAM": "ОЗУ", "The last minute": "Последняя минута", "Clean memory": "Очистить память",
         "Freed ": "Освободила ", " GB": " ГБ", "Already tidy": "И так чисто",
         "I cannot see this machine from here.": "Отсюда мне эту машину не видно.",
         "Sweeping the memory. Stand back.": "Подметаю память. Отойди.",

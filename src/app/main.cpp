@@ -33,7 +33,9 @@
 #include <QQuickItem>
 #include <QQuickStyle>
 #include <QMouseEvent>
+#ifdef KISEL_DRAG_TEST
 #include <QtTest/QTest>
+#endif
 #include <QQuickView>
 #include <QTimer>
 #include <qqml.h>
@@ -106,7 +108,9 @@ int main(int argc, char *argv[])
     cli.addOption({"grab-test", "Development: enter the full-output drag surface and print its size."});
     cli.addOption({"toast-test", "Development: show a toast shortly after start."});
     cli.addOption({"dock-edge", "Development: dock on <edge>[:fraction] right after start (top, bottom, left, right).", "edge"});
+#ifdef KISEL_DRAG_TEST
     cli.addOption({"drag-test", "Development: pick up the mascot, carry it to <edge> and let go; prints the state.", "edge"});
+#endif
     cli.addOption({"intro", "Play the first-launch animation now."});
     cli.addOption({"grab", "Save a screenshot of the island to <file> and quit (development).", "file"});
     cli.addOption({"scroll", "Development: with --grab, scroll Settings down by <px> first.", "px"});
@@ -306,6 +310,7 @@ int main(int argc, char *argv[])
             shell.setDock(edge, parts.value(1, "0.5").toDouble() * shell.edgeLength(edge));
         });
     }
+#ifdef KISEL_DRAG_TEST
     if (cli.isSet("drag-test")) {
         // Press the mascot, hold 500 ms, carry it toward an edge, let go. Synthetic mouse
         // events through the window, so the same code runs as with a real pointer.
@@ -357,6 +362,7 @@ int main(int argc, char *argv[])
             });
         });
     }
+#endif
     if (cli.isSet("intro"))
         QTimer::singleShot(300, root, [root] { QMetaObject::invokeMethod(root, "runIntro"); });
     if (cli.isSet("open"))

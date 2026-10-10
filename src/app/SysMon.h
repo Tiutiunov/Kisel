@@ -4,6 +4,9 @@
 #include <QTimer>
 #include <QVariantList>
 
+#include <atomic>
+#include <memory>
+
 namespace kisel {
 
 // How the computer is doing, for Teto: how busy the processor and the graphics card
@@ -120,8 +123,13 @@ private:
     void read();
     bool readCpu(quint64 &idle, quint64 &total) const;
     void readGpu();
-    void readMachine();
-    void readDisks();
+    // What reads the fans, the temperatures and the drives, and the handles it keeps.
+    // It works on a thread of the pool: NVIDIA's library takes a moment to start (it
+    // wakes a sleeping card), a drive may be slow to answer, and on the interface's
+    // thread either showed as a stutter when Teto's card opened.
+    struct Probe;
+    std::unique_ptr<Probe> m_probe;
+    std::atomic<bool> m_probing {false};
     QByteArray cleanerSetting(const char *key) const;
     qint64 lastReduct() const;
     void announce(qreal freed);
@@ -138,14 +146,7 @@ private:
     QString m_cpuName, m_gpuName;
     int m_cpuThreads = 0, m_cpuMhz = -1, m_gpuMhz = -1, m_gpuMemUsed = -1, m_gpuMemTotal = -1;
     qreal m_gpuWatts = -1, m_gpuWattsMax = -1;
-    void *m_cpuQuery = nullptr, *m_cpuBase = nullptr, *m_cpuPace = nullptr; // PDH: the clock, and how much of it is in use
-    bool m_cpuQueryTried = false;
     int m_diskAge = 0;            // readings since the drives were last asked
-    void *m_acpi = nullptr;       // the laptop's ACPI device (Windows, ASUS), once opened
-    bool m_acpiTried = false;
-    void *m_nvml = nullptr;       // NVIDIA's library, once loaded, and its first card
-    void *m_nvmlCard = nullptr;
-    bool m_nvmlTried = false;
     QVariantList m_history;
     QString m_worry;
     QString m_cleaner; // Mem Reduct's program, or empty

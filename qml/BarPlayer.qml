@@ -18,7 +18,7 @@ Row {
     opacity: on ? 1 : 0
     visible: opacity > 0.01
     Behavior on opacity { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
-    transform: Translate { x: root.on ? 0 : 18; Behavior on x { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } } }
+    transform: Translate { x: root.on ? 0 : 6; Behavior on x { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } } } // (a small step as it fades, no more: three of these change places in one spot)
 
     Item {
         width: 30; height: 24

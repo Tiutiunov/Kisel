@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(Kisel VERSION 0.8.2 LANGUAGES CXX)
+project(Kisel VERSION 0.8.3 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -60,8 +60,15 @@ endif()
 
 # ---- the app ----------------------------------------------------------------
 qt_add_executable(kisel src/app/main.cpp src/app/IslandWindow.cpp src/app/Tray.cpp src/app/Displays.cpp src/app/Sounds.cpp src/app/Launcher.cpp src/app/SeamWindows.cpp src/app/Media.cpp src/app/SysMon.cpp src/app/Notices.cpp src/app/NetMon.cpp src/app/Ticker.h)
-# Qt6::Test only feeds the development flag `kisel --drag-test` (synthetic pointer events).
-target_link_libraries(kisel PRIVATE kisel_core Qt6::Quick Qt6::QuickControls2 Qt6::Widgets Qt6::Test)
+target_link_libraries(kisel PRIVATE kisel_core Qt6::Quick Qt6::QuickControls2 Qt6::Widgets)
+# The development flag `kisel --drag-test` (synthetic pointer events) needs Qt's test
+# library. It is left out of an ordinary build: the library was loaded into every
+# running Kisel for the sake of a flag nobody but a developer passes.
+option(KISEL_DRAG_TEST "Build the --drag-test development flag (links Qt6::Test into the app)" OFF)
+if(KISEL_DRAG_TEST)
+    target_link_libraries(kisel PRIVATE Qt6::Test)
+    target_compile_definitions(kisel PRIVATE KISEL_DRAG_TEST)
+endif()
 target_compile_options(kisel PRIVATE ${KISEL_WARNINGS})
 if(WIN32)
     # The icon Explorer, the Start menu and "Installed apps" show for it.
