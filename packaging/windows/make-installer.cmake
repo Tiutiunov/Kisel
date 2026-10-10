@@ -23,7 +23,15 @@ if(NOT rc EQUAL 0)
     message(FATAL_ERROR "cmake --install failed (${rc})")
 endif()
 # (the runtime's own installer is not needed: its DLLs are installed next to the app)
-file(REMOVE "${stage}/bin/vc_redist.x64.exe")
+file(GLOB redists "${stage}/bin/vc_redist.*.exe")
+if(redists)
+    file(REMOVE ${redists})
+endif()
+# (Qt's own translations of its dialogs: Kisel shows none of those, and has its words in Tr.qml)
+file(GLOB qms "${stage}/translations/*.qm")
+if(qms)
+    file(REMOVE ${qms})
+endif()
 # What the deploy tool brings along and Kisel never loads: the shader compiler of
 # Direct3D 12 (Kisel draws with Direct3D 11), the QML debugger's plugins, a touch
 # protocol nobody speaks to it.
