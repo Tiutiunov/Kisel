@@ -101,9 +101,9 @@ IslandWindow::IslandWindow(QQuickView *view, QObject *parent)
     m_view->setFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
 #endif
     m_view->setResizeMode(QQuickView::SizeRootObjectToView);
-    m_view->resize(kWidth, kHeight);
-    m_view->setMinimumSize(QSize(kWidth, kHeight));
-    m_view->setMaximumSize(QSize(kWidth, kHeight));
+    m_view->resize(kSurfaceW, kHeight);
+    m_view->setMinimumSize(QSize(kSurfaceW, kHeight));
+    m_view->setMaximumSize(QSize(kSurfaceW, kHeight));
     m_view->setTitle(QStringLiteral("Kisel"));
     auto wide = [this] {
         const bool w = viewWide();
@@ -120,7 +120,7 @@ IslandWindow::IslandWindow(QQuickView *view, QObject *parent)
             // -1: sit over panels instead of pushing them aside.
             ls->setExclusiveZone(-1);
             ls->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
-            ls->setDesiredSize(QSize(kWidth, kHeight));
+            ls->setDesiredSize(QSize(kSurfaceW, kHeight));
         }
     }
 #endif
@@ -219,7 +219,7 @@ void IslandWindow::setAvoidPanels(bool on)
 
 qreal IslandWindow::screenWidth() const { return area().width(); }
 qreal IslandWindow::screenHeight() const { return area().height(); }
-bool IslandWindow::viewWide() const { return m_view->width() > kWidth + 40 || m_view->height() > kHeight + 40; }
+bool IslandWindow::viewWide() const { return m_view->width() > kSurfaceW + 40 || m_view->height() > kHeight + 40; }
 
 qreal IslandWindow::edgeLength(const QString &edge) const
 {
@@ -291,7 +291,7 @@ void IslandWindow::placeOnX11()
     if (useLayerShell() || !m_view->screen())
         return;
     const QRect g = area();
-    m_view->setPosition(g.left() + int(originX()), g.top() + int(originY()));
+    m_view->setPosition(g.left() + int(originX()) - kPad, g.top() + int(originY()));
 }
 
 // Layer-shell margins are relative to the output, so the anchors and one margin
@@ -426,13 +426,13 @@ void IslandWindow::applySurfaceSize(bool wide)
         m_view->setMinimumSize(QSize(0, 0));
         m_view->setMaximumSize(QSize(kMaxWin, kMaxWin));
     } else {
-        m_view->setMinimumSize(QSize(kWidth, kHeight));
-        m_view->setMaximumSize(QSize(kWidth, kHeight));
+        m_view->setMinimumSize(QSize(kSurfaceW, kHeight));
+        m_view->setMaximumSize(QSize(kSurfaceW, kHeight));
     }
 #ifdef KISEL_WITH_LAYER_SHELL
     if (useLayerShell()) {
         if (auto *ls = LayerShellQt::Window::get(m_view))
-            ls->setDesiredSize(wide ? QSize(0, 0) : QSize(kWidth, kHeight)); // 0 + all four anchors = fill
+            ls->setDesiredSize(wide ? QSize(0, 0) : QSize(kSurfaceW, kHeight)); // 0 + all four anchors = fill
     }
 #endif
 }
@@ -470,7 +470,7 @@ void IslandWindow::endGrab()
     m_grabbing = false;
     applySurfaceSize(false);
     if (!useLayerShell() && m_view->screen())
-        m_view->resize(kWidth, kHeight);
+        m_view->resize(kSurfaceW, kHeight);
     applyPlacement();
     emit grabbingChanged();
     emit placementChanged();
@@ -499,7 +499,7 @@ void IslandWindow::crossTo(QScreen *screen, qreal ox, qreal oy)
         m_floatX = p.x();
         m_floatY = p.y();
         if (!useLayerShell())
-            m_view->resize(kWidth, kHeight);
+            m_view->resize(kSurfaceW, kHeight);
         applyPlacement();
         if (visible)
             m_view->show();
@@ -557,6 +557,30 @@ bool IslandWindow::fullScreenAbove() const
     for (const wchar_t *shell : {L"Progman", L"WorkerW", L"Shell_TrayWnd", L"Shell_SecondaryTrayWnd", L"XamlExplorerHostIslandWindow"})
         if (wcscmp(cls, shell) == 0)
             return false;
+    // Nor does the sheet a screenshot tool lays over the screen while an area is being
+    // picked: it covers everything for a few seconds and is no program one works in.
+    // The bar used to go down to the edge under it, shutting the very card that was
+    // being photographed. Such a sheet is a tool window or a layered one, which a game
+    // or a film is not; and Windows' own tool is known by its name.
+    const LONG_PTR ex = GetWindowLongPtrW(front, GWL_EXSTYLE);
+    if (ex & (WS_EX_TOOLWINDOW | WS_EX_LAYERED | WS_EX_NOACTIVATE))
+        return false;
+    DWORD pid = 0;
+    GetWindowThreadProcessId(front, &pid);
+    if (const HANDLE proc = pid ? OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid) : nullptr) {
+        wchar_t path[MAX_PATH] = {};
+        DWORD size = MAX_PATH;
+        const bool got = QueryFullProcessImageNameW(proc, 0, path, &size);
+        CloseHandle(proc);
+        if (got) {
+            const wchar_t *name = wcsrchr(path, L'\\');
+            name = name ? name + 1 : path;
+            for (const wchar_t *tool : {L"ScreenClippingHost.exe", L"SnippingTool.exe", L"ScreenSketch.exe", L"ShareX.exe",
+                                        L"Lightshot.exe", L"Greenshot.exe", L"Flameshot.exe", L"Snagit32.exe", L"SnagitCapture.exe"})
+                if (_wcsicmp(name, tool) == 0)
+                    return false;
+        }
+    }
     MONITORINFO mi = {};
     mi.cbSize = sizeof mi;
     if (!GetMonitorInfoW(MonitorFromWindow(self, MONITOR_DEFAULTTONEAREST), &mi))
@@ -586,10 +610,16 @@ void IslandWindow::lookForCover()
     if (++m_coverCount < 2)
         return;
     m_coverCount = 0;
+    const QPoint was(area().left() + int(originX()), area().top() + int(originY()));
     m_covered = now;
     if (!m_floating)
         m_along = clampAlong(m_edge, m_frac * edgeLength(m_edge));
     applyPlacement();
+    // (the window is moved at once; what is drawn in it starts from where it was and
+    // glides to its new place: see Main.qml)
+    const QPoint is(area().left() + int(originX()), area().top() + int(originY()));
+    if (was != is)
+        emit hopped(was.x() - is.x(), was.y() - is.y());
     emit coveredChanged();
     emit dockChanged();
     emit placementChanged();
@@ -602,7 +632,7 @@ void IslandWindow::keepPlace()
 {
     if (m_grabbing || viewWide() || !m_view->isVisible() || !m_view->screen())
         return;
-    const QPoint want(area().left() + int(originX()), area().top() + int(originY()));
+    const QPoint want(area().left() + int(originX()) - kPad, area().top() + int(originY()));
     if (m_view->position() == want)
         return;
     if (!m_floating) {

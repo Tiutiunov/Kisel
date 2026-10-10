@@ -44,6 +44,7 @@ class IslandWindow : public QObject
     Q_PROPERTY(bool grabbing READ grabbing NOTIFY grabbingChanged)
     // The surface is currently as big as the output (during a drag).
     Q_PROPERTY(bool viewWide READ viewWide NOTIFY viewWideChanged)
+    Q_PROPERTY(int pad READ pad CONSTANT) // the clear room at each side of the island inside its window
     // Where the pointer is on the output, wherever that is, so the mascot can watch it.
     // Known on Windows only: Wayland tells no client where the pointer is outside its
     // own surface.
@@ -57,6 +58,18 @@ class IslandWindow : public QObject
 
 public:
     static constexpr int kWidth = 708;  // 660 card + 2 x space-6
+    // The window itself is wider than that by `kPad` on each side: clear room for a
+    // mascot who leans out of the card, hair and all (it was cut where the window
+    // ended, 24 px from the card). Nothing else knows of it: the island keeps its
+    // 708 px and every figure it reckons with (`originX`, `pillAlong`, the hit
+    // rectangle in its parent's coordinates), and the window is put `kPad` to the left
+    // of where the island is to be. It may hang off the output's side by that much.
+#ifdef Q_OS_WIN
+    static constexpr int kPad = 56;
+#else
+    static constexpr int kPad = 0; // (a layer surface is placed by margins, which do not go below nought)
+#endif
+    static constexpr int kSurfaceW = kWidth + 2 * kPad;
     static constexpr int kHeight = 500; // 440 tallest view + shadow
     // While floating the mascot (120 px) sits at the top of the surface:
     static constexpr int kMascotLeft = 294, kMascotTop = 8, kMascotSize = 120;
@@ -66,6 +79,7 @@ public:
     static constexpr int kCornerKeepOut = 162;
 
     explicit IslandWindow(QQuickView *view, QObject *parent = nullptr);
+    int pad() const { return kPad; }
 
     // Call before QGuiApplication exists.
     static void preInit();
@@ -158,6 +172,9 @@ signals:
     void pointerMoved();
     void screenStrayed(); // the window is on another monitor than it was put on
     void coveredChanged();
+    // The window has just been moved by this much the other way (a full-screen program
+    // came to the front, or left): the island was (dx, dy) from where it now is.
+    void hopped(qreal dx, qreal dy);
 
 private:
     void placeOnX11();

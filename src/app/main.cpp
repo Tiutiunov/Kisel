@@ -361,6 +361,9 @@ int main(int argc, char *argv[])
         QTimer::singleShot(300, root, [root] { QMetaObject::invokeMethod(root, "runIntro"); });
     if (cli.isSet("open"))
         QTimer::singleShot(400, root, [root, v = cli.value("open")] { QMetaObject::invokeMethod(root, "openIsland", Q_ARG(QVariant, v)); });
+    // KISEL_DEMO_CLOSE=<ms>: ...and shut it again at that time, to look at the closing (development)
+    if (const int at = qEnvironmentVariableIntValue("KISEL_DEMO_CLOSE"); at > 0)
+        QTimer::singleShot(at, root, [root] { QMetaObject::invokeMethod(root, "devClose"); });
     if (cli.isSet("grab")) {
         QTimer::singleShot(qEnvironmentVariableIntValue("KISEL_GRAB_MS") ? qEnvironmentVariableIntValue("KISEL_GRAB_MS") : 7500, &app, [&view, file = cli.value("grab")] {
             view.grabWindow().save(file);

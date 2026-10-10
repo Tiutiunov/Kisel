@@ -421,6 +421,11 @@ Item {
     readonly property real k: size / 120
     readonly property real rs: detail > 0 || size > 40 ? 1 : size <= 20 ? 0.25 : 0.34
     readonly property real spill: detail * 84
+    // Where her glow may fall, in this item's coordinates: whoever holds her gives the card
+    // she stands on, and the light is made no wider than its nearest edge (she herself
+    // may still lean out of it). Not given, the glow is as wide as it likes.
+    property rect glowBox: Qt.rect(0, 0, -1, -1)
+    onGlowBoxChanged: canvas.requestPaint()
     Item {
         anchors.centerIn: parent
         // in the bar she may use the 4 px the bar keeps around her box, and no more
@@ -635,9 +640,25 @@ Item {
         if (!s.tails) return
 
         if (detail > 0.05) {
-            const gl = g.createRadialGradient(P.x, P.y, R * 0.4, P.x, P.y, R * 2.5)
-            gl.addColorStop(0, rgba(col, 0.3 * detail)); gl.addColorStop(1, rgba(col, 0))
-            g.fillStyle = gl; g.fillRect(0, 0, 288, 288)
+            // Her glow reaches two and a half of her radii, unless the card she stands on ends
+            // sooner (`glowBox`): then it is squeezed, across and up and down each by itself,
+            // to what the nearer edge allows, and fades out there. Nothing is cut: a clip set
+            // here outlived its restore and cut her hair with the light, and she must stay
+            // free to lean out of the card.
+            let rx = R * 2.5, ry = R * 2.5
+            if (glowBox.width > 0 && glowBox.height > 0) {
+                // (the drawing is 288 units across with her in the middle, `k` item pixels a unit)
+                const cx = size / 2 + (P.x - 144) * k, cy = size / 2 + (P.y - 144) * k
+                rx = Math.min(rx, Math.min(cx - glowBox.x, glowBox.x + glowBox.width - cx) / k)
+                ry = Math.min(ry, Math.min(cy - glowBox.y, glowBox.y + glowBox.height - cy) / k)
+            }
+            if (rx > R * 0.5 && ry > R * 0.5) {
+                g.save(); g.translate(P.x, P.y); g.scale(rx, ry)
+                const gl = g.createRadialGradient(0, 0, 0.16, 0, 0, 1)
+                gl.addColorStop(0, rgba(col, 0.3 * detail)); gl.addColorStop(1, rgba(col, 0))
+                g.fillStyle = gl; g.fillRect(-1, -1, 2, 2)
+                g.restore()
+            }
             if (!dragging) { g.fillStyle = "rgba(0,0,0," + 0.25 * detail + ")"; g.beginPath(); ell(g, cX, cY + R * 1.02, R * 0.95, R * 0.12); g.fill() }
         }
 

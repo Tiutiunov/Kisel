@@ -2367,6 +2367,13 @@ Item {
         Mascot {
             id: mascot
             z: 2
+            // (on the open card her light stays on the card; the side that lies on the screen's
+            // edge has nothing beyond it to light, so that way it is left free)
+            readonly property int past: 400
+            glowBox: !(root.expanded && !root.mfree && !root.floating) ? Qt.rect(0, 0, -1, -1)
+                : Qt.rect(card.x - x - (root.dockSide === "left" ? past : 0), card.y - y - (root.dockSide === "top" ? past : 0),
+                          card.width + (root.dockSide === "left" || root.dockSide === "right" ? past : 0),
+                          card.height + (root.dockSide === "top" || root.dockSide === "bottom" ? past : 0))
             readonly property int slot: !root.expanded ? (root.floating ? 120 : root.mini)
                 : ({ home: 110, session: 88, permission: 88, github: 88, chat: 96, settings: 88 })[root.view]
             // collapsed: inside the bar, centred across it and `miniLead` from its leading end

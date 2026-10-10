@@ -333,6 +333,10 @@ Item {
             anchors.horizontalCenter: ring.horizontalCenter
             anchors.verticalCenter: ring.verticalCenter
             anchors.verticalCenterOffset: gauge.fan >= 0 ? -5 : 0
+            // (three figures are wider than the ring's hollow, more so above its middle: they are let shrink)
+            width: gauge.fan >= 0 ? 40 : 46
+            horizontalAlignment: Text.AlignHCenter
+            fontSizeMode: Text.HorizontalFit; minimumPixelSize: 10
             text: root.pct(gauge.value)
             color: Theme.ink
             font.family: Theme.display; font.pixelSize: 17; font.weight: Font.Bold
