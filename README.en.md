@@ -109,7 +109,7 @@ chmod +x Kisel-*-x86_64.AppImage
 ./Kisel-*-x86_64.AppImage
 ```
 
-It wants Plasma 6 on Wayland and a distribution no older than Ubuntu 24.04 (Fedora 40+, Arch, openSUSE Tumbleweed, KDE neon, Debian 13). On its first start Kisel adds itself to the application menu. Put the file where it is going to live (`~/Applications`, say): it updates in place, by replacing itself.
+It wants Plasma 6 on Wayland and a distribution no older than Ubuntu 24.04 (Fedora 40+, Arch, openSUSE Tumbleweed, KDE neon, Debian 13). Systemd is not required: what Kisel needs of it is inside the file, so a distribution that starts with OpenRC or runit (Gentoo, Artix) will do as well, as long as it has glibc. On its first start Kisel adds itself to the application menu. Put the file where it is going to live (`~/Applications`, say): it updates in place, by replacing itself.
 
 What Plasma does not have: Kisel cannot tell where the pointer is outside its own window (Wayland does not say), so the character does not watch it; and Teto has no button for cleaning memory.
 

@@ -89,17 +89,25 @@ mv "$app/usr/bin/kisel-hook" "$app/usr/libexec/kisel-hook/"
 
 # ---- the libraries all of that needs ---------------------------------------------
 # What every desktop that runs Plasma has, and must be the system's own: the C library
-# and the compiler's, the graphics drivers' side (GL, DRM, Wayland, X), fonts, the
-# session bus, GLib, OpenSSL, the sound servers. Bundling a second copy of these breaks
+# and the compiler's, the graphics drivers' side (GL, DRM, Wayland, X), fonts,
+# GLib, OpenSSL, the sound servers. Bundling a second copy of these breaks
 # things (two Wayland client libraries in one program do not know of each other's
 # objects) or leaves a security fix unapplied.
+#
+# libsystemd is not among them, though one would think so: Qt and the KDE libraries are
+# linked against it (for the journal), and a distribution that starts with OpenRC,
+# runit or s6 (Gentoo, Artix, Void, Devuan) has no such file, so Kisel would not start
+# there at all. It comes along, with the three small libraries it needs; where there is
+# no systemd its calls simply find nobody to talk to. So does libdbus: the system's own
+# may itself be linked against libsystemd, and would look for it in the system only. libudev stays the system's: it
+# reads that system's own device database, and every desktop has one, whoever made it.
 host='^(ld-linux|libc\.so|libm\.so|libdl\.so|libpthread\.so|librt\.so|libresolv\.so|libutil\.so|libnss_|libanl\.so|libstdc\+\+\.so|libgcc_s\.so'
 host+='|libGL\.so|libEGL\.so|libGLX\.so|libOpenGL\.so|libGLdispatch\.so|libGLESv2\.so|libdrm\.so|libgbm\.so|libglapi\.so|libvulkan\.so'
 host+='|libwayland-|libX11\.so|libX11-xcb\.so|libxcb\.so|libXau\.so|libXdmcp\.so|libXext\.so|libxkbcommon'
 host+='|libfontconfig\.so|libfreetype\.so|libharfbuzz\.so|libglib-2\.0|libgobject-2\.0|libgio-2\.0|libgmodule-2\.0|libgthread-2\.0'
-host+='|libdbus-1\.so|libsystemd\.so|libudev\.so|libz\.so|libexpat\.so|libssl\.so|libcrypto\.so'
-host+='|libasound\.so|libpulse|libpipewire|libselinux\.so|libmount\.so|libblkid\.so|libcap\.so|libuuid\.so|libcom_err\.so'
-host+='|libgcrypt\.so|libgpg-error\.so|libnvidia|libp11-kit\.so)'
+host+='|libudev\.so|libz\.so|libexpat\.so|libssl\.so|libcrypto\.so'
+host+='|libasound\.so|libpulse|libpipewire|libselinux\.so|libmount\.so|libblkid\.so|libuuid\.so|libcom_err\.so'
+host+='|libnvidia|libp11-kit\.so)'
 
 # every library `file` needs that is not the host's and not here yet -> into $2
 gather() {
