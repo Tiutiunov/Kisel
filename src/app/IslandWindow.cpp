@@ -21,6 +21,8 @@
 #include <QTimer>
 #include <qt_windows.h>
 #include <shellapi.h>
+#include <dwmapi.h>
+#pragma comment(lib, "dwmapi.lib")
 
 #include <cstdio>
 #include <io.h>
@@ -721,6 +723,71 @@ void IslandWindow::keepPlace()
     emit placementChanged();
 }
 
+// "Always on top" is a promise Windows keeps only among the windows that asked for it:
+// the last of them to be raised is the one in front. The taskbar raises itself when it
+// is clicked, and so does any other program that stays on top, and the bar was left
+// under them until Kisel was started again. Three times a second it looks at what is
+// above it and over the island, and goes back to the front.
+void IslandWindow::keepAbove()
+{
+    if (m_grabbing || !m_view->isVisible())
+        return;
+    const HWND self = HWND(m_view->winId());
+    const auto raise = [self] { SetWindowPos(self, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE); };
+    if (!(GetWindowLongPtrW(self, GWL_EXSTYLE) & WS_EX_TOPMOST)) {
+        raise();
+        return;
+    }
+    RECT w = {};
+    if (!GetWindowRect(self, &w))
+        return;
+    const qreal k = m_view->devicePixelRatio();
+    const RECT island = {w.left + LONG(m_hit.left() * k), w.top + LONG(m_hit.top() * k),
+                         w.left + LONG(m_hit.right() * k), w.top + LONG(m_hit.bottom() * k)};
+    const DWORD mine = GetCurrentProcessId();
+    HWND over = nullptr;
+    for (HWND h = GetWindow(self, GW_HWNDPREV); h; h = GetWindow(h, GW_HWNDPREV)) {
+        if (!IsWindowVisible(h) || IsIconic(h))
+            continue;
+        DWORD pid = 0;
+        GetWindowThreadProcessId(h, &pid);
+        if (pid == mine)
+            continue; // Kisel's own: the seams, a menu of its tray icon
+        BOOL cloaked = FALSE;
+        if (SUCCEEDED(DwmGetWindowAttribute(h, DWMWA_CLOAKED, &cloaked, sizeof cloaked)) && cloaked)
+            continue;
+        RECT r = {}, both = {};
+        if (!GetWindowRect(h, &r) || !IntersectRect(&both, &r, &island))
+            continue;
+        // a menu or a hint that somebody opened over the island is theirs to show
+        wchar_t cls[64] = {};
+        GetClassNameW(h, cls, 63);
+        if (wcscmp(cls, L"#32768") == 0 || wcscmp(cls, L"tooltips_class32") == 0)
+            return;
+        over = h;
+        break;
+    }
+    ++m_aboveTick;
+    if (!over)
+        return;
+    // A window that is back over the bar within a second of the bar going over it, four
+    // times running, is left where it is for half a minute: the taskbar keeps a sheet
+    // nobody sees above everything beside it, and another program may be as stubborn as
+    // Kisel. Two of those would flicker for ever.
+    if (quintptr(over) == m_stuckAbove && m_aboveTick - m_aboveAt < 90)
+        return;
+    m_stuckAbove = 0;
+    m_aboveCount = quintptr(over) == m_aboveLast && m_aboveTick - m_aboveAt <= 3 ? m_aboveCount + 1 : 0;
+    m_aboveLast = quintptr(over);
+    m_aboveAt = m_aboveTick;
+    if (m_aboveCount >= 4) {
+        m_stuckAbove = quintptr(over);
+        m_aboveCount = 0;
+        return;
+    }
+    raise();
+}
+
 void IslandWindow::trackPointer()
 {
     if (QGuiApplication::platformName() != QLatin1String("windows"))
@@ -730,6 +797,8 @@ void IslandWindow::trackPointer()
         lookForCover();
         keepPlace();
     }
+    if (m_polls % 10 == 0)
+        keepAbove();
     const HWND self = HWND(m_view->winId());
     const HWND front = GetForegroundWindow();
     if (front && front != self)

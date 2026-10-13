@@ -199,6 +199,11 @@ private:
     bool fullScreenAbove() const;
     void lookForCover();
     void keepPlace();
+    void keepAbove();
+    quintptr m_stuckAbove = 0; // a window that keeps coming back over the bar: left alone
+    quintptr m_aboveLast = 0;  // the window the bar last went over, and how many times running
+    int m_aboveCount = 0;
+    int m_aboveTick = 0, m_aboveAt = 0; // looks so far, and the look at which it last went over one
     // The computer has come back from sleep or hibernation: the window is shown where it
     // belongs and drawn afresh (Windows may have hidden or moved it, and a frame drawn
     // before the screen was back is lost).
