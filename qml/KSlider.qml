@@ -8,6 +8,7 @@ FocusScope {
     property int to: 10
     property int value: 0
     property string label: ""
+    property color accent: Theme.kisel // the filled part of the track
     signal moved(int value)
 
     implicitWidth: row.implicitWidth
@@ -36,12 +37,12 @@ FocusScope {
                 y: 10; width: parent.width; height: 6; radius: 3
                 color: Theme.surface3
                 border.width: 1
-                border.color: root.activeFocus ? Theme.kisel : Theme.line
+                border.color: root.activeFocus ? root.accent : Theme.line
             }
             Rectangle {
                 y: 10; height: 6; radius: 3
                 width: thumb.x + thumb.width / 2
-                color: Theme.kisel
+                color: root.accent
             }
             Rectangle {
                 id: thumb

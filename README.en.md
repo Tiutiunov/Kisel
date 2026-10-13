@@ -90,7 +90,7 @@ Click the main character and the card opens. Each has her own.
   <img src="docs/img/card-settings.png" alt="Settings" width="620">
 </p>
 
-Settings are in tabs: Claude Code, services, characters, look and sound, place, Kisel itself.
+Settings are one page of six cards: Claude Code, characters, look and sound, the bar, services, Kisel itself. The chips above scroll to the one you want.
 
 You can play with all the animations and scenes separately: open [`design/miku-editor.html`](design/miku-editor.html) in a browser. It has sliders for how each of them looks, too.
 

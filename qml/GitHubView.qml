@@ -71,12 +71,12 @@ Item {
             spacing: Theme.space6
             Column {
                 Text { text: GitHub.openCount; color: Theme.ink; font.family: Theme.sans; font.pixelSize: 26; font.weight: Font.ExtraBold }
-                Text { text: Tr.t("open PRs"); color: Theme.inkMuted; font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.DemiBold }
+                Text { text: Tr.tn(GitHub.openCount, "open PRs"); color: Theme.inkMuted; font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.DemiBold }
             }
             Column {
                 Text { text: GitHub.reviewCount; color: GitHub.reviewCount > 0 ? Theme.amber : Theme.ink
                     font.family: Theme.sans; font.pixelSize: 26; font.weight: Font.ExtraBold }
-                Text { text: Tr.t("waiting for your review"); color: Theme.inkMuted; font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.DemiBold }
+                Text { text: Tr.tn(GitHub.reviewCount, "waiting for your review"); color: Theme.inkMuted; font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.DemiBold }
             }
         }
 

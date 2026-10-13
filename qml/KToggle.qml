@@ -5,6 +5,9 @@ FocusScope {
     id: root
     property bool checked: false
     property string label: ""
+    property bool bare: false // the switch alone: the words stand elsewhere (`label` still names it for a screen reader)
+    property color accent: Theme.kisel      // the track when on...
+    property color accentInk: Theme.kiselInk // ...and the thumb on it
     signal toggled(bool value)
 
     implicitWidth: row.implicitWidth
@@ -21,19 +24,19 @@ FocusScope {
         Rectangle {
             width: 44; height: 26; radius: 13
             anchors.verticalCenter: parent.verticalCenter
-            color: root.checked ? Theme.kisel : Theme.surface3
+            color: root.checked ? root.accent : Theme.surface3
             border.width: root.activeFocus ? 2 : 1
-            border.color: root.activeFocus ? Theme.kisel : Theme.line
+            border.color: root.activeFocus ? root.accent : Theme.line
             Behavior on color { ColorAnimation { duration: 120 } }
             Rectangle {
                 y: 3; width: 20; height: 20; radius: 10
                 x: root.checked ? 21 : 3
-                color: root.checked ? Theme.kiselInk : Theme.ink
+                color: root.checked ? root.accentInk : Theme.ink
                 Behavior on x { NumberAnimation { duration: Theme.tFast; easing.type: Theme.reduced ? Easing.OutCubic : Easing.OutBack } }
             }
         }
         Text {
-            visible: root.label !== ""
+            visible: root.label !== "" && !root.bare
             text: root.label
             color: Theme.ink
             font.family: Theme.sans; font.pixelSize: 13; font.weight: Font.DemiBold

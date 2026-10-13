@@ -148,6 +148,7 @@ qt_add_qml_module(kisel
         qml/GitHubMark.qml
         qml/DotWave.qml
         qml/Spinner.qml
+        qml/KSegment.qml
         qml/KToggle.qml
         qml/KSlider.qml
         qml/PlayGlyph.qml

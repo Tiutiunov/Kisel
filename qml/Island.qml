@@ -11,7 +11,7 @@
 //            activity, brings it back.
 //   floating the mascot (120 px) is the whole window; click opens the card where it
 //            stands, click again or the close icon closes it. It wanders while idle.
-//   picking up  (switched off: `canPickUp`. The island is moved from Settings, "Place".)
+//   picking up  (switched off: `canPickUp`. The island is moved from Settings, "Bar".)
 //            Hold the mascot for 350 ms: a ring fills, then Kisel is drawn out of
 //            the pill on a jelly neck. Carry it anywhere; near an edge a zone shows,
 //            and letting go there docks it on that edge. Letting go elsewhere drops
@@ -2369,7 +2369,7 @@ Item {
                     active: root.expanded && root.view === "settings"
                     enterDelay: root.enterDelay
                     rises: false
-                    // Settings is the heaviest of the views by far (six tabs of switches and
+                    // Settings is the heaviest of the views by far (six cards of switches and
                     // fields: a sixth of all Kisel holds) and the least looked at, so it is
                     // made when it is first opened and let go a while after it is shut.
                     // It is made over a few frames, not in one, so that the card's opening
