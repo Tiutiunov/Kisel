@@ -78,7 +78,7 @@ Click the main character and the card opens. Each has her own.
     <td><img src="docs/img/card-teto.png" alt="Monitor"><br><b>Teto.</b> The last minute of load and a button that cleans memory. She'll tell you how much she freed, and not modestly.</td>
   </tr>
   <tr>
-    <td colspan="2"><img src="docs/img/card-chat.png" alt="Chat"><br><b>Chat.</b> You write here and it goes to your running Claude Code session as an ordinary prompt. The answers come back here, with your limits and the model on the left. No API key needed.</td>
+    <td colspan="2"><img src="docs/img/card-chat.png" alt="Chat"><br><b>Chat.</b> You write here and it goes to your running Claude Code session as an ordinary prompt. The answers come back here, with your limits and the model on the left. No API key needed. A screenshot goes along too: paste it with Ctrl+V or drop a picture on the bar, and Claude looks at it, in a quick question as well.</td>
   </tr>
   <tr>
     <td><img src="docs/img/card-luka.png" alt="Network"><br><b>Luka.</b> Ping and current speed. The Test button measures the line without opening a speed test site. The faster it is, the happier she gets; a slow one upsets her.</td>

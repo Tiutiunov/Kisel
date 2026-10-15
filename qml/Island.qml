@@ -1711,7 +1711,12 @@ Item {
                 onExited: root.dropActive = false
                 onDropped: (drop) => {
                     root.dropActive = false
-                    if (drop.hasUrls && Chat.attach(drop.urls[0])) {
+                    // (a picture, when the chat takes pictures: it waits above the field; any other file is the old chat's attachment)
+                    if (drop.hasUrls && chatView.takesShots && Shots.isImage(drop.urls[0])) {
+                        let any = false
+                        for (const u of drop.urls) if (Shots.isImage(u)) any = chatView.addShot(Shots.fromUrl(u)) || any
+                        if (any) { root.dropHappy = true; dropHappyTimer.restart() }
+                    } else if (drop.hasUrls && Chat.attach(drop.urls[0])) {
                         root.dropHappy = true
                         dropHappyTimer.restart()
                         Sfx.play("click")

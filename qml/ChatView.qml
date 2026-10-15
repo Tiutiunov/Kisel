@@ -1,6 +1,11 @@
 // Chat with Claude. Text shows exactly as it streams (no typewriter). Dropping
 // a file puts it above the input as a chip.
 //
+// Pictures: a screenshot pasted into the field (Ctrl+V, after Win+Shift+S or Spectacle)
+// or a picture dropped on the bar waits above the field as a small thumbnail, up to four,
+// and goes with the next message (see Shots). A quick question carries the picture
+// itself to Claude; a message to a session names the file, and the session opens it.
+//
 // The room is dressed for whoever is on stage (`who`): her colour is in the glow behind
 // the messages, the sparkles, your bubbles, the edge of Claude's, the composer and the
 // send button, and she sits in the empty chat waiting. Changing her changes the room.
@@ -64,7 +69,7 @@ Item {
         // (the answer comes as it is written: one bubble, growing; its last word is the whole of it)
         function onPartial(soFar) {
             if (root.quickDraft < 0 || root.quickDraft >= quickTalk.count) {
-                quickTalk.append({ role: "assistant", text: soFar, file: "", time: Qt.formatTime(new Date(), "hh:mm") })
+                quickTalk.append({ role: "assistant", text: soFar, file: "", shots: "", time: Qt.formatTime(new Date(), "hh:mm") })
                 root.quickDraft = quickTalk.count - 1
             } else quickTalk.setProperty(root.quickDraft, "text", soFar)
             root.quickLooking = false
@@ -76,7 +81,7 @@ Item {
         function onAnswered(text) {
             Relay.remember(root.quickKey, "assistant", text)
             if (root.quickDraft >= 0 && root.quickDraft < quickTalk.count) quickTalk.setProperty(root.quickDraft, "text", text)
-            else quickTalk.append({ role: "assistant", text: text, file: "", time: Qt.formatTime(new Date(), "hh:mm") })
+            else quickTalk.append({ role: "assistant", text: text, file: "", shots: "", time: Qt.formatTime(new Date(), "hh:mm") })
             root.quickDraft = -1; root.quickLooking = false
             if (root.active) Sfx.play("receive")
         }
@@ -126,7 +131,7 @@ Item {
     function reload() {
         live = false; liveSoon.restart()
         sent.clear()
-        for (const m of Relay.history(key)) sent.append({ role: m.role, text: m.text, file: "", time: m.time })
+        for (const m of Relay.history(key)) sent.append({ role: m.role, text: m.text, file: "", shots: "", time: m.time })
     }
     // (whose talk a reply belongs to, when it is not the one on show: by the session it came from)
     function keyOf(session) {
@@ -141,7 +146,7 @@ Item {
     Component.onCompleted: {
         if (sid !== "") Relay.watch(sid)
         reload()
-        for (const m of Relay.history(quickKey)) quickTalk.append({ role: m.role, text: m.text, file: "", time: m.time })
+        for (const m of Relay.history(quickKey)) quickTalk.append({ role: m.role, text: m.text, file: "", shots: "", time: m.time })
     }
     ListModel { id: sent } // the talk with the session, as seen from here: {role, text, file, time}
     property string relayNote: ""
@@ -152,7 +157,7 @@ Item {
         function onReply(id, text) {
             if (id !== root.sid) { Relay.remember(root.keyOf(id), "assistant", text); return } // (kept for when its project is looked at)
             Relay.remember(root.key, "assistant", text)
-            sent.append({ role: "assistant", text: text, file: "", time: Qt.formatTime(new Date(), "hh:mm") })
+            sent.append({ role: "assistant", text: text, file: "", shots: "", time: Qt.formatTime(new Date(), "hh:mm") })
             if (root.active) Sfx.play("receive")
         }
     }
@@ -172,32 +177,58 @@ Item {
             if (i >= 0) { const left = root.justSent.slice(); left.splice(i, 1); root.justSent = left; return }
             const k = cwd !== "" ? root.homeFor(session, cwd) : name !== "" ? name : session
             Relay.remember(k, "user", body)
-            if (k === root.key) sent.append({ role: "user", text: body, file: "", time: Qt.formatTime(new Date(), "hh:mm") })
+            if (k === root.key) sent.append({ role: "user", text: body, file: "", shots: "", time: Qt.formatTime(new Date(), "hh:mm") })
         }
     }
 
+    // ---- pictures waiting to go with the next message ----
+    property var shots: []
+    readonly property bool takesShots: quick || relayOn // (the old chat with an API key takes text only)
+    function addShot(url) {
+        if (url === "") return false
+        if (shots.length >= Shots.kMax) { Sfx.play("deny"); return false }
+        shots = shots.concat([url])
+        Sfx.play("click")
+        return true
+    }
+    function dropShot(i) { const left = shots.slice(); left.splice(i, 1); shots = left }
+    // (development: `--shot <picture>` with `--grab`, to look at a picture waiting in the quick talk)
+    Timer {
+        interval: 300
+        running: Qt.application.arguments.indexOf("--shot") > 0
+        onTriggered: { const a = Qt.application.arguments; root.picked = "quick"; root.addShot(Shots.fromUrl(Qt.resolvedUrl("file:///" + a[a.indexOf("--shot") + 1]))) }
+    }
+
     function send() {
-        if (input.text.trim() === "")
+        if (input.text.trim() === "" && !(takesShots && shots.length > 0))
             return
         if (quick) {
             if (Quick.busy) return
             const q = input.text.trim()
+            const pics = shots
             quickDraft = -1; quickLooking = false
-            Quick.ask(quickTurns(), q, Prefs.quickModel, Prefs.quickEffort)
+            Quick.ask(quickTurns(), q, Prefs.quickModel, Prefs.quickEffort, pics)
             Sfx.play("send")
-            Relay.remember(quickKey, "user", q)
-            quickTalk.append({ role: "user", text: q, file: "", time: Qt.formatTime(new Date(), "hh:mm") })
+            // (what is kept is words: a picture stays in this sitting only, and the talk says it was there)
+            Relay.remember(quickKey, "user", pics.length > 0 ? (q !== "" ? q + "\n\n" : "") + Tr.t("(a picture)") : q)
+            quickTalk.append({ role: "user", text: q, file: "", shots: pics.join("\n"), time: Qt.formatTime(new Date(), "hh:mm") })
             input.text = ""
+            shots = []
             return
         }
         if (relayOn) {
-            const text = input.text.trim()
+            const words = input.text.trim()
+            const pics = shots
+            // (the session is told where each picture is, in its own words: it opens the file itself)
+            const text = pics.length === 0 ? words
+                : (words !== "" ? words + "\n\n" : "") + pics.map(u => "Screenshot: " + Shots.localPath(u)).join("\n")
             if (!Relay.send(sid, text)) { relayNote = Tr.t("Couldn't send it"); relayNoteOff.restart(); Sfx.play("deny"); return }
             Sfx.play("send")
             justSent = justSent.concat([{ text: text, at: Date.now() }])
             Relay.remember(key, "user", text)
-            sent.append({ role: "user", text: text, file: "", time: Qt.formatTime(new Date(), "hh:mm") })
+            sent.append({ role: "user", text: words, file: "", shots: pics.join("\n"), time: Qt.formatTime(new Date(), "hh:mm") })
             input.text = ""
+            shots = []
             return
         }
         if (Chat.busy)
@@ -552,6 +583,8 @@ Item {
             required property string text
             required property string file
             required property string time
+            required property var model
+            readonly property var pics: model.shots ? model.shots.split("\n") : []
             required property int index
             readonly property bool mine: role === "user"
             property bool fresh: false // (a bubble made while the talk is live, at its end: its blocks make an entrance)
@@ -574,8 +607,8 @@ Item {
                 id: bubble
                 // A new bubble rises 8 px while fading in over 140 ms
                 x: msg.mine ? parent.width - width - 8 : 0
-                width: Math.min(parent.width * 0.86, body.implicitWidth + 24)
-                height: body.implicitHeight + (chip.visible ? 28 : 0) + 20
+                width: Math.min(parent.width * 0.86, Math.max(msg.text !== "" ? body.implicitWidth : 0, picRow.visible ? picRow.implicitWidth : 0) + 24)
+                height: (body.visible ? body.implicitHeight : 0) + (chip.visible ? 28 : 0) + (picRow.visible ? picRow.height + (body.visible ? 6 : 0) : 0) + 20
                 radius: Theme.radiusMd
                 // one corner is squared toward the speaker
                 bottomRightRadius: msg.mine ? 4 : Theme.radiusMd
@@ -605,6 +638,24 @@ Item {
                             Icon { name: "clip"; size: 14; color: Theme.inkMuted; anchors.verticalCenter: parent.verticalCenter }
                             Text { id: chipText; text: msg.file; color: Theme.ink
                                 font.family: Theme.mono; font.pixelSize: 11; anchors.verticalCenter: parent.verticalCenter }
+                        }
+                    }
+                    Row { // the pictures that went with it
+                        id: picRow
+                        visible: msg.pics.length > 0
+                        height: visible ? 72 : 0
+                        spacing: 6
+                        Repeater {
+                            model: msg.pics
+                            Rectangle {
+                                required property string modelData
+                                width: Math.max(40, Math.min(120, pic.implicitWidth / Math.max(1, pic.implicitHeight) * 72)); height: 72
+                                radius: 8
+                                color: Qt.rgba(0, 0, 0, 0.25)
+                                Image { id: pic; anchors.fill: parent; anchors.margins: 3; source: parent.modelData; fillMode: Image.PreserveAspectCrop
+                                    sourceSize.height: 144; asynchronous: true }
+                                Rectangle { anchors.fill: parent; radius: parent.radius; color: "transparent"; border.width: 1.5; border.color: "#FFFFFF" }
+                            }
                         }
                     }
                     JellyTrio {
@@ -855,6 +906,40 @@ Item {
                 }
             }
         }
+        Row { // the pictures waiting to go with the next message, each with its cross
+            visible: root.takesShots && root.shots.length > 0
+            spacing: 6
+            Repeater {
+                model: root.shots
+                Rectangle {
+                    id: waiting
+                    required property string modelData
+                    required property int index
+                    width: 52; height: 52; radius: 10
+                    color: Qt.rgba(0, 0, 0, 0.25)
+                    // (the picture is set in by more than the ring is wide, so that its square corners stay inside the round
+                    // ones; the ring is drawn over it)
+                    Image { anchors.fill: parent; anchors.margins: 4; source: waiting.modelData; fillMode: Image.PreserveAspectCrop; sourceSize.height: 104; asynchronous: true }
+                    Rectangle { anchors.fill: parent; radius: parent.radius; color: "transparent"; border.width: 2; border.color: root.acc }
+                    Rectangle {
+                        x: parent.width - 14; y: -6
+                        width: 20; height: 20; radius: 10
+                        color: dropHover.hovered ? root.accDeep : root.acc
+                        border.width: 1.5; border.color: "#FFFFFF"
+                        Accessible.role: Accessible.Button
+                        Accessible.name: Tr.t("Remove the picture")
+                        Icon { anchors.centerIn: parent; name: "cross"; size: 12; color: root.accInk }
+                        HoverHandler { id: dropHover; cursorShape: Qt.PointingHandCursor }
+                        TapHandler { onTapped: root.dropShot(waiting.index) }
+                    }
+                }
+            }
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: root.quick ? Tr.t("Claude will look at it") : Tr.t("The session will open it")
+                color: Theme.inkFaint; font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.DemiBold
+            }
+        }
         Rectangle {
             width: parent.width
             // grows with its text in 100 ms, up to 110 px
@@ -891,6 +976,11 @@ Item {
                     // (one line stands in the middle of the field: the style's own padding set it low)
                     topPadding: Math.max(4, Math.round((Math.max(32, contentHeight + 14) - contentHeight) / 2)); bottomPadding: 4
                     Keys.onPressed: (e) => {
+                        if (e.matches(StandardKey.Paste) && root.takesShots && Shots.clipboardHasImage()) {
+                            root.addShot(Shots.fromClipboard())
+                            e.accepted = true
+                            return
+                        }
                         if ((e.key === Qt.Key_Return || e.key === Qt.Key_Enter) && !(e.modifiers & Qt.ShiftModifier)) {
                             root.send()
                             e.accepted = true

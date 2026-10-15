@@ -65,6 +65,10 @@ public:
     Q_INVOKABLE void dismiss(); // they have been looked at
     Q_INVOKABLE void open();    // ...and go to them: the program they are from, or the notification centre if from several
     Q_INVOKABLE void openRecent(int index); // the program that one of `recent` is from
+#ifdef Q_OS_WIN
+    // Brings up the program a notification is from (see Notices.cpp); says how, for the development switch --notice-open.
+    static QString goTo(const QString &aumid, const QString &name, bool act = true);
+#endif
 
 signals:
     void changed();

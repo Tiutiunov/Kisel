@@ -27,6 +27,8 @@ struct Session {
     int added = 0;
     int removed = 0;
     QString command;              // last shell command
+    QString transcript;           // Claude Code's own record of the session (a file), looked at for a stop
+    qint64 transcriptSeen = -1;   // how much of it was there when the prompt came
     QDateTime updated;
 
     QVariantMap toVariant() const;

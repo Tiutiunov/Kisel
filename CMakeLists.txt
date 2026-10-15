@@ -31,6 +31,7 @@ add_library(kisel_core STATIC
     src/core/HookServer.cpp
     src/core/ModInstaller.cpp
     src/core/QuickAsk.cpp
+    src/core/Shots.cpp
     src/core/Preferences.cpp
     src/core/PromptRelay.cpp
     src/core/DiscordPresence.cpp

@@ -55,7 +55,7 @@ QtObject {
 
     readonly property var ru: ({
         // ---- states ----
-        "Done": "Готово", "Working": "Работает", "Thinking": "Думает", "Needs you": "Ждёт тебя", "Failed": "Ошибка", "Idle": "Отдыхает",
+        "Done": "Готово", "Working": "Работает", "Thinking": "Думает", "Needs you": "Ждёт тебя", "Failed": "Ошибка", "Idle": "Отдыхает", "Stopped": "Остановлено",
         "Listening": "Слушает", "Not connected": "Не подключён", "Waiting for you": "Ждёт тебя",
         "Question": "Вопрос", "Permission": "Разрешение", "Settings": "Настройки", "Session": "Сессия", "Sessions": "Сессии",
         "Mute sounds": "Выключить звуки", "Unmute sounds": "Включить звуки", "Move the bar": "Переместить таблетку", "Close": "Закрыть",
@@ -81,7 +81,8 @@ QtObject {
         // ---- session, chat, GitHub ----
         "No prompt yet": "Запроса пока нет", "Nothing changed yet": "Пока ничего не изменено",
         "Ask Claude anything": "Спроси Claude о чём угодно", " is listening": " слушает", "Message Claude": "Сообщение для Claude",
-        "Stop": "Стоп", "Send": "Отправить", "Drop the file on me": "Кидай файл мне",
+        "Stop": "Стоп", "Send": "Отправить", "Drop the file on me": "Кидай файл мне", "(a picture)": "(картинка)", "Remove the picture": "Убрать картинку",
+        "Claude will look at it": "Claude посмотрит на неё", "The session will open it": "Сессия откроет её сама",
         "Add a GitHub token": "Добавь токен GitHub",
         "Settings → GitHub. A read-only personal access token is enough.": "Настройки → GitHub. Хватит личного токена только на чтение.",
         "open PRs": "открытых PR", "waiting for your review": "ждут твоего ревью", "Refresh": "Обновить", "Draft": "Черновик",

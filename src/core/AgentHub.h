@@ -53,6 +53,9 @@ public:
 
     // Tests and the dev tool feed events through here too.
     void handle(const QJsonObject &payload, HookConnection *conn = nullptr);
+    // Has a session that is thinking or working been stopped by its user? (Esc in Claude
+    // Code: no hook tells of that.) Run by a timer; public for the tests.
+    void lookForStops();
     static QString ruleKey(const QString &tool, const QJsonObject &input);
     static QVariantMap describePermission(const QString &tool, const QJsonObject &input);
     // The line sent to the relay for an AskUserQuestion: allow, with the user's
@@ -106,6 +109,7 @@ private:
     bool m_serverUp = false;
     int m_nextId = 1;
     QTimer m_sleepTimer;
+    QTimer m_stopWatch;
 };
 
 } // namespace kisel

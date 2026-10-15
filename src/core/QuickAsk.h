@@ -24,6 +24,10 @@ namespace kisel {
 // question as a session at work) and no plugins load. Nothing is saved by Claude Code
 // either; what was said so far goes along with each new question as text.
 //
+// A question may come with pictures (screenshots: see Shots). Then it goes in as one
+// message of `--input-format stream-json`, the pictures in it as they are, with the
+// words after them: Claude looks at them as at anything one pastes into Claude Code.
+//
 // The answer is read as it is written (`partial`): Claude Code takes a couple of seconds
 // to start and several more to finish, and waiting for the end of it felt slow.
 class QuickAsk : public QObject
@@ -51,13 +55,17 @@ public:
 
     QStringList efforts() const { return {QString(), QStringLiteral("low"), QStringLiteral("medium"), QStringLiteral("high"), QStringLiteral("xhigh"), QStringLiteral("max")}; }
 
-    // `turns`: what was said so far, [{role, text}]; `model`: one of `models`; `effort`: one of `efforts`.
-    Q_INVOKABLE void ask(const QVariantList &turns, const QString &question, const QString &model, const QString &effort = QString());
+    // `turns`: what was said so far, [{role, text}]; `model`: one of `models`; `effort`: one of `efforts`;
+    // `shots`: pictures for this question, as Shots gives them (file URLs).
+    Q_INVOKABLE void ask(const QVariantList &turns, const QString &question, const QString &model, const QString &effort = QString(),
+                         const QStringList &shots = {});
     Q_INVOKABLE void cancel();
 
     // Pure, unit-tested.
     static QString compose(const QVariantList &turns, const QString &question);
-    static QStringList arguments(const QString &model, const QString &effort = QString());
+    static QStringList arguments(const QString &model, const QString &effort = QString(), bool pictures = false);
+    // The one line of stream-json that carries `text` and the pictures in `shots` (file URLs; one that cannot be read is left out).
+    static QByteArray message(const QString &text, const QStringList &shots);
     // What `claude -p --output-format json` printed: the answer, or why there is none.
     static bool parse(const QByteArray &out, QString *answer, QString *error);
     // One line of `--output-format stream-json`: more of the answer's text (`delta`), word

@@ -13,6 +13,7 @@
 #include "HookServer.h"
 #include "ModInstaller.h"
 #include "QuickAsk.h"
+#include "Shots.h"
 
 #include <QCryptographicHash>
 #include <QJsonArray>
@@ -220,6 +221,36 @@ private slots:
         { QFile f(relay.folder("first") + "/alive"); QVERIFY(f.open(QIODevice::WriteOnly)); f.write("1"); }
         relay.scan();
         QCOMPARE(relay.best("first"), QString("first"));
+    }
+
+    // a picture with a quick question: one line of stream-json, the picture in it, the words after it
+    void aQuickQuestionCarriesItsPictures()
+    {
+        QVERIFY(!QuickAsk::arguments("").contains("--input-format"));
+        const QStringList a = QuickAsk::arguments("", "", true);
+        QCOMPARE(a.at(a.indexOf("--input-format") + 1), QString("stream-json"));
+
+        QTemporaryDir dir;
+        QImage big(3000, 1500, QImage::Format_RGB32);
+        big.fill(Qt::blue);
+        const QString file = dir.filePath("shot.png");
+        QVERIFY(big.save(file));
+        QString type;
+        const QImage fitted = QImage::fromData(Shots::encode(big, &type));
+        QCOMPARE(type, QString("image/png"));
+        QCOMPARE(fitted.width(), 1920); // made no larger than Claude looks at
+        QCOMPARE(fitted.height(), 960);
+
+        const QByteArray line = QuickAsk::message("What is this?", {QUrl::fromLocalFile(file).toString(), QUrl::fromLocalFile(dir.filePath("gone.png")).toString()});
+        QVERIFY(line.endsWith('\n') && line.count('\n') == 1);
+        const QJsonObject o = QJsonDocument::fromJson(line).object();
+        QCOMPARE(o.value("type").toString(), QString("user"));
+        const QJsonArray content = o.value("message").toObject().value("content").toArray();
+        QCOMPARE(content.size(), 2); // the picture that is not there is left out
+        QCOMPARE(content.at(0).toObject().value("type").toString(), QString("image"));
+        QCOMPARE(content.at(0).toObject().value("source").toObject().value("media_type").toString(), QString("image/png"));
+        QVERIFY(!QImage::fromData(QByteArray::fromBase64(content.at(0).toObject().value("source").toObject().value("data").toString().toLatin1())).isNull());
+        QCOMPARE(content.at(1).toObject().value("text").toString(), QString("What is this?"));
     }
 
     void aQuickQuestionGoesOutBareAndComesBackAsText()
@@ -619,6 +650,34 @@ private slots:
         QCOMPARE(hub.chip(), QString("done")); // the pill's chip stays after the mood has passed
         hub.handle({{"hook_event_name", "UserPromptSubmit"}, {"session_id", "s"}});
         QCOMPARE(hub.chip(), QString()); // new work clears it
+    }
+
+    // Esc in Claude Code sends no hook: the line it writes to the session's record ends the work
+    void hubSeesAPromptStoppedByHand()
+    {
+        QTemporaryDir dir;
+        const QString record = dir.filePath("s.jsonl");
+        QFile f(record);
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write(R"({"type":"user","message":{"role":"user","content":[{"type":"text","text":"[Request interrupted by user]"}]}})" "\n");
+        f.close();
+        Preferences prefs;
+        AgentHub hub(&prefs);
+        hub.handle({{"hook_event_name", "UserPromptSubmit"}, {"session_id", "s"}, {"cwd", "/p/app"}, {"transcript_path", record}});
+        hub.lookForStops();
+        QCOMPARE(hub.mood(), QString("think")); // an old stop, from before this prompt, does not count
+        QVERIFY(f.open(QIODevice::Append));
+        f.write(R"({"type":"assistant","message":{"content":[{"type":"text","text":"Looking"}]}})" "\n");
+        f.close();
+        hub.lookForStops();
+        QCOMPARE(hub.mood(), QString("think"));
+        QVERIFY(f.open(QIODevice::Append));
+        f.write(R"({"type":"user","message":{"role":"user","content":[{"type":"text","text":"[Request interrupted by user]"}]}})" "\n");
+        f.close();
+        hub.lookForStops();
+        QCOMPARE(hub.mood(), QString("idle"));
+        QCOMPARE(hub.session()["line"].toString(), QString("Stopped"));
+        QCOMPARE(hub.chip(), QString()); // no Done for a stop
     }
 
     void invalidAgentNameFallsBackToClaudeCode()

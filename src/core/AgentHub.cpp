@@ -1,5 +1,6 @@
 #include "AgentHub.h"
 
+#include <QFile>
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -55,6 +56,10 @@ AgentHub::AgentHub(Preferences *prefs, QObject *parent)
         recompute();
     });
     m_sleepTimer.start();
+
+    // (Only while a session is thinking or working, and only what was added to its record since.)
+    m_stopWatch.setInterval(1500);
+    connect(&m_stopWatch, &QTimer::timeout, this, &AgentHub::lookForStops);
 
     m_chipTimer.setSingleShot(true);
     m_chipTimer.setInterval(25'000);
@@ -223,16 +228,24 @@ void AgentHub::handle(const QJsonObject &p, HookConnection *conn)
     }
 
     Session &s = m_sessions.ensure(sid, agent, p.value("cwd").toString());
+    const QString transcript = p.value("transcript_path").toString();
+    if (!transcript.isEmpty() && transcript != s.transcript) {
+        s.transcript = transcript;
+        s.transcriptSeen = -1;
+    }
 
     if (ev == QLatin1String("UserPromptSubmit") || ev == QLatin1String("PreToolUse")) {
         m_chipBase.clear(); // new work: the old Done / Failed chip goes away
         m_chipTimer.stop();
+        if (!m_stopWatch.isActive())
+            m_stopWatch.start();
     }
 
     if (ev == QLatin1String("UserPromptSubmit")) {
         s.state = QStringLiteral("think");
         s.line = QStringLiteral("Thinking") + QChar(0x2026);
         s.prompt = p.value("prompt").toString();
+        s.transcriptSeen = s.transcript.isEmpty() ? -1 : QFileInfo(s.transcript).size();
         emit prompted(s.id, s.cwd, s.name, s.prompt);
         s.steps.clear();
         s.file.clear();
@@ -308,6 +321,53 @@ void AgentHub::handle(const QJsonObject &p, HookConnection *conn)
     m_sessions.touched(sid);
     emit sessionChanged();
     recompute();
+}
+
+// A prompt stopped with Esc ends without a Stop hook: Claude Code only writes a line to
+// the session's record, "[Request interrupted by user]" (or "... for tool use"), and the
+// bar went on thinking for good. So while a session is busy, what was added to its
+// record since the prompt is read, and that line ends the work as a stop by hand: no
+// Done, no cheer, the bar at rest. Nothing else of the record is kept or looked at.
+void AgentHub::lookForStops()
+{
+    bool busy = false, changed = false;
+    for (const Session &c : m_sessions.items()) {
+        if ((c.state != QLatin1String("think") && c.state != QLatin1String("work")) || c.transcript.isEmpty() || c.transcriptSeen < 0)
+            continue;
+        busy = true;
+        QFile f(c.transcript);
+        if (!f.open(QIODevice::ReadOnly))
+            continue;
+        const qint64 size = f.size();
+        if (size <= c.transcriptSeen)
+            continue;
+        f.seek(qMax(c.transcriptSeen, size - (256 << 10))); // (a big tool result in between is skipped over)
+        const QByteArray added = f.read(size - f.pos());
+        Session *s = m_sessions.find(c.id);
+        s->transcriptSeen = size;
+        if (!added.contains("[Request interrupted by user"))
+            continue;
+        closeRunningSteps(*s, "done");
+        s->state = QStringLiteral("idle");
+        s->line = QStringLiteral("Stopped");
+        s->transcriptSeen = -1;
+        m_sessions.touched(s->id);
+        changed = true;
+    }
+    if (changed) {
+        emit sessionChanged();
+        recompute();
+    }
+    if (!busy || changed) {
+        bool still = false;
+        for (const Session &c : m_sessions.items())
+            still = still || ((c.state == QLatin1String("think") || c.state == QLatin1String("work")) && c.transcriptSeen >= 0);
+        busy = still;
+    }
+    if (busy && !m_stopWatch.isActive())
+        m_stopWatch.start();
+    else if (!busy)
+        m_stopWatch.stop();
 }
 
 void AgentHub::answer(const QString &id, const QString &decision)

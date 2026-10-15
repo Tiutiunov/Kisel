@@ -1,6 +1,10 @@
 #include "QuickAsk.h"
 
+#include "Shots.h"
+
 #include <QDir>
+#include <QImageReader>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QStandardPaths>
@@ -62,7 +66,24 @@ QString QuickAsk::compose(const QVariantList &turns, const QString &question)
     return out + question.trimmed();
 }
 
-QStringList QuickAsk::arguments(const QString &model, const QString &effort)
+QByteArray QuickAsk::message(const QString &text, const QStringList &shots)
+{
+    QJsonArray content;
+    for (const QString &url : shots.mid(0, Shots::kMax)) {
+        QImageReader r(QUrl(url).toLocalFile());
+        QString type;
+        const QByteArray bytes = Shots::encode(r.read(), &type);
+        if (bytes.isEmpty())
+            continue;
+        content.append(QJsonObject {{"type", "image"},
+                                    {"source", QJsonObject {{"type", "base64"}, {"media_type", type}, {"data", QString::fromLatin1(bytes.toBase64())}}}});
+    }
+    content.append(QJsonObject {{"type", "text"}, {"text", text}});
+    const QJsonObject line {{"type", "user"}, {"message", QJsonObject {{"role", "user"}, {"content", content}}}};
+    return QJsonDocument(line).toJson(QJsonDocument::Compact) + '\n';
+}
+
+QStringList QuickAsk::arguments(const QString &model, const QString &effort, bool pictures)
 {
     QStringList a {QStringLiteral("-p"), QStringLiteral("--output-format"), QStringLiteral("stream-json"),
                    QStringLiteral("--include-partial-messages"), QStringLiteral("--verbose"),
@@ -90,6 +111,8 @@ QStringList QuickAsk::arguments(const QString &model, const QString &effort)
     static const QStringList levels {QStringLiteral("low"), QStringLiteral("medium"), QStringLiteral("high"), QStringLiteral("xhigh"), QStringLiteral("max")};
     if (levels.contains(effort))
         a << QStringLiteral("--effort") << effort;
+    if (pictures) // (the question as one message of JSON, so that pictures can be in it)
+        a << QStringLiteral("--input-format") << QStringLiteral("stream-json");
     return a;
 }
 
@@ -176,9 +199,10 @@ void QuickAsk::fail(const QString &why)
     emit changed();
 }
 
-void QuickAsk::ask(const QVariantList &turns, const QString &question, const QString &model, const QString &effort)
+void QuickAsk::ask(const QVariantList &turns, const QString &question, const QString &model, const QString &effort,
+                   const QStringList &shots)
 {
-    if (busy() || question.trimmed().isEmpty())
+    if (busy() || (question.trimmed().isEmpty() && shots.isEmpty()))
         return;
     m_error.clear();
     m_cancelled = false;
@@ -212,14 +236,16 @@ void QuickAsk::ask(const QVariantList &turns, const QString &question, const QSt
     QDir().mkpath(dir);
     m_proc.setWorkingDirectory(dir);
     m_proc.setProcessChannelMode(QProcess::SeparateChannels);
-    const QStringList args = arguments(model, effort);
+    const QStringList args = arguments(model, effort, !shots.isEmpty());
 #ifdef Q_OS_WIN
     // (npm installs `claude` as a .cmd: that is run by the command interpreter, not by itself)
     m_proc.start(QStringLiteral("cmd.exe"), QStringList {QStringLiteral("/c"), QStringLiteral("claude")} + args);
 #else
     m_proc.start(QStringLiteral("claude"), args);
 #endif
-    m_proc.write(compose(turns, question).toUtf8());
+    // (with no words, the pictures are the question)
+    const QString text = compose(turns, question.trimmed().isEmpty() ? QStringLiteral("Look at this picture.") : question);
+    m_proc.write(shots.isEmpty() ? text.toUtf8() : message(text, shots));
     m_proc.closeWriteChannel();
     m_limit.start();
     emit changed();

@@ -9,6 +9,7 @@ Kisel is a desktop program that runs on your computer. It has no accounts, no se
 - Settings: a file in your user profile.
 - Secrets (for example a GitHub token): the system's own store, Windows Credential Manager or KWallet. Never in a settings file.
 - What Claude Code tells Kisel through its hooks and mods (the state of a session, its last line, permission requests, limits): kept in memory and in Kisel's data folder, and sent nowhere.
+- Claude Code's own record of a session (the file it keeps the conversation in): while a session is busy, Kisel reads what is added to its end, only to see whether you stopped the prompt with Esc (Claude Code tells no hook of that). Nothing of it is kept or sent.
 
 ## When Kisel reaches the network
 
@@ -42,6 +43,7 @@ Kisel — программа, которая работает на твоём к
 - Настройки: файл в профиле пользователя.
 - Секреты (например, токен GitHub): системное хранилище, Windows Credential Manager или KWallet. В файле настроек их нет.
 - То, что Claude Code сообщает Kisel через хуки и моды (состояние сессии, её последняя строка, запросы разрешений, лимиты): хранится в памяти и в папке данных Kisel и никуда не отправляется.
+- Журнал сессии, который ведёт сам Claude Code (файл с перепиской): пока сессия занята, Kisel читает то, что дописывается в его конец, только чтобы заметить отмену запроса через Esc (об этом Claude Code не сообщает хукам). Ничего из него не сохраняется и не отправляется.
 
 ## Когда Kisel выходит в сеть
 

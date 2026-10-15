@@ -400,9 +400,9 @@ int main(int argc, char **argv)
         event = argEvent;
     obj["hook_event_name"] = event;
 
-    // Fields that are pointless to forward and can be enormous.
+    // A field that is pointless to forward and can be enormous. (transcript_path goes
+    // along: Kisel looks at the end of that file for a prompt stopped with Esc.)
     obj.remove("tool_response");
-    obj.remove("transcript_path");
 
     if (obj.value("cwd").toString().isEmpty())
         obj["cwd"] = QDir::currentPath();

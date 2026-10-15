@@ -3,6 +3,7 @@
 #include "GitHubClient.h"
 #include "ModInstaller.h"
 #include "QuickAsk.h"
+#include "Shots.h"
 #include "PromptRelay.h"
 #include "DiscordPresence.h"
 #include "SpeedTest.h"
@@ -126,7 +127,9 @@ int main(int argc, char *argv[])
     cli.addOption({"restarted", "Internal: started again after a fall, for the <n>th time in a row.", "n"});
     cli.addOption({"scroll", "Development: with --grab, scroll Settings down by <px> first.", "px"});
     cli.addOption({"no-hello", "Development: start with the bar in place, without Miku's hello."});
-    cli.addOption({"tab", "Development: with --grab, show this tab of Settings (claude, services, cast, look, place, kisel).", "id"});
+    cli.addOption({"tab", "Development: with --grab, scroll Settings to this part (claude, cast, look, place, services, kisel).", "id"});
+    cli.addOption({"shot", "Development: with --grab, put this picture in the quick talk, waiting to be sent.", "file"});
+    cli.addOption({"notice-open", "Development: say how a click on Rin's card would go to the program with this notification identifier and name (aumid|name); with |go at the end, go.", "aumid|name"});
     cli.addOption({"speed-test", "Measure the connection (ping, down, up), print the result and quit."});
     cli.addOption({"check-updates", "Ask GitHub whether a newer version is out, print the answer and quit."});
     cli.addOption({"remove-hooks", "Take Kisel's hooks out of Claude Code's settings and quit (the uninstaller does this)."});
@@ -137,6 +140,13 @@ int main(int argc, char *argv[])
         return hooks.apply(false) ? 0 : 1;
     }
 
+#ifdef Q_OS_WIN
+    if (cli.isSet("notice-open")) {
+        const QStringList a = cli.value("notice-open").split(QLatin1Char('|'));
+        qInfo("%s", qPrintable(Notices::goTo(a.value(0), a.value(1), a.value(2) == QLatin1String("go"))));
+        return 0;
+    }
+#endif
     if (cli.isSet("speed-test")) {
         SpeedTest test;
         QObject::connect(&test, &SpeedTest::changed, &app, [&] {
@@ -274,6 +284,7 @@ int main(int argc, char *argv[])
     if (!cli.isSet("grab"))
         QTimer::singleShot(45000, &mods, &ModInstaller::retire);
     QuickAsk quick; // (the chat's temporary talk: one `claude -p` a question, see QuickAsk.h)
+    Shots shots;    // (screenshots and pictures for the chat, see Shots.h)
     DiscordPresence discord(&prefs, &hub, !cli.isSet("grab")); // (off unless switched on in Settings)
     Media media;
     SysMon sysmon;
@@ -300,6 +311,7 @@ int main(int argc, char *argv[])
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Relay", &relay);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Mods", &mods);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Quick", &quick);
+    qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Shots", &shots);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Discord", &discord);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Ticker", &ticker);
     qmlRegisterSingletonInstance("Kisel.Core", 1, 0, "Media", &media);

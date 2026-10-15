@@ -8,6 +8,9 @@
 #include <winrt/Windows.UI.Notifications.Management.h>
 #include <windows.h>
 #include <shellapi.h>
+#include <shlobj.h>
+#include <shobjidl.h>
+#include <propsys.h>
 #endif
 #ifdef KISEL_WITH_DBUS1
 #include <dbus/dbus.h>
@@ -671,14 +674,170 @@ void Notices::setWords(bool on)
     emit changed();
 }
 
+#ifdef Q_OS_WIN
+namespace {
+// Going to the program a notification is from. A notification names its program by an
+// identifier (an AppUserModelID), and the way that was gone to was
+// "explorer shell:AppsFolder\<identifier>", which is the program's Start menu entry. But
+// most programs that are not from the Store notify under an identifier no Start menu
+// entry has (browsers, Spotify, Element, Parsec, anything in the tray), and for those
+// Explorer simply opened itself, at Documents. So, in turn:
+//
+//   1. a window of the program that is up: by the identifier it carries, or by the name
+//      of its program file against the name the notification gives, brought to the front;
+//   2. the Start menu entry, only if there is one;
+//   3. the program started once more from its own file, when its window is hidden (one in
+//      the tray shows its window when it is started again);
+//   4. and if none of that, the notification centre (Win+N), where the notification is.
+// (the identifier a window carries: PKEY_AppUserModel_ID, and the Start menu's folder: FOLDERID_AppsFolder)
+const PROPERTYKEY kWindowAumid = {{0x9F4C2855, 0x9F79, 0x4B39, {0xA8, 0xD0, 0xE1, 0xD4, 0x2D, 0xE1, 0xD5, 0xF3}}, 5};
+const GUID kAppsFolder = {0x1e87508d, 0x89c2, 0x42f0, {0x8a, 0x7e, 0x64, 0x5a, 0x0f, 0x50, 0xca, 0x58}};
+
+struct Search
+{
+    QString aumid, name; // what the notification says
+    HWND byId = nullptr, byName = nullptr;
+    QString hiddenExe;   // the program's file, when the only windows of it are hidden
+};
+
+QString programOf(HWND h)
+{
+    DWORD pid = 0;
+    GetWindowThreadProcessId(h, &pid);
+    const HANDLE proc = pid ? OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid) : nullptr;
+    if (!proc)
+        return QString();
+    wchar_t path[MAX_PATH] = {};
+    DWORD size = MAX_PATH;
+    const bool got = QueryFullProcessImageNameW(proc, 0, path, &size);
+    CloseHandle(proc);
+    return got ? QString::fromWCharArray(path, int(size)) : QString();
+}
+
+BOOL CALLBACK look(HWND h, LPARAM p)
+{
+    Search &s = *reinterpret_cast<Search *>(p);
+    if (GetWindow(h, GW_OWNER) || (GetWindowLongPtrW(h, GWL_EXSTYLE) & WS_EX_TOOLWINDOW) || GetWindowTextLengthW(h) == 0)
+        return TRUE;
+    const bool shown = IsWindowVisible(h);
+    IPropertyStore *store = nullptr;
+    if (shown && !s.byId && SUCCEEDED(SHGetPropertyStoreForWindow(h, IID_PPV_ARGS(&store))) && store) {
+        PROPVARIANT v;
+        PropVariantInit(&v);
+        if (SUCCEEDED(store->GetValue(kWindowAumid, &v)) && v.vt == VT_LPWSTR && v.pwszVal) {
+            const QString id = QString::fromWCharArray(v.pwszVal);
+            // (Firefox and its kin notify as "FirefoxToast-<their id>": the window carries the id alone)
+            if (!id.isEmpty() && (id.compare(s.aumid, Qt::CaseInsensitive) == 0 || s.aumid.endsWith(QLatin1Char('-') + id, Qt::CaseInsensitive)))
+                s.byId = h;
+        }
+        PropVariantClear(&v);
+        store->Release();
+    }
+    // the program's file against the name: "Spotify" and Spotify.exe, "Zen" and zen.exe, "Parsec" and parsecd.exe
+    const QString key = QString(s.name).remove(QLatin1Char(' ')).toLower();
+    if (key.size() < 3)
+        return TRUE;
+    const QString path = programOf(h);
+    QString file = path.mid(path.lastIndexOf(QLatin1Char('\\')) + 1).toLower();
+    if (file.endsWith(QLatin1String(".exe")))
+        file.chop(4);
+    if (file.size() < 3 || !(file == key || file.startsWith(key) || key.startsWith(file)))
+        return TRUE;
+    if (shown) {
+        if (!s.byName)
+            s.byName = h;
+    } else if (s.hiddenExe.isEmpty()) {
+        s.hiddenExe = path;
+    }
+    return TRUE;
+}
+
+void toFront(HWND h)
+{
+    if (IsIconic(h))
+        ShowWindow(h, SW_RESTORE);
+    // (Windows lets a program bring another forward only just after a key or a click of its
+    // own: a tap of Alt is that, and it does nothing else)
+    INPUT alt[2] = {};
+    alt[0].type = alt[1].type = INPUT_KEYBOARD;
+    alt[0].ki.wVk = alt[1].ki.wVk = VK_MENU;
+    alt[1].ki.dwFlags = KEYEVENTF_KEYUP;
+    SendInput(2, alt, sizeof(INPUT));
+    SetForegroundWindow(h);
+}
+
+bool startEntry(const QString &aumid, bool act = true)
+{
+    if (aumid.isEmpty())
+        return false;
+    IShellItem *item = nullptr;
+    if (FAILED(SHCreateItemInKnownFolder(kAppsFolder, 0, reinterpret_cast<LPCWSTR>(aumid.utf16()), IID_PPV_ARGS(&item))) || !item)
+        return false;
+    if (!act) {
+        item->Release();
+        return true;
+    }
+    PIDLIST_ABSOLUTE list = nullptr;
+    bool done = false;
+    if (SUCCEEDED(SHGetIDListFromObject(item, &list)) && list) {
+        SHELLEXECUTEINFOW e = {};
+        e.cbSize = sizeof e;
+        e.fMask = SEE_MASK_IDLIST;
+        e.lpIDList = list;
+        e.nShow = SW_SHOWNORMAL;
+        done = ShellExecuteExW(&e);
+        CoTaskMemFree(list);
+    }
+    item->Release();
+    return done;
+}
+
+void centre()
+{
+    INPUT in[4] = {};
+    for (INPUT &e : in)
+        e.type = INPUT_KEYBOARD;
+    in[0].ki.wVk = VK_LWIN;
+    in[1].ki.wVk = 'N';
+    in[2].ki.wVk = 'N';
+    in[2].ki.dwFlags = KEYEVENTF_KEYUP;
+    in[3].ki.wVk = VK_LWIN;
+    in[3].ki.dwFlags = KEYEVENTF_KEYUP;
+    SendInput(4, in, sizeof(INPUT));
+}
+} // namespace
+
+QString Notices::goTo(const QString &aumid, const QString &name, bool act)
+{
+    Search s {aumid, name};
+    EnumWindows(look, reinterpret_cast<LPARAM>(&s));
+    if (s.byId) {
+        if (act)
+            toFront(s.byId);
+        return QStringLiteral("window (by its identifier)");
+    }
+    if (s.byName) {
+        if (act)
+            toFront(s.byName);
+        return QStringLiteral("window (by its program's name)");
+    }
+    if (startEntry(aumid, act))
+        return QStringLiteral("Start menu entry");
+    if (!s.hiddenExe.isEmpty()
+        && (!act || reinterpret_cast<qintptr>(ShellExecuteW(nullptr, L"open", reinterpret_cast<LPCWSTR>(s.hiddenExe.utf16()), nullptr, nullptr, SW_SHOWNORMAL)) > 32))
+        return QStringLiteral("program started again: ") + s.hiddenExe;
+    if (act)
+        centre();
+    return QStringLiteral("notification centre");
+}
+#endif
+
 void Notices::openRecent(int index)
 {
 #ifdef Q_OS_WIN
-    const QString aumid = m_recent.value(index).toMap().value(QStringLiteral("aumid")).toString();
-    if (aumid.isEmpty())
-        return;
-    const QString entry = QStringLiteral("shell:AppsFolder\\") + aumid;
-    ShellExecuteW(nullptr, L"open", L"explorer.exe", reinterpret_cast<LPCWSTR>(entry.utf16()), nullptr, SW_SHOWNORMAL);
+    const QVariantMap r = m_recent.value(index).toMap();
+    if (!r.isEmpty())
+        goTo(r.value(QStringLiteral("aumid")).toString(), r.value(QStringLiteral("app")).toString());
 #else
     launch(m_recent.value(index).toMap().value(QStringLiteral("aumid")).toString());
 #endif
@@ -722,6 +881,7 @@ void Notices::dismiss()
 void Notices::open()
 {
     const QString target = m_target;
+    const QString name = m_app; // (they are all from that one program, so the newest is from it too)
     dismiss();
 #ifdef Q_OS_WIN
     if (m_demo)
@@ -729,21 +889,10 @@ void Notices::open()
     // all from one program: bring that program up, as its Start menu entry would (a
     // program that is already running shows its window)
     if (!target.isEmpty()) {
-        const QString entry = QStringLiteral("shell:AppsFolder\\") + target;
-        ShellExecuteW(nullptr, L"open", L"explorer.exe", reinterpret_cast<LPCWSTR>(entry.utf16()), nullptr, SW_SHOWNORMAL);
+        goTo(target, name); // (see goTo)
         return;
     }
-    // Win+N: the notification centre
-    INPUT in[4] = {};
-    for (INPUT &e : in)
-        e.type = INPUT_KEYBOARD;
-    in[0].ki.wVk = VK_LWIN;
-    in[1].ki.wVk = 'N';
-    in[2].ki.wVk = 'N';
-    in[2].ki.dwFlags = KEYEVENTF_KEYUP;
-    in[3].ki.wVk = VK_LWIN;
-    in[3].ki.dwFlags = KEYEVENTF_KEYUP;
-    SendInput(4, in, sizeof(INPUT));
+    centre(); // Win+N: the notification centre
 #else
     // all from one program: that program is brought up (Plasma has no call that opens its
     // own list of notifications, so from several nothing more is done)
