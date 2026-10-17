@@ -8,7 +8,7 @@ QVariantMap Session::toVariant() const
 {
     QVariantList stepList;
     for (const Step &s : steps)
-        stepList.append(QVariantMap {{"text", s.text}, {"state", s.state}});
+        stepList.append(QVariantMap {{"text", s.text}, {"state", s.state}, {"times", s.times}});
     return {
         {"id", id}, {"agent", agent}, {"cwd", cwd}, {"name", name}, {"state", state},
         {"line", line}, {"prompt", prompt}, {"steps", stepList}, {"file", file},

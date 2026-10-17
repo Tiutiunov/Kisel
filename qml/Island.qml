@@ -2342,7 +2342,7 @@ Item {
                     id: hostSession
                     active: root.expanded && root.view === "session"
                     enterDelay: root.enterDelay
-                    SessionView { id: sessionView; age: hostSession.age; active: hostSession.active; height: 300 - 62 }
+                    SessionView { id: sessionView; age: hostSession.age; active: hostSession.active; height: 300 - 62; who: root.face(root.stage) }
                 }
                 ViewHost {
                     id: hostPermission

@@ -74,6 +74,28 @@ void runDemo(AgentHub &hub)
     };
     QJsonObject prompt = base("UserPromptSubmit");
     prompt["prompt"] = "Fix the rounding in invoice totals";
+    // KISEL_DEMO_LONG=1: a long prompt of several lines and many steps, some of them alike (to see that nothing runs out of the card)
+    if (qEnvironmentVariableIsSet("KISEL_DEMO_LONG")) {
+        prompt["prompt"] = "oops, there is a bug, as if the form\nwere sent twice when the page loads,\nand the second time it has no token\nplease look at scene.js and the login flow";
+        ev(800, prompt);
+        int at = 1200;
+        const QStringList cmds {"cd /home/user/projects/invoice-app && sed -i '544s/.stp-c/.stp/' scene.js", "export PATH=\"$HOME/bin:$PATH\"; npm run build\nnpm test",
+                                "for j in dist_keycloak/*.jar; do echo $j; unzip -l $j | grep scene; done"};
+        for (const QString &c : cmds) {
+            ev(at, tool("PreToolUse", "Bash", {{"command", c}})); ev(at + 100, tool("PostToolUse", "Bash", {}));
+            at += 200;
+        }
+        for (int i = 0; i < 3; ++i) {
+            ev(at, tool("PreToolUse", "Read", {{"file_path", cwd + "/src/scene.js"}})); ev(at + 100, tool("PostToolUse", "Read", {}));
+            at += 200;
+        }
+        ev(at, tool("PreToolUse", "WebFetch", {{"url", "https://www.keycloak.org/docs/latest/server_development/"}})); ev(at + 100, tool("PostToolUse", "WebFetch", {}));
+        ev(at + 200, tool("PreToolUse", "mcp__ccd_turn__wrap_up", {})); ev(at + 300, tool("PostToolUse", "mcp__ccd_turn__wrap_up", {}));
+        ev(at + 400, tool("PreToolUse", "Edit", {{"file_path", cwd + "/src/scene.js"}, {"old_string", "if (this.els.form) {\n  this.els.form.addEventListener('submit', go);"},
+                                                {"new_string", "if (this.els.form) {\n  // Remembered now: a second load must not send it again\n  this.authUrl();\n  this.els.form.addEventListener('submit', go, { once: true });"}}));
+        ev(at + 500, tool("PreToolUse", "Bash", {{"command", "cd /home/user/projects/invoice-app && for j in dist_keycloak/*.jar; do echo $j; done"}}));
+        return;
+    }
     ev(1500, prompt);
     ev(3000, tool("PreToolUse", "Read", {{"file_path", cwd + "/src/invoice.ts"}}));
     ev(4200, tool("PostToolUse", "Read", {}));

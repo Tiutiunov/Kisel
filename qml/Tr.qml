@@ -50,6 +50,7 @@ QtObject {
     // what the hub and the clients say, by how it begins
     readonly property var starts: [
         ["Run ", "Запуск: "], ["Edit ", "Правка: "], ["Read ", "Чтение: "], ["Search ", "Поиск: "], ["Allowed ", "Разрешено: "],
+        ["Open ", "Открыть: "], ["Search the web: ", "Поиск в интернете: "], ["Agent: ", "Агент: "],
         ["GitHub answered ", "GitHub ответил "], ["Cannot read ", "Не удаётся прочитать "]
     ]
 

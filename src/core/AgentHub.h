@@ -53,6 +53,8 @@ public:
 
     // Tests and the dev tool feed events through here too.
     void handle(const QJsonObject &payload, HookConnection *conn = nullptr);
+    // One step, in as few words as tell it (public for the tests).
+    static QString stepLabel(const QString &tool, const QJsonObject &input);
     // Has a session that is thinking or working been stopped by its user? (Esc in Claude
     // Code: no hook tells of that.) Run by a timer; public for the tests.
     void lookForStops();
@@ -90,7 +92,6 @@ private:
     void answer(const QString &id, const QString &decision);
     void setOverride(const QString &mood, int ms);
     void recompute();
-    static QString stepLabel(const QString &tool, const QJsonObject &input);
     void applyToolDiff(Session &s, const QString &tool, const QJsonObject &input);
     void closeRunningSteps(Session &s, const QString &state);
 

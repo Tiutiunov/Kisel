@@ -680,6 +680,28 @@ private slots:
         QCOMPARE(hub.chip(), QString()); // no Done for a stop
     }
 
+    // a step says what was done to what, and no more
+    void stepsAreToldShort()
+    {
+        QCOMPARE(AgentHub::stepLabel("Bash", {{"command", "cd /p/app && npm test -- invoice"}}), QString("Run npm test -- invoice"));
+        QCOMPARE(AgentHub::stepLabel("Bash", {{"command", "export PATH=\"$HOME/bin:$PATH\"; make -j8\nmake install"}}), QString("Run make -j8"));
+        QCOMPARE(AgentHub::stepLabel("PowerShell", {{"command", "$env:X=1; Get-Process kisel"}}), QString("Run Get-Process kisel"));
+        QCOMPARE(AgentHub::stepLabel("WebFetch", {{"url", "https://doc.qt.io/qt-6/qml.html"}}), QString("Open doc.qt.io"));
+        QCOMPARE(AgentHub::stepLabel("mcp__ccd_turn__wrap_up", {}), QString("Wrap up"));
+        QCOMPARE(AgentHub::stepLabel("SendUserFile", {}), QString("Send user file"));
+
+        Preferences prefs;
+        AgentHub hub(&prefs);
+        hub.handle({{"hook_event_name", "UserPromptSubmit"}, {"session_id", "s"}});
+        for (int i = 0; i < 3; ++i) {
+            hub.handle({{"hook_event_name", "PreToolUse"}, {"session_id", "s"}, {"tool_name", "Read"}, {"tool_input", QJsonObject {{"file_path", "/p/a.ts"}}}});
+            hub.handle({{"hook_event_name", "PostToolUse"}, {"session_id", "s"}, {"tool_name", "Read"}});
+        }
+        const QVariantList steps = hub.session()["steps"].toList();
+        QCOMPARE(steps.size(), 1); // the same step three times running: one line...
+        QCOMPARE(steps.first().toMap()["times"].toInt(), 3); // ...that counts them
+    }
+
     void invalidAgentNameFallsBackToClaudeCode()
     {
         Preferences prefs;

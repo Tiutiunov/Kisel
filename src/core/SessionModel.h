@@ -10,6 +10,7 @@ namespace kisel {
 struct Step {
     QString text;
     QString state; // running | done | failed
+    int times = 1; // the same step done again right after: one line, "×3"
 };
 
 // One agent session as the island shows it.

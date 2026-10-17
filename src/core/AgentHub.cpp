@@ -5,11 +5,12 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QRegularExpression>
+#include <QUrl>
 
 namespace kisel {
 
 namespace {
-constexpr int kMaxSteps = 8;
+constexpr int kMaxSteps = 12; // (the card shows as many as fit, the newest)
 constexpr int kMaxDiffLines = 40;
 constexpr int kSleepAfterMs = 60'000;
 constexpr int kHappyMs = 3500;
@@ -165,17 +166,39 @@ QVariantMap AgentHub::describePermission(const QString &tool, const QJsonObject 
 
 // ---- events -------------------------------------------------------------------
 
+// A step is a line in a narrow column, so it says what was done and to what, and no
+// more: a command without the `cd ... &&` and the `export X=...;` it is wrapped in,
+// a page by its site, an MCP tool by its own name and not the server's prefix.
 QString AgentHub::stepLabel(const QString &tool, const QJsonObject &input)
 {
-    if (tool == "Bash")
-        return QStringLiteral("Run ") + clip(input.value("command").toString(), 44);
+    if (tool == "Bash" || tool == "PowerShell") {
+        QString c = input.value("command").toString().section('\n', 0, 0).trimmed();
+        static const QRegularExpression wrap(QStringLiteral(
+            R"(^(?:(?:cd|pushd|Set-Location)\s+(?:"[^"]*"|'[^']*'|\S+)\s*(?:&&|;)\s*|(?:export\s+|\$env:)?[A-Za-z_][A-Za-z0-9_]*=(?:"[^"]*"|'[^']*'|\S*)\s*(?:&&|;)\s*)+)"));
+        const QString bare = c.remove(wrap);
+        return QStringLiteral("Run ") + clip(bare.isEmpty() ? input.value("command").toString() : bare, 40);
+    }
     if (tool == "Edit" || tool == "MultiEdit" || tool == "Write")
         return QStringLiteral("Edit ") + baseName(input.value("file_path").toString());
     if (tool == "Read")
         return QStringLiteral("Read ") + baseName(input.value("file_path").toString());
     if (tool == "Grep" || tool == "Glob")
         return QStringLiteral("Search ") + clip(input.value("pattern").toString(), 40);
-    return tool.isEmpty() ? QStringLiteral("Working") : tool;
+    if (tool == "WebFetch")
+        return QStringLiteral("Open ") + QUrl(input.value("url").toString()).host();
+    if (tool == "WebSearch")
+        return QStringLiteral("Search the web: ") + clip(input.value("query").toString(), 32);
+    if (tool == "Task" || tool == "Agent")
+        return QStringLiteral("Agent: ") + clip(input.value("description").toString(), 34);
+    if (tool.isEmpty())
+        return QStringLiteral("Working");
+    // the rest by their own names, made words: mcp__server__wrap_up -> "Wrap up", SendUserFile -> "Send user file"
+    QString name = tool.startsWith(QLatin1String("mcp__")) ? tool.section(QStringLiteral("__"), -1) : tool;
+    static const QRegularExpression hump(QStringLiteral("(?<=[a-z0-9])(?=[A-Z])"));
+    name = name.replace(hump, QStringLiteral(" ")).replace(QLatin1Char('_'), QLatin1Char(' ')).replace(QLatin1Char('-'), QLatin1Char(' ')).simplified().toLower();
+    if (!name.isEmpty())
+        name[0] = name[0].toUpper();
+    return clip(name, 40);
 }
 
 void AgentHub::applyToolDiff(Session &s, const QString &tool, const QJsonObject &input)
@@ -256,7 +279,13 @@ void AgentHub::handle(const QJsonObject &p, HookConnection *conn)
         closeRunningSteps(s, "done");
         s.state = QStringLiteral("work");
         s.line = stepLabel(tool, input);
-        s.steps.append({s.line, QStringLiteral("running")});
+        // (the same step again, right after the last: that line counts it, instead of a new one)
+        if (!s.steps.isEmpty() && s.steps.last().text == s.line && s.steps.last().state == QLatin1String("done")) {
+            s.steps.last().state = QStringLiteral("running");
+            ++s.steps.last().times;
+        } else {
+            s.steps.append({s.line, QStringLiteral("running")});
+        }
         while (s.steps.size() > kMaxSteps)
             s.steps.removeFirst();
         applyToolDiff(s, tool, input);
